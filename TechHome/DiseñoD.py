@@ -218,7 +218,7 @@ def build_devices_page(app):
 def create_devices_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para la cabecera y el listado de dispositivos."""
 
-    def slide(target_getter, order: int, *, duration: int = 280, offset: float = 26.0, step: int = 45) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 240, offset: float = 22.0, step: int = 28) -> dict[str, object]:
         return {
             'type': 'slide_fade',
             'target': target_getter,
@@ -230,7 +230,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'devices_group_container', None), 0, duration=240, offset=20.0),
-        slide(lambda: getattr(app, 'group_indicator', None), 1, duration=250, offset=24.0),
-        slide(lambda: getattr(app, 'device_list_widget', None), 2, duration=280, offset=30.0),
+        slide(lambda: getattr(app, 'devices_group_container', None), 0, duration=205, offset=16.0),
+        slide(lambda: getattr(app, 'group_indicator', None), 1, duration=215, offset=19.0),
+        slide(lambda: getattr(app, 'device_list_widget', None), 2, duration=235, offset=24.0),
     ]

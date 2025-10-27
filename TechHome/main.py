@@ -18,6 +18,8 @@ from PyQt5.QtCore import (
     QRectF,
     QAbstractAnimation,
     QParallelAnimationGroup,
+    QSequentialAnimationGroup,
+    QPauseAnimation,
 )
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
 try:
@@ -1322,20 +1324,28 @@ class AnimatedBackground(QWidget):
         specs = self._page_animations.get(index, [])
         if not hasattr(self, '_running_page_anims'):
             self._running_page_anims = []
-        else:
-            for entry in list(self._running_page_anims):
-                anim = entry.get('animation')
+        if hasattr(self, '_page_anim_group'):
+            group = getattr(self, '_page_anim_group', None)
+            if isinstance(group, QParallelAnimationGroup):
+                try:
+                    group.stop()
+                except Exception:
+                    pass
+            for entry in list(getattr(self, '_running_page_anims', [])):
                 cleanup = entry.get('cleanup')
-                if anim is not None:
-                    try:
-                        anim.stop()
-                    except Exception:
-                        pass
                 if callable(cleanup):
                     cleanup()
             self._running_page_anims.clear()
+            try:
+                if isinstance(group, QParallelAnimationGroup):
+                    group.deleteLater()
+            except Exception:
+                pass
+            self._page_anim_group = None
         if not specs:
             return
+        group = QParallelAnimationGroup(self)
+        self._page_anim_group = group
         for spec in specs:
             entry = self._build_animation_entry(spec)
             if not entry:
@@ -1343,27 +1353,43 @@ class AnimatedBackground(QWidget):
             animation = entry.get('animation')
             if animation is None:
                 continue
+            try:
+                animation.stop()
+            except Exception:
+                pass
+            try:
+                animation.setDirection(QAbstractAnimation.Forward)
+            except Exception:
+                pass
             self._running_page_anims.append(entry)
             try:
                 delay = int(spec.get('delay', 0) or 0)
             except Exception:
                 delay = 0
-
-            def start_animation(anim=animation):
-                try:
-                    anim.stop()
-                except Exception:
-                    pass
-                try:
-                    anim.setDirection(QAbstractAnimation.Forward)
-                except Exception:
-                    pass
-                anim.start()
-
             if delay > 0:
-                QTimer.singleShot(delay, start_animation)
+                seq = QSequentialAnimationGroup(group)
+                seq.addPause(delay)
+                seq.addAnimation(animation)
+                group.addAnimation(seq)
+                entry['wrapper'] = seq
             else:
-                start_animation()
+                group.addAnimation(animation)
+
+        def finish_group(grp=group):
+            for entry in list(getattr(self, '_running_page_anims', [])):
+                cleanup = entry.get('cleanup')
+                if callable(cleanup):
+                    cleanup()
+            self._running_page_anims.clear()
+            if getattr(self, '_page_anim_group', None) is grp:
+                self._page_anim_group = None
+            try:
+                grp.deleteLater()
+            except Exception:
+                pass
+
+        group.finished.connect(finish_group)
+        group.start()
 
     def _change_language(self, lang):
         if self.lang == lang:

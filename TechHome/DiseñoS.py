@@ -33,7 +33,7 @@ def build_health_page(app):
 def create_health_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para el medidor y el panel de métricas."""
 
-    def slide(target_getter, order: int, *, duration: int = 280, offset: float = 26.0, step: int = 55) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 240, offset: float = 22.0, step: int = 30) -> dict[str, object]:
         return {
             'type': 'slide_fade',
             'target': target_getter,
@@ -45,6 +45,6 @@ def create_health_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'health_gauge', None), 0, duration=250, offset=20.0),
-        slide(lambda: getattr(app, 'health_metrics', None), 1, duration=270, offset=28.0),
+        slide(lambda: getattr(app, 'health_gauge', None), 0, duration=210, offset=16.0),
+        slide(lambda: getattr(app, 'health_metrics', None), 1, duration=225, offset=22.0),
     ]

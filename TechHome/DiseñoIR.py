@@ -784,7 +784,7 @@ class LoginDialog(QDialog):
         self.register_page.move(width, 0)
         self._register_opacity.setOpacity(0.0)
 
-        duration = 360  # milliseconds
+        duration = 300  # milliseconds
 
         # Animate login page sliding left and fading out
         login_pos_anim = QPropertyAnimation(self.login_page, b"pos")
@@ -842,7 +842,7 @@ class LoginDialog(QDialog):
         self.login_page.move(-width, 0)
         self._login_opacity.setOpacity(0.0)
 
-        duration = 360  # milliseconds
+        duration = 300  # milliseconds
 
         # Animate register page sliding right and fading out
         reg_pos_anim = QPropertyAnimation(self.register_page, b"pos")
