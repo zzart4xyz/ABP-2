@@ -109,10 +109,34 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # that path does not exist on the current platform, the code falls
 # back to the local ``Icons N`` directory relative to ``constants.py``.
 _user_icon_path = r"C:/Users/zzart4.xyz/Desktop/TechHome/Icons N"
+_default_icon_dir = os.path.join(ROOT_DIR, "Icons N")
+
+# Search order: prefer the user-provided directory when it contains the
+# renamed (Spanish) icons, otherwise fall back to the packaged assets.
+_icon_search_paths: list[str] = []
 if os.path.isdir(_user_icon_path):
-    ICON_DIR = _user_icon_path
-else:
-    ICON_DIR = os.path.join(ROOT_DIR, "Icons N")
+    _icon_search_paths.append(_user_icon_path)
+_icon_search_paths.append(_default_icon_dir)
+
+def _has_localized_icons(path: str) -> bool:
+    """Return ``True`` if the directory contains the renamed SVG assets."""
+
+    required = ("Inicio.svg", "Dispositivos.svg", "Luz.svg")
+    return all(os.path.isfile(os.path.join(path, name)) for name in required)
+
+
+ICON_DIR = next((path for path in _icon_search_paths if _has_localized_icons(path)), _default_icon_dir)
+ICON_SEARCH_PATHS = tuple(dict.fromkeys(_icon_search_paths))
+
+
+def resolve_icon_path(name: str) -> str | None:
+    """Return the absolute path to an icon, searching known directories."""
+
+    for base in ICON_SEARCH_PATHS:
+        candidate = os.path.join(base, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
 
 # Path to the logo used in the splash screen.  By default this points to
 # ``Logos/Logo.png`` relative to the project root.  Users may provide a
@@ -351,11 +375,13 @@ def icon(name: str) -> QIcon:
     Load an icon from the ``Icons N`` directory.  The argument should be
     the filename of the icon (for example ``'Inicio.svg'``).
     """
-    return QIcon(os.path.join(ICON_DIR, name))
+    path = resolve_icon_path(name)
+    return QIcon(path) if path else QIcon()
 
 def pixmap(name: str) -> QPixmap:
     """Convenience wrapper for loading a QPixmap from the icon directory."""
-    return QPixmap(os.path.join(ICON_DIR, name))
+    path = resolve_icon_path(name)
+    return QPixmap(path) if path else QPixmap()
 
 def button_style(color: str = None, padding: str = "0px") -> str:
     """

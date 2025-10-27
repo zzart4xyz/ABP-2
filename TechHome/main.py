@@ -30,9 +30,9 @@ class MetricSpec:
 
 def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
     try:
-        p = os.path.join(ICON_DIR, name)
-        if os.path.isfile(p):
-            ico = QIcon(p)
+        icon_path = resolve_icon_path(name)
+        if icon_path:
+            ico = QIcon(icon_path)
             pix = ico.pixmap(size)
             if not pix.isNull():
                 return pix
@@ -53,10 +53,9 @@ def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
     if base_dir is not None:
         fallback_candidates.append(os.path.join(base_dir, 'circle-info.svg'))
         fallback_candidates.append(os.path.join(base_dir, 'info.svg'))
-    try:
-        fallback_candidates.append(os.path.join(ICON_DIR, 'Información.svg'))
-    except Exception:
-        pass
+    info_path = resolve_icon_path('Información.svg')
+    if info_path:
+        fallback_candidates.append(info_path)
     for fb in fallback_candidates:
         if fb and os.path.isfile(fb):
             try:
@@ -1354,9 +1353,12 @@ class AnimatedBackground(QWidget):
         # the current language settings for readability.
         display = self._translate_notif(text)
         icon_name = self._get_notification_icon_name(text)
-        icon_path = os.path.join(ICON_DIR, icon_name) if os.path.isabs(ICON_DIR) else os.path.join(ICON_DIR, icon_name)
+        icon_file = resolve_icon_path(icon_name)
         self.popup_label.setTextFormat(Qt.RichText)
-        rich_text = f"<img src='{icon_path}' width='20' height='20' style='vertical-align:middle;margin-right:6px;'/> {display}"
+        if icon_file:
+            rich_text = f"<img src='{icon_file}' width='20' height='20' style='vertical-align:middle;margin-right:6px;'/> {display}"
+        else:
+            rich_text = display
         self.popup_label.setText(rich_text)
         self.popup_label.adjustSize()
         try:
@@ -1617,10 +1619,10 @@ class AnimatedBackground(QWidget):
         for i, (ts, txt) in enumerate(data):
             tbl.setItem(i, 0, QTableWidgetItem(ts))
             icon_name = self._get_notification_icon_name(txt)
-            icon_path = os.path.join(ICON_DIR, icon_name) if os.path.isabs(ICON_DIR) else os.path.join(ICON_DIR, icon_name)
             item = QTableWidgetItem(self._translate_notif(txt))
-            if os.path.exists(icon_path):
-                item.setIcon(QIcon(icon_path))
+            icon_file = resolve_icon_path(icon_name)
+            if icon_file:
+                item.setIcon(QIcon(icon_file))
             tbl.setItem(i, 1, item)
 
     def _populate_health_table(self):
@@ -1650,13 +1652,15 @@ class AnimatedBackground(QWidget):
                 # translation).  ``_get_notification_icon_name`` accounts for
                 # renamed devices by looking up the original base name.
                 icon_name = self._get_notification_icon_name(txt)
-                # Resolve the path to the icon within the Icons directory.  If
-                # ``ICON_DIR`` is relative, join it with the filename.
-                icon_path = os.path.join(ICON_DIR, icon_name) if os.path.isabs(ICON_DIR) else os.path.join(ICON_DIR, icon_name)
-                pix = QPixmap(icon_path)
-                if not pix.isNull():
-                    pix = pix.scaled(35, 35, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    icon_lbl.setPixmap(pix)
+                # Resolve the path to the icon within the known icon directories.
+                icon_file = resolve_icon_path(icon_name)
+                if icon_file:
+                    pix = QPixmap(icon_file)
+                    if not pix.isNull():
+                        pix = pix.scaled(35, 35, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        icon_lbl.setPixmap(pix)
+                    else:
+                        icon_lbl.clear()
                 else:
                     icon_lbl.clear()
                 # Show the translated notification text.  Use a single-line display
