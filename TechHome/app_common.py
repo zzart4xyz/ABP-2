@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QLabel, 
 from constants import *
 from health import BPMGauge, MetricsPanel
 from widgets import (
+    CardButton,
     CustomScrollBar,
     DeviceRow,
     DraggableNote,
