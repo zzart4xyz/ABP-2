@@ -345,8 +345,8 @@ class MetricsDetailsDialog(QDialog):
         self.setLayout(dlg_layout)
         self._trend_up_color = QColor(0, 200, 120)
         self._trend_down_color = QColor(220, 80, 80)
-        self._arrow_up_pix = tint_pixmap(load_icon_pixmap('arrow-up.svg', QSize(16, 16)), self._trend_up_color)
-        self._arrow_down_pix = tint_pixmap(load_icon_pixmap('arrow-down.svg', QSize(16, 16)), self._trend_down_color)
+        self._arrow_up_pix = tint_pixmap(load_icon_pixmap('Flecha Arriba.svg', QSize(16, 16)), self._trend_up_color)
+        self._arrow_down_pix = tint_pixmap(load_icon_pixmap('Flecha Abajo.svg', QSize(16, 16)), self._trend_down_color)
 
     def _build_metric_specs(self) -> dict[str, MetricSpec]:
         specs = [
@@ -3478,7 +3478,7 @@ class AnimatedBackground(QWidget):
             self.acc_theme_label.setText(theme_txt)
             if hasattr(self, 'acc_theme_loc_label'):
                 fa_solid_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid')
-                theme_icon_name = 'moon.svg' if getattr(self, 'theme', 'dark') == 'dark' else 'sun.svg'
+                theme_icon_name = 'Luna.svg' if getattr(self, 'theme', 'dark') == 'dark' else 'Sol.svg'
                 theme_icon_path = os.path.join(fa_solid_dir, theme_icon_name)
                 if os.path.isfile(theme_icon_path):
                     ico = QIcon(theme_icon_path)
