@@ -349,7 +349,7 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
 def icon(name: str) -> QIcon:
     """
     Load an icon from the ``Icons N`` directory.  The argument should be
-    the filename of the icon (for example ``'Home.svg'``).
+    the filename of the icon (for example ``'Inicio.svg'``).
     """
     return QIcon(os.path.join(ICON_DIR, name))
 

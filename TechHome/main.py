@@ -54,7 +54,7 @@ def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
         fallback_candidates.append(os.path.join(base_dir, 'circle-info.svg'))
         fallback_candidates.append(os.path.join(base_dir, 'info.svg'))
     try:
-        fallback_candidates.append(os.path.join(ICON_DIR, 'info.svg'))
+        fallback_candidates.append(os.path.join(ICON_DIR, 'Información.svg'))
     except Exception:
         pass
     for fb in fallback_candidates:
@@ -352,7 +352,7 @@ class MetricsDetailsDialog(QDialog):
         specs = [
             MetricSpec(
                 key='devices',
-                icon_name='mobile.svg',
+                icon_name='Móvil.svg',
                 label='Dispositivos',
                 progress_fn=MetricsDetailsDialog._devices_progress,
                 value_fn=MetricsDetailsDialog._format_devices_value,
@@ -366,14 +366,14 @@ class MetricsDetailsDialog(QDialog):
             ),
             MetricSpec(
                 key='energy',
-                icon_name='bolt.svg',
+                icon_name='Energía.svg',
                 label='Energía',
                 progress_fn=lambda dlg, value: dlg._progress_by_scale(value, 5.0),
                 value_fn=lambda dlg, value: f'{value:.2f} kW',
             ),
             MetricSpec(
                 key='water',
-                icon_name='droplet.svg',
+                icon_name='Agua.svg',
                 label='Agua',
                 progress_fn=lambda dlg, value: dlg._progress_by_scale(value, 200.0),
                 value_fn=lambda dlg, value: f'{int(value)} L',
@@ -574,8 +574,8 @@ class NotificationsDetailsDialog(QDialog):
         # Prepare an icon for the leading position inside the search bar.
         search_pix: QPixmap | None = None
         try:
-            # Try the explicit Search.svg first as requested
-            for icon_name in ('Search.svg', 'magnifying-glass.svg', 'search.svg', 'magnifying-glass-circle.svg', 'circle-info.svg'):
+            # Try the explicit Buscar.svg first as requested
+            for icon_name in ('Buscar.svg', 'Search.svg', 'magnifying-glass.svg', 'search.svg', 'magnifying-glass-circle.svg', 'circle-info.svg'):
                 tmp = load_icon_pixmap(icon_name, QSize(20, 20))
                 if tmp is not None and (not tmp.isNull()):
                     search_pix = tint_pixmap(tmp, QColor(CLR_TITLE))
@@ -1283,7 +1283,7 @@ class AnimatedBackground(QWidget):
 
     def _get_notification_icon_name(self, text: str) -> str:
         if not text:
-            return 'info.svg'
+            return 'Información.svg'
         t = text.strip()
         for suffix in (' Encendido', ' Apagado', ' On', ' Off'):
             if t.endswith(suffix):
@@ -1295,7 +1295,7 @@ class AnimatedBackground(QWidget):
                         original = self._renamed_devices.get(name, name)
                 except Exception:
                     original = name
-                icon_name = 'Devices.svg'
+                icon_name = 'Dispositivos.svg'
                 for key, fname in self._device_icon_map.items():
                     # Match against the original name to preserve the icon assignment
                     if key in original:
@@ -1303,12 +1303,12 @@ class AnimatedBackground(QWidget):
                         break
                 return icon_name
         if t.startswith('Recordatorio') or t.startswith('Reminder'):
-            return 'bell.svg'
+            return 'Recordatorios.svg'
         if 'Alarma' in t or 'Alarm' in t:
-            return 'alarm-clock.svg'
+            return 'Alarmas.svg'
         if 'Timer' in t:
-            return 'hourglass-half.svg'
-        return 'info.svg'
+            return 'Timers.svg'
+        return 'Información.svg'
 
     def _style_popup_label(self):
         self.popup_label.setStyleSheet(f"QLabel {{ background:qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {CLR_HEADER_BG}, stop:1 {CLR_HOVER}); border:2px solid {CLR_TITLE}; border-radius:5px; padding:8px 12px; color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}'; }}")
@@ -1863,7 +1863,7 @@ class AnimatedBackground(QWidget):
         menu_l.setContentsMargins(0, 0, 0, 0)
         menu_l.setSpacing(16)
         self.buttons = []
-        menu_items = [('Inicio', 'Home.svg'), ('Dispositivos', 'Devices.svg'), ('Más', 'More.svg'), ('Salud', 'Health.svg'), ('Configuración', 'Config.svg')]
+        menu_items = [('Inicio', 'Inicio.svg'), ('Dispositivos', 'Dispositivos.svg'), ('Más', 'Más.svg'), ('Salud', 'Salud.svg'), ('Configuración', 'Configuración.svg')]
         for i, (label, icn) in enumerate(menu_items):
             btn = QPushButton()
             btn.base_text = label
@@ -1947,11 +1947,11 @@ class AnimatedBackground(QWidget):
         notif_info_btn.setCursor(Qt.PointingHandCursor)
         notif_info_btn.setFlat(True)
         try:
-            pix = load_icon_pixmap('circle-info.svg', QSize(40, 40))
+            pix = load_icon_pixmap('Información.svg', QSize(40, 40))
             pix = tint_pixmap(pix, QColor(CLR_TITLE))
             notif_info_btn.setIcon(QIcon(pix))
         except Exception:
-            fallback_pix = load_icon_pixmap('circle-info.svg', QSize(40, 40))
+            fallback_pix = load_icon_pixmap('Información.svg', QSize(40, 40))
             notif_info_btn.setIcon(QIcon(fallback_pix))
         notif_info_btn.setIconSize(QSize(40, 40))
         notif_info_btn.setStyleSheet('border:none; padding:0;')
@@ -2007,11 +2007,11 @@ class AnimatedBackground(QWidget):
         info_btn.setCursor(Qt.PointingHandCursor)
         info_btn.setFlat(True)
         try:
-            pix = load_icon_pixmap('circle-info.svg', QSize(40, 40))
+            pix = load_icon_pixmap('Información.svg', QSize(40, 40))
             pix = tint_pixmap(pix, QColor(CLR_TITLE))
             info_btn.setIcon(QIcon(pix))
         except Exception:
-            fallback_pix = load_icon_pixmap('circle-info.svg', QSize(40, 40))
+            fallback_pix = load_icon_pixmap('Información.svg', QSize(40, 40))
             info_btn.setIcon(QIcon(fallback_pix))
         info_btn.setIconSize(QSize(40, 40))
         info_btn.clicked.connect(self._open_metrics_details)
@@ -2024,7 +2024,7 @@ class AnimatedBackground(QWidget):
         gs.setContentsMargins(16, 16, 16, 16)
         gs.setHorizontalSpacing(16)
         gs.setVerticalSpacing(16)
-        gauge_specs = [('devices', 'mobile.svg'), ('temp', 'Calentador Agua.svg'), ('energy', 'bolt.svg'), ('water', 'droplet.svg')]
+        gauge_specs = [('devices', 'Móvil.svg'), ('temp', 'Calentador Agua.svg'), ('energy', 'Energía.svg'), ('water', 'Agua.svg')]
         self.home_metric_gauges = {}
         for i, (key, icon_name) in enumerate(gauge_specs):
             r, cidx = divmod(i, 2)
@@ -2077,7 +2077,7 @@ class AnimatedBackground(QWidget):
         lbl = QLabel('Dispositivos')
         lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:700 24px '{FONT_FAM}'; border:none;")
         plus = QPushButton()
-        plus.setIcon(icon('More.svg'))
+        plus.setIcon(icon('Más.svg'))
         plus.setIconSize(QSize(24, 24))
         plus.setFixedSize(32, 32)
         plus.setFlat(True)
@@ -2109,7 +2109,7 @@ class AnimatedBackground(QWidget):
             card = GroupCard(title, icon_name, rename_callback=self._rename_group, select_callback=None)
             gl.addWidget(card)
             self.group_cards.append(card)
-        self.add_group_card = GroupCard('Grupo Nuevo', 'More.svg', add_callback=self._add_group)
+        self.add_group_card = GroupCard('Grupo Nuevo', 'Más.svg', add_callback=self._add_group)
         gl.addWidget(self.add_group_card)
         grp_scroll = QScrollArea()
         grp_scroll.setWidget(grp_w)
@@ -2130,7 +2130,7 @@ class AnimatedBackground(QWidget):
         search.setPlaceholderText('Buscar')
         search.setCursor(Qt.PointingHandCursor)
         search.setStyleSheet(f"\n            QLineEdit {{ background:{CLR_SURFACE}; border:2px solid #1A2B3C;\n                         border-radius:5px; padding:0 40px 0 12px;\n                         color:{CLR_TEXT_IDLE}; font:700 16px '{FONT_FAM}'; }}\n            QLineEdit:focus {{ border-color:{CLR_TITLE}; }}\n        ")
-        search.addAction(icon('Search.svg'), QLineEdit.LeadingPosition)
+        search.addAction(icon('Buscar.svg'), QLineEdit.LeadingPosition)
         cb1 = QComboBox()
         cb1.addItems(['Tech', 'Interruptores', 'Otro'])
         cb2 = QComboBox()
@@ -2165,7 +2165,7 @@ class AnimatedBackground(QWidget):
                     original = self._renamed_devices.get(name, name)
             except Exception:
                 original = name
-            icon_override = 'Devices.svg'
+            icon_override = 'Dispositivos.svg'
             for key, fname in self._device_icon_map.items():
                 if key in original:
                     icon_override = fname
@@ -2240,14 +2240,14 @@ class AnimatedBackground(QWidget):
         page_map = {text: i + 1 for i, text in enumerate(items)}
         self.more_pages = page_map
         icon_map = {
-            'Listas Y Notas': 'clipboard-list.svg',
-            'Recordatorios': 'bell.svg',
-            'Alarmas Y Timers': 'alarm-clock.svg',
-            'Calendario': 'calendar-days.svg',
+            'Listas Y Notas': 'Listas Y Notas.svg',
+            'Recordatorios': 'Recordatorios.svg',
+            'Alarmas Y Timers': 'Alarmas Y Timers.svg',
+            'Calendario': 'Calendario.svg',
             'Notificaciones': 'Notificaciones.svg',
             'Cámaras': 'Cámaras.svg',
             'Historial De Salud': 'Historial De Salud.svg',
-            'Información': 'info.svg',
+            'Información': 'Información.svg',
         }
         for idx, text in enumerate(items):
             icon_name = icon_map.get(text, None)
@@ -2267,7 +2267,7 @@ class AnimatedBackground(QWidget):
         ln_layout.setContentsMargins(16, 16, 16, 16)
         ln_layout.setSpacing(8)
         back = QPushButton()
-        back.setIcon(icon('Arrow.svg'))
+        back.setIcon(icon('Flecha.svg'))
         back.setIconSize(QSize(24, 24))
         back.setFixedSize(40, 40)
         back.setStyleSheet('background:transparent; border:none;')
@@ -2330,7 +2330,7 @@ class AnimatedBackground(QWidget):
         notes_l.setContentsMargins(0, 0, 0, 0)
         notes_l.setSpacing(8)
         add_note = QPushButton('Agregar nota')
-        add_note.setIcon(icon('More.svg'))
+        add_note.setIcon(icon('Más.svg'))
         add_note.setIconSize(QSize(24, 24))
         add_note.setFixedHeight(40)
         add_note.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}'; background:transparent; border:none;")
@@ -2365,7 +2365,7 @@ class AnimatedBackground(QWidget):
         rp_layout.setContentsMargins(16, 16, 16, 16)
         rp_layout.setSpacing(12)
         back_rec = QPushButton()
-        back_rec.setIcon(icon('Arrow.svg'))
+        back_rec.setIcon(icon('Flecha.svg'))
         back_rec.setIconSize(QSize(24, 24))
         back_rec.setFixedSize(36, 36)
         back_rec.setStyleSheet('background:transparent; border:none;')
@@ -2387,7 +2387,7 @@ class AnimatedBackground(QWidget):
         self.input_record_datetime.setStyleSheet(input_style('QDateTimeEdit', CLR_SURFACE))
         self.input_record_datetime.setButtonSymbols(QAbstractSpinBox.NoButtons)
         btn_add_rec = QPushButton(' Añadir')
-        btn_add_rec.setIcon(icon('More.svg'))
+        btn_add_rec.setIcon(icon('Más.svg'))
         btn_add_rec.setIconSize(QSize(16, 16))
         btn_add_rec.setFixedSize(120, 32)
         btn_add_rec.setCursor(Qt.PointingHandCursor)
@@ -2416,7 +2416,7 @@ class AnimatedBackground(QWidget):
         table_layout.addWidget(self.table_recordatorios)
         rp_layout.addWidget(table_frame, 1)
         btn_del_rec = QPushButton('Eliminar Seleccionado')
-        btn_del_rec.setIcon(icon('Trash.svg'))
+        btn_del_rec.setIcon(icon('Papelera.svg'))
         btn_del_rec.setIconSize(QSize(16, 16))
         btn_del_rec.setFixedSize(180, 32)
         btn_del_rec.setCursor(Qt.PointingHandCursor)
@@ -2430,7 +2430,7 @@ class AnimatedBackground(QWidget):
         ap_layout.setContentsMargins(16, 16, 16, 16)
         ap_layout.setSpacing(12)
         back_alarm = QPushButton()
-        back_alarm.setIcon(icon('Arrow.svg'))
+        back_alarm.setIcon(icon('Flecha.svg'))
         back_alarm.setIconSize(QSize(24, 24))
         back_alarm.setFixedSize(36, 36)
         back_alarm.setStyleSheet('background:transparent; border:none;')
@@ -2461,7 +2461,7 @@ class AnimatedBackground(QWidget):
         self.input_alarm_datetime.setStyleSheet(input_style('QDateTimeEdit', CLR_SURFACE))
         self.input_alarm_datetime.setButtonSymbols(QAbstractSpinBox.NoButtons)
         btn_add_alarm = QPushButton(' Añadir')
-        btn_add_alarm.setIcon(icon('More.svg'))
+        btn_add_alarm.setIcon(icon('Más.svg'))
         btn_add_alarm.setIconSize(QSize(16, 16))
         btn_add_alarm.setFixedSize(120, 32)
         btn_add_alarm.setCursor(Qt.PointingHandCursor)
@@ -2490,7 +2490,7 @@ class AnimatedBackground(QWidget):
         tbl_al_layout.addWidget(self.table_alarms)
         at_l.addWidget(tbl_alarm, 1)
         btn_del_alarm = QPushButton('Eliminar Seleccionado')
-        btn_del_alarm.setIcon(icon('Trash.svg'))
+        btn_del_alarm.setIcon(icon('Papelera.svg'))
         btn_del_alarm.setIconSize(QSize(16, 16))
         btn_del_alarm.setFixedSize(180, 32)
         btn_del_alarm.setCursor(Qt.PointingHandCursor)
@@ -2516,7 +2516,7 @@ class AnimatedBackground(QWidget):
         self.input_timer_seconds.setStyleSheet(input_style('QSpinBox', CLR_SURFACE))
         self.input_timer_seconds.setButtonSymbols(QAbstractSpinBox.NoButtons)
         btn_add_timer = QPushButton(' Añadir')
-        btn_add_timer.setIcon(icon('More.svg'))
+        btn_add_timer.setIcon(icon('Más.svg'))
         btn_add_timer.setIconSize(QSize(16, 16))
         btn_add_timer.setFixedSize(120, 32)
         btn_add_timer.setCursor(Qt.PointingHandCursor)
@@ -2545,7 +2545,7 @@ class AnimatedBackground(QWidget):
         tbl_ti_layout.addWidget(self.table_timers)
         ti_l.addWidget(tbl_timer, 1)
         btn_del_timer = QPushButton('Eliminar Seleccionado')
-        btn_del_timer.setIcon(icon('Trash.svg'))
+        btn_del_timer.setIcon(icon('Papelera.svg'))
         btn_del_timer.setIconSize(QSize(16, 16))
         btn_del_timer.setFixedSize(180, 32)
         btn_del_timer.setCursor(Qt.PointingHandCursor)
@@ -2561,7 +2561,7 @@ class AnimatedBackground(QWidget):
         cp_layout.setContentsMargins(16, 16, 16, 16)
         cp_layout.setSpacing(8)
         back_cal = QPushButton()
-        back_cal.setIcon(icon('Arrow.svg'))
+        back_cal.setIcon(icon('Flecha.svg'))
         back_cal.setIconSize(QSize(24, 24))
         back_cal.setFixedSize(36, 36)
         back_cal.setStyleSheet('background:transparent; border:none;')
@@ -2594,7 +2594,7 @@ class AnimatedBackground(QWidget):
         np_layout.setContentsMargins(16, 16, 16, 16)
         np_layout.setSpacing(12)
         back_not = QPushButton()
-        back_not.setIcon(icon('Arrow.svg'))
+        back_not.setIcon(icon('Flecha.svg'))
         back_not.setIconSize(QSize(24, 24))
         back_not.setFixedSize(36, 36)
         back_not.setStyleSheet('background:transparent; border:none;')
@@ -2629,7 +2629,7 @@ class AnimatedBackground(QWidget):
         cp.setContentsMargins(16, 16, 16, 16)
         cp.setSpacing(8)
         back_cam = QPushButton()
-        back_cam.setIcon(icon('Arrow.svg'))
+        back_cam.setIcon(icon('Flecha.svg'))
         back_cam.setIconSize(QSize(24, 24))
         back_cam.setFixedSize(36, 36)
         back_cam.setStyleSheet('background:transparent; border:none;')
@@ -2668,7 +2668,7 @@ class AnimatedBackground(QWidget):
         hp.setContentsMargins(16, 16, 16, 16)
         hp.setSpacing(12)
         back_h = QPushButton()
-        back_h.setIcon(icon('Arrow.svg'))
+        back_h.setIcon(icon('Flecha.svg'))
         back_h.setIconSize(QSize(24, 24))
         back_h.setFixedSize(36, 36)
         back_h.setStyleSheet('background:transparent; border:none;')
@@ -2705,7 +2705,7 @@ class AnimatedBackground(QWidget):
         ap.setContentsMargins(16, 16, 16, 16)
         ap.setSpacing(12)
         back_a = QPushButton()
-        back_a.setIcon(icon('Arrow.svg'))
+        back_a.setIcon(icon('Flecha.svg'))
         back_a.setIconSize(QSize(24, 24))
         back_a.setFixedSize(36, 36)
         back_a.setStyleSheet('background:transparent; border:none;')
@@ -2719,34 +2719,33 @@ class AnimatedBackground(QWidget):
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(16)
         summary_items = [
-            ('Dispositivos', 'acc_dev_label', 'cube.svg'),
-            ('Listas', 'acc_list_label', 'clipboard-list.svg'),
-            ('Notas', 'acc_note_label', 'note-sticky.svg'),
-            ('Recordatorios', 'acc_rem_label', 'bell.svg'),
-            ('Alarmas', 'acc_alarm_label', 'clock.svg'),
-            ('Timers', 'acc_timer_label', 'stopwatch.svg'),
+            ('Dispositivos', 'acc_dev_label', 'Dispositivos.svg'),
+            ('Listas', 'acc_list_label', 'Listas.svg'),
+            ('Notas', 'acc_note_label', 'Notas.svg'),
+            ('Recordatorios', 'acc_rem_label', 'Recordatorios.svg'),
+            ('Alarmas', 'acc_alarm_label', 'Alarmas.svg'),
+            ('Timers', 'acc_timer_label', 'Timers.svg'),
             ('Historial Salud', 'acc_health_label', 'Historial De Salud.svg'),
-            ('Acciones', 'acc_action_label', 'user.svg'),
-            ('Tema', 'acc_theme_label', 'gear.svg'),
-            ('Idioma', 'acc_lang_label', 'globe.svg'),
-            ('Hora', 'acc_time_label', 'clock.svg'),
-            ('Notificaciones', 'acc_notif_label', 'bell.svg'),
+            ('Acciones', 'acc_action_label', 'Acciones.svg'),
+            ('Tema', 'acc_theme_label', 'Tema.svg'),
+            ('Idioma', 'acc_lang_label', 'Idioma.svg'),
+            ('Hora', 'acc_time_label', 'Hora.svg'),
+            ('Notificaciones', 'acc_notif_label', 'Notificaciones.svg'),
         ]
         cols = 3
-        fa_solid_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid')
         loc_icon_map = {
-            'Dispositivos': 'house.svg',
-            'Listas': 'list.svg',
-            'Notas': 'note-sticky.svg',
-            'Recordatorios': 'calendar-days.svg',
-            'Alarmas': 'clock.svg',
-            'Timers': 'hourglass-half.svg',
+            'Dispositivos': 'Dispositivos.svg',
+            'Listas': 'Listas.svg',
+            'Notas': 'Notas.svg',
+            'Recordatorios': 'Recordatorios.svg',
+            'Alarmas': 'Alarmas.svg',
+            'Timers': 'Timers.svg',
             'Historial Salud': 'Historial De Salud.svg',
-            'Acciones': 'clock-rotate-left.svg',
-            'Tema': 'palette.svg',
-            'Idioma': 'language.svg',
-            'Hora': 'clock.svg',
-            'Notificaciones': 'bell.svg',
+            'Acciones': 'Acciones.svg',
+            'Tema': 'Tema.svg',
+            'Idioma': 'Idioma.svg',
+            'Hora': 'Hora.svg',
+            'Notificaciones': 'Notificaciones.svg',
         }
         for idx, (title, attr_name, icon_name) in enumerate(summary_items):
             card = QFrame()
@@ -2775,16 +2774,10 @@ class AnimatedBackground(QWidget):
             loc_lbl.setFixedSize(18, 18)
             loc_lbl.setScaledContents(True)
             icon_filename = loc_icon_map.get(title)
-            loc_path = None
-            if icon_filename is not None:
-                potential_path = os.path.join(fa_solid_dir, icon_filename)
-                if os.path.isfile(potential_path):
-                    loc_path = potential_path
-            if loc_path:
-                ico = QIcon(loc_path)
-                pm = ico.pixmap(QSize(18, 18))
-                pm_tinted = tint_pixmap(pm, QColor(CLR_TITLE))
-                loc_lbl.setPixmap(pm_tinted)
+            if icon_filename:
+                loc_pm = load_icon_pixmap(icon_filename, QSize(18, 18))
+                if not loc_pm.isNull():
+                    loc_lbl.setPixmap(tint_pixmap(loc_pm, QColor(CLR_TITLE)))
             loc_lbl.setContentsMargins(0, 4, 0, 0)
             txt_layout.addWidget(loc_lbl)
             hl.addLayout(txt_layout)
@@ -3057,7 +3050,7 @@ class AnimatedBackground(QWidget):
         # deliberately do not use the rename mapping here because this is a
         # freshly created device.  The override ensures consistent icons on
         # subsequent application launches.
-        icon_override = 'Devices.svg'
+        icon_override = 'Dispositivos.svg'
         try:
             # Use the device icon map defined in AnimatedBackground to select
             # an appropriate icon based on the name.  Fall back to the generic
@@ -3116,7 +3109,7 @@ class AnimatedBackground(QWidget):
                         original = self._renamed_devices.get(device_name, device_name)
                 except Exception:
                     original = device_name
-                icon_override = 'Devices.svg'
+                icon_override = 'Dispositivos.svg'
                 try:
                     for key, fname in self._device_icon_map.items():
                         if key in original:
@@ -3495,36 +3488,22 @@ class AnimatedBackground(QWidget):
         if hasattr(self, 'acc_lang_label'):
             self.acc_lang_label.setText(lang_txt)
             if hasattr(self, 'acc_lang_loc_label'):
-                fa_solid_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid')
-                lang_icon_name = 'language.svg'
-                lang_icon_path = os.path.join(fa_solid_dir, lang_icon_name)
-                if os.path.isfile(lang_icon_path):
-                    ico = QIcon(lang_icon_path)
-                    pm = ico.pixmap(QSize(18, 18))
-                    pm_tinted = tint_pixmap(pm, QColor(CLR_TITLE))
-                    self.acc_lang_loc_label.setPixmap(pm_tinted)
+                lang_pm = load_icon_pixmap('Idioma.svg', QSize(18, 18))
+                if not lang_pm.isNull():
+                    self.acc_lang_loc_label.setPixmap(tint_pixmap(lang_pm, QColor(CLR_TITLE)))
         if hasattr(self, 'acc_time_label'):
             self.acc_time_label.setText(time_txt)
             if hasattr(self, 'acc_time_loc_label'):
-                fa_solid_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid')
-                time_icon_name = 'clock.svg'
-                time_icon_path = os.path.join(fa_solid_dir, time_icon_name)
-                if os.path.isfile(time_icon_path):
-                    ico = QIcon(time_icon_path)
-                    pm = ico.pixmap(QSize(18, 18))
-                    pm_tinted = tint_pixmap(pm, QColor(CLR_TITLE))
-                    self.acc_time_loc_label.setPixmap(pm_tinted)
+                time_pm = load_icon_pixmap('Hora.svg', QSize(18, 18))
+                if not time_pm.isNull():
+                    self.acc_time_loc_label.setPixmap(tint_pixmap(time_pm, QColor(CLR_TITLE)))
         if hasattr(self, 'acc_notif_label'):
             self.acc_notif_label.setText(notif_txt)
             if hasattr(self, 'acc_notif_loc_label'):
-                fa_solid_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid')
-                notif_icon_name = 'bell.svg' if getattr(self, 'notifications_enabled', True) else 'bell-slash.svg'
-                notif_icon_path = os.path.join(fa_solid_dir, notif_icon_name)
-                if os.path.isfile(notif_icon_path):
-                    ico = QIcon(notif_icon_path)
-                    pm = ico.pixmap(QSize(18, 18))
-                    pm_tinted = tint_pixmap(pm, QColor(CLR_TITLE))
-                    self.acc_notif_loc_label.setPixmap(pm_tinted)
+                notif_icon_name = 'Notificaciones.svg' if getattr(self, 'notifications_enabled', True) else 'Notificaciones Inactivas.svg'
+                notif_pm = load_icon_pixmap(notif_icon_name, QSize(18, 18))
+                if not notif_pm.isNull():
+                    self.acc_notif_loc_label.setPixmap(tint_pixmap(notif_pm, QColor(CLR_TITLE)))
 
 class MainWindow(QMainWindow):
 
