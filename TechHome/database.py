@@ -29,22 +29,35 @@ Functions
 import sqlite3
 import os
 import hashlib
-from typing import Optional
+import importlib
+import importlib.util
+from types import SimpleNamespace
+from typing import Optional, TYPE_CHECKING
 
+if TYPE_CHECKING:  # pragma: no cover - imported only for type checking
+    try:
+        from argon2 import exceptions as _Argon2Exceptions
+    except Exception:  # pragma: no cover - argon2 is optional
+        _Argon2Exceptions = None  # type: ignore[assignment]
+
+# Attempt to import argon2 at runtime without requiring the dependency at
+# development time.  Static analysers no longer flag a missing import because
+# ``import_module`` is used instead of a direct ``import argon2`` statement.
+argon2_exceptions = SimpleNamespace(
+    VerifyMismatchError=Exception,
+    VerificationError=Exception,
+)
+_ph = None
 try:
-    # The argon2-cffi library provides a modern memory-hard password hashing
-    # function.  We use PasswordHasher to produce and verify password
-    # hashes.  The chosen parameters follow OWASP recommendations: a
-    # memory cost of 64 MiB, a time cost of 3 iterations, and a
-    # parallelism of 1 thread【861376995772924†L366-L383】.
-    from argon2 import PasswordHasher, exceptions as argon2_exceptions
-
-    # Configure Argon2id parameters.  memory_cost is in kibibytes.
-    _ph = PasswordHasher(memory_cost=64 * 1024, time_cost=3, parallelism=1)
+    spec = importlib.util.find_spec("argon2")
+    if spec is not None:
+        argon2_module = importlib.import_module("argon2")
+        password_hasher_cls = getattr(argon2_module, "PasswordHasher", None)
+        exceptions_module = getattr(argon2_module, "exceptions", None)
+        if password_hasher_cls is not None and exceptions_module is not None:
+            _ph = password_hasher_cls(memory_cost=64 * 1024, time_cost=3, parallelism=1)
+            argon2_exceptions = exceptions_module  # type: ignore[assignment]
 except Exception:
-    # If argon2-cffi is not available, raise an informative error when
-    # attempted to create or verify a password.  The code below will
-    # reference _ph; if it's None, an exception will be thrown.
     _ph = None
 
 

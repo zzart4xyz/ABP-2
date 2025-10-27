@@ -1,8 +1,8 @@
-from PyQt5.QtCore import Qt, QRectF, QPoint, QSize, QDate, QTimer, QPointF, pyqtSignal, QPropertyAnimation
+from PyQt5.QtCore import Qt, QRectF, QPoint, QSize, QDate, QTimer, QPointF, pyqtSignal, QPropertyAnimation, QEvent
 from PyQt5.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QPixmap,
     QRadialGradient, QConicalGradient, QTextCharFormat, QTransform,
-    QIcon
+    QIcon, QLinearGradient, QPainterPath
 )
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea,
@@ -240,7 +240,7 @@ class CurrentMonthCalendar(QCalendarWidget):
         layout.setContentsMargins(0, 0, 0, 8)
         layout.setSpacing(4)
         self._prev = QToolButton()
-        left_pix = c.pixmap("Arrow.svg")
+        left_pix = c.pixmap("Flecha.svg")
         self._prev.setIcon(QIcon(left_pix))
         self._prev.setIconSize(QSize(16, 16))
         self._prev.setFixedSize(24, 24)
@@ -252,7 +252,7 @@ class CurrentMonthCalendar(QCalendarWidget):
             f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; padding:0 4px;"
         )
         self._next = QToolButton()
-        right_pix = c.pixmap("Arrow.svg").transformed(QTransform().scale(-1, 1))
+        right_pix = c.pixmap("Flecha.svg").transformed(QTransform().scale(-1, 1))
         self._next.setIcon(QIcon(right_pix))
         self._next.setIconSize(QSize(16, 16))
         self._next.setFixedSize(24, 24)
@@ -349,7 +349,7 @@ class CardButton(QFrame):
         a coloured gradient background, optional icon and a label.  An
         icon may be provided via ``icon_name``; if None, the card will
         only display the text.  The ``icon_name`` should refer to a
-        filename within the ``Icons N`` directory (e.g. ``'bell.svg'``).
+        filename within the ``Icons N`` directory (e.g. ``'Notificaciones.svg'``).
 
         :param text: The label to display on the card.
         :param icon_name: Optional SVG filename for the icon.  When
@@ -459,7 +459,7 @@ class QuickAccessButton(QFrame):
 
 
 class GroupCard(QFrame):
-    def __init__(self, name: str, icon: str = "Home.svg", add_callback=None,
+    def __init__(self, name: str, icon: str = "Inicio.svg", add_callback=None,
                  rename_callback=None, select_callback=None):
         super().__init__()
         self.base_name = name
@@ -583,35 +583,35 @@ class DeviceRow(QFrame):
         h.setContentsMargins(12, 8, 12, 8)
         ic = QLabel()
         # Mapping of keywords to icon filenames.  If no keyword matches, the
-        # generic Devices.svg icon will be used.  This mapping mirrors the
+        # generic Dispositivos.svg icon will be used.  This mapping mirrors the
         # one used by AnimatedBackground for notifications.
         _icon_map = {
-            "Luz": "lightbulb.svg",
-            "Luces": "lightbulb.svg",
-            "Lámpara": "lamp-desk.svg",
-            "Ventilador": "fan.svg",
-            "Aire Acondicionado": "air-conditioner.svg",
-            "Cortinas": "blinds.svg",
-            "Persianas": "blinds.svg",
-            "Enchufe": "plug.svg",
-            "Extractor": "wind.svg",
-            "Calentador Agua": "temperature-high.svg",
-            "Espejo": "circle-half-stroke.svg",
-            "Ducha": "shower.svg",
-            "Televisor": "tv.svg",
-            "Consola Juegos": "gamepad.svg",
-            "Equipo Sonido": "boombox.svg",
-            "Calefactor": "fire.svg",
-            "Refrigerador": "refrigerator.svg",
-            "Horno": "oven.svg",
-            "Microondas": "microwave.svg",
-            "Lavavajillas": "washing-machine.svg",
-            "Licuadora": "blender.svg",
-            "Cafetera": "mug-saucer.svg",
+            "Luz": "Luz.svg",
+            "Luces": "Luces.svg",
+            "Lámpara": "Lámpara.svg",
+            "Ventilador": "Ventilador.svg",
+            "Aire Acondicionado": "Aire Acondicionado.svg",
+            "Cortinas": "Cortinas.svg",
+            "Persianas": "Persianas.svg",
+            "Enchufe": "Enchufe.svg",
+            "Extractor": "Extractor.svg",
+            "Calentador Agua": "Calentador Agua.svg",
+            "Espejo": "Espejo.svg",
+            "Ducha": "Ducha.svg",
+            "Televisor": "Televisor.svg",
+            "Consola Juegos": "Consola Juegos.svg",
+            "Equipo Sonido": "Equipo Sonido.svg",
+            "Calefactor": "Calefactor.svg",
+            "Refrigerador": "Refrigerador.svg",
+            "Horno": "Horno.svg",
+            "Microondas": "Microondas.svg",
+            "Lavavajillas": "Lavavajillas.svg",
+            "Licuadora": "Licuadora.svg",
+            "Cafetera": "Cafetera.svg",
         }
         # Determine which icon to use.  Use the override if provided,
         # otherwise search for a matching keyword in the device name.
-        icon_name = icon_override if icon_override else "Devices.svg"
+        icon_name = icon_override if icon_override else "Dispositivos.svg"
         if not icon_override:
             for key, fname in _icon_map.items():
                 if key in name:
