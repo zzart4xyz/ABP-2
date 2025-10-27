@@ -35,7 +35,10 @@ from types import SimpleNamespace
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - imported only for type checking
-    from argon2 import exceptions as _Argon2Exceptions
+    try:
+        from argon2 import exceptions as _Argon2Exceptions
+    except Exception:  # pragma: no cover - argon2 is optional
+        _Argon2Exceptions = None  # type: ignore[assignment]
 
 # Attempt to import argon2 at runtime without requiring the dependency at
 # development time.  Static analysers no longer flag a missing import because

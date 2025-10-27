@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QRectF
 from PyQt5.QtGui import QColor, QConicalGradient, QIcon, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QDialog,
@@ -77,7 +77,7 @@ class CircularProgress(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         margin = self.stroke_width / 2.0
-        rect = self.rect().adjusted(margin, margin, -margin, -margin)
+        rect = QRectF(self.rect()).adjusted(margin, margin, -margin, -margin)
         bg_pen = QPen(QColor(c.CLR_SURFACE))
         bg_pen.setWidth(self.stroke_width)
         painter.setPen(bg_pen)
