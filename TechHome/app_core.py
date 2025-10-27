@@ -61,7 +61,7 @@ def _set_theme(self, theme):
     self.popup_label.raise_()
 
 def resizeEvent(self, event) -> None:
-    super().resizeEvent(event)
+    QWidget.resizeEvent(self, event)
     if hasattr(self, 'popup_label'):
         try:
             x = self.width() - self.popup_label.width() - 40
