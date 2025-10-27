@@ -639,7 +639,7 @@ def build_more_page(app):
 def create_more_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para el panel principal de la sección Más."""
 
-    def slide(target_getter, order: int, *, duration: int = 420, offset: float = 34.0, step: int = 100) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 280, offset: float = 28.0, step: int = 55) -> dict[str, object]:
         return {
             'type': 'slide_fade',
             'target': target_getter,
@@ -651,7 +651,7 @@ def create_more_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'more_stack', None), 0, duration=360, offset=28.0),
-        slide(lambda: getattr(app, 'more_grid_widget', None), 1, duration=420, offset=42.0),
+        slide(lambda: getattr(app, 'more_stack', None), 0, duration=250, offset=22.0),
+        slide(lambda: getattr(app, 'more_grid_widget', None), 1, duration=270, offset=30.0),
     ]
 

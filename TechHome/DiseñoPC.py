@@ -296,7 +296,7 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
             effect = QGraphicsOpacityEffect(label)
             label.setGraphicsEffect(effect)
         fade = QPropertyAnimation(effect, b"opacity", splash)
-        fade.setDuration(600)
+        fade.setDuration(360)
         fade.setStartValue(0.0)
         fade.setEndValue(1.0)
         fade.setEasingCurve(QEasingCurve.InOutCubic)
@@ -310,7 +310,7 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
                 "effect": effect,
                 "widget": label,
-                "delay": idx * 120,
+                "delay": idx * 80,
             }
         )
 
@@ -321,7 +321,7 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
             effect = QGraphicsOpacityEffect(btn)
             btn.setGraphicsEffect(effect)
         btn_anim = QPropertyAnimation(effect, b"opacity", splash)
-        btn_anim.setDuration(500)
+        btn_anim.setDuration(320)
         btn_anim.setStartValue(0.0)
         btn_anim.setEndValue(1.0)
         btn_anim.setEasingCurve(QEasingCurve.InOutCubic)
@@ -335,7 +335,7 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
                 "effect": effect,
                 "widget": btn,
-                "delay": 300,
+                "delay": 220,
             }
         )
 
