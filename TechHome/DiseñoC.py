@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QEasingCurve, QPropertyAnimation
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -11,7 +11,6 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
-    QGraphicsOpacityEffect,
 )
 
 from constants import CLR_PANEL, CLR_TEXT_IDLE, CLR_TITLE, CLR_SURFACE, CLR_ITEM_ACT, FONT_FAM
@@ -94,33 +93,6 @@ def build_config_page(app):
 # ------------------------------------------------------------------
 
 def create_config_animations(app) -> list[dict[str, object]]:
-    """Configurar animaciones suaves para la página de configuración."""
+    """Las animaciones de configuración se omiten para evitar glitches."""
 
-    animations: list[dict[str, object]] = []
-
-    sections = getattr(app, 'config_sections', [])
-    for idx, section in enumerate(sections):
-        effect = section.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(section)
-            section.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", app)
-        anim.setDuration(400)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.InOutCubic)
-        try:
-            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
-        except Exception:
-            pass
-        animations.append(
-            {
-                "animation": anim,
-                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
-                "effect": effect,
-                "widget": section,
-                "delay": idx * 100,
-            }
-        )
-
-    return animations
+    return []

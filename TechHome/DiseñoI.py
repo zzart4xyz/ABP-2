@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize, QTimer, QEasingCurve, QPropertyAnimation
+from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QFrame,
@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
-    QGraphicsOpacityEffect,
 )
 
 from constants import CLR_BG, CLR_PANEL, CLR_SURFACE, CLR_TITLE, CLR_TEXT_IDLE, CLR_HOVER, HOME_RECENT_COUNT, FONT_FAM
@@ -198,92 +197,6 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
 # ------------------------------------------------------------------
 
 def create_home_animations(app) -> list[dict[str, object]]:
-    """Configurar animaciones suaves para la página de inicio."""
+    """Las animaciones de la página de inicio quedan deshabilitadas."""
 
-    animations: list[dict[str, object]] = []
-
-    widgets_to_fade = [
-        getattr(app, 'home_greeting_frame', None),
-        getattr(app, 'home_notifications_header', None),
-        getattr(app, 'home_notifications_container', None),
-        getattr(app, 'home_metrics_header', None),
-        getattr(app, 'home_metrics_container', None),
-        getattr(app, 'home_quick_access_frame', None),
-    ]
-
-    for idx, widget in enumerate(filter(None, widgets_to_fade)):
-        effect = widget.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(widget)
-            widget.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", app)
-        anim.setDuration(450)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.InOutCubic)
-        try:
-            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
-        except Exception:
-            pass
-        animations.append(
-            {
-                "animation": anim,
-                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
-                "effect": effect,
-                "widget": widget,
-                "delay": idx * 80,
-            }
-        )
-
-    notif_rows = getattr(app, 'home_notif_rows', [])
-    for idx, (_icon_lbl, text_lbl) in enumerate(notif_rows):
-        row = text_lbl.parentWidget() or text_lbl
-        effect = row.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(row)
-            row.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", app)
-        anim.setDuration(420)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.InOutCubic)
-        try:
-            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
-        except Exception:
-            pass
-        animations.append(
-            {
-                "animation": anim,
-                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
-                "effect": effect,
-                "widget": row,
-                "delay": 180 + idx * 70,
-            }
-        )
-
-    quick_buttons = getattr(app, 'quick_access_buttons', [])
-    for idx, button in enumerate(quick_buttons):
-        effect = button.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(button)
-            button.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", app)
-        anim.setDuration(400)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.InOutCubic)
-        try:
-            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
-        except Exception:
-            pass
-        animations.append(
-            {
-                "animation": anim,
-                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
-                "effect": effect,
-                "widget": button,
-                "delay": 320 + idx * 90,
-            }
-        )
-
-    return animations
+    return []

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QEasingCurve, QPropertyAnimation
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QGraphicsOpacityEffect
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QVBoxLayout, QWidget
 
 from health import BPMGauge, MetricsPanel
 
@@ -31,32 +31,6 @@ def build_health_page(app):
 # ------------------------------------------------------------------
 
 def create_health_animations(app) -> list[dict[str, object]]:
-    """Configurar animaciones suaves para la vista de salud."""
+    """Sin animaciones adicionales en salud para mejorar la estabilidad."""
 
-    animations: list[dict[str, object]] = []
-
-    for idx, widget in enumerate(filter(None, [getattr(app, 'health_gauge', None), getattr(app, 'health_metrics', None)])):
-        effect = widget.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(widget)
-            widget.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", app)
-        anim.setDuration(500)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.InOutCubic)
-        try:
-            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
-        except Exception:
-            pass
-        animations.append(
-            {
-                "animation": anim,
-                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
-                "effect": effect,
-                "widget": widget,
-                "delay": idx * 120,
-            }
-        )
-
-    return animations
+    return []

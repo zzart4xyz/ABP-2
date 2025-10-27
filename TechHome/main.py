@@ -864,7 +864,9 @@ class AnimatedBackground(QWidget):
         self.calendar_widget = None
         self.calendar_event_table = None
         self._angle = 0
-        QTimer(self, timeout=self._on_timeout).start(50)
+        self._bg_timer = QTimer(self)
+        self._bg_timer.timeout.connect(self._on_timeout)
+        self._bg_timer.start(200)
         self.home_metrics = {'devices': 0, 'temp': 22.0, 'energy': 1.2, 'water': 50}
         self.notifications = []
         self.time_24h = True
@@ -1106,93 +1108,37 @@ class AnimatedBackground(QWidget):
         except Exception:
             pass
 
+    def _force_full_opacity(self, root: QWidget) -> None:
+        widgets: list[QWidget] = [root]
+        widgets.extend(root.findChildren(QWidget))
+        for widget in widgets:
+            effect = widget.graphicsEffect()
+            if isinstance(effect, QGraphicsOpacityEffect):
+                try:
+                    effect.setOpacity(1.0)
+                except Exception:
+                    pass
+                try:
+                    widget.setGraphicsEffect(None)
+                except Exception:
+                    pass
+
     def _switch_page(self, stack, index):
         if index == stack.currentIndex():
             return
-        effect = QGraphicsOpacityEffect(stack)
-        stack.setGraphicsEffect(effect)
-        anim_out = QPropertyAnimation(effect, b'opacity', stack)
-        anim_out.setDuration(300)
-        anim_out.setStartValue(1.0)
-        anim_out.setEndValue(0.0)
-
-        def on_faded():
-            stack.setCurrentIndex(index)
-            anim_in = QPropertyAnimation(effect, b'opacity', stack)
-            anim_in.setDuration(300)
-            anim_in.setStartValue(0.0)
-            anim_in.setEndValue(1.0)
-            anim_in.finished.connect(lambda: stack.setGraphicsEffect(None))
-            anim_in.start()
-        anim_out.finished.connect(on_faded)
-        anim_out.start()
+        stack.setCurrentIndex(index)
+        current_widget = stack.currentWidget()
+        if isinstance(current_widget, QWidget):
+            self._force_full_opacity(current_widget)
+        self._play_page_animations(index)
 
     def _play_page_animations(self, index: int) -> None:
-        animations = getattr(self, '_page_animations', {}).get(index)
-        if not animations:
+        stack = getattr(self, 'stack', None)
+        if stack is None:
             return
-
-        for spec in animations:
-            anim = spec.get('animation') if isinstance(spec, dict) else None
-            if anim is None:
-                continue
-            prepare = spec.get('prepare') if isinstance(spec, dict) else None
-            effect = spec.get('effect') if isinstance(spec, dict) else None
-            widget = spec.get('widget') if isinstance(spec, dict) else None
-            delay = 0
-            if isinstance(spec, dict):
-                try:
-                    delay = int(spec.get('delay', 0) or 0)
-                except Exception:
-                    delay = 0
-
-            def start_anim(
-                animation=anim,
-                prep=prepare,
-                eff=effect,
-                target=widget,
-            ):
-                if isinstance(target, QWidget) and isinstance(eff, QGraphicsOpacityEffect):
-                    try:
-                        target.setGraphicsEffect(eff)
-                    except Exception:
-                        pass
-                if callable(prep):
-                    try:
-                        prep()
-                    except Exception:
-                        pass
-                try:
-                    animation.stop()
-                except Exception:
-                    pass
-                if hasattr(animation, 'setDirection'):
-                    try:
-                        animation.setDirection(QAbstractAnimation.Forward)
-                    except Exception:
-                        pass
-                animation.start()
-
-            if delay > 0:
-                QTimer.singleShot(delay, start_anim)
-            else:
-                start_anim()
-
-            if isinstance(effect, QGraphicsOpacityEffect):
-                duration = 0
-                try:
-                    duration = int(getattr(anim, 'duration', lambda: 0)() or 0)
-                except Exception:
-                    duration = 0
-
-                def ensure_visible(eff=effect):
-                    try:
-                        eff.setOpacity(1.0)
-                    except Exception:
-                        pass
-
-                total_delay = max(delay, 0) + max(duration, 0) + 50
-                QTimer.singleShot(total_delay, ensure_visible)
+        widget = stack.widget(index)
+        if isinstance(widget, QWidget):
+            self._force_full_opacity(widget)
 
     def _change_language(self, lang):
         if self.lang == lang:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize, QEasingCurve, QPropertyAnimation
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -13,7 +13,6 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QVBoxLayout,
     QWidget,
-    QGraphicsOpacityEffect,
 )
 
 from constants import (
@@ -217,41 +216,6 @@ def build_devices_page(app):
 # ------------------------------------------------------------------
 
 def create_devices_animations(app) -> list[dict[str, object]]:
-    """Configurar animaciones suaves para la página de dispositivos."""
+    """Las animaciones de dispositivos se deshabilitan para evitar parpadeos."""
 
-    animations: list[dict[str, object]] = []
-
-    widgets = [
-        getattr(app, 'devices_group_container', None),
-        getattr(app, 'group_indicator', None),
-        getattr(app, 'devices_search_field', None),
-        getattr(app, 'devices_category_combo', None),
-        getattr(app, 'devices_sort_combo', None),
-        getattr(app, 'device_list_widget', None),
-    ]
-
-    for idx, widget in enumerate(filter(None, widgets)):
-        effect = widget.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(widget)
-            widget.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", app)
-        anim.setDuration(420)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.InOutCubic)
-        try:
-            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
-        except Exception:
-            pass
-        animations.append(
-            {
-                "animation": anim,
-                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
-                "effect": effect,
-                "widget": widget,
-                "delay": idx * 90,
-            }
-        )
-
-    return animations
+    return []
