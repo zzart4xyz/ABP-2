@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QEasingCurve
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractSpinBox,
@@ -639,18 +639,19 @@ def build_more_page(app):
 def create_more_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para el panel principal de la sección Más."""
 
-    def fade(target_getter, *, delay: int = 0, duration: int = 420) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 420, offset: float = 34.0, step: int = 100) -> dict[str, object]:
         return {
-            'type': 'fade',
+            'type': 'slide_fade',
             'target': target_getter,
-            'delay': delay,
+            'delay': max(0, order) * step,
             'duration': duration,
-            'start': 0.0,
-            'end': 1.0,
+            'offset': offset,
+            'direction': 'down',
+            'easing': QEasingCurve.OutCubic,
         }
 
     return [
-        fade(lambda: getattr(app, 'more_stack', None), delay=0, duration=360),
-        fade(lambda: getattr(app, 'more_grid_widget', None), delay=120, duration=420),
+        slide(lambda: getattr(app, 'more_stack', None), 0, duration=360, offset=28.0),
+        slide(lambda: getattr(app, 'more_grid_widget', None), 1, duration=420, offset=42.0),
     ]
 

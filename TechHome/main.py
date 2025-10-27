@@ -17,6 +17,7 @@ from PyQt5.QtCore import (
     QPointF,
     QRectF,
     QAbstractAnimation,
+    QParallelAnimationGroup,
 )
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
 try:
@@ -1124,6 +1125,12 @@ class AnimatedBackground(QWidget):
         widgets: list[QWidget] = [root]
         widgets.extend(root.findChildren(QWidget))
         for widget in widgets:
+            final_pos = widget.property('_techhome_final_pos')
+            if isinstance(final_pos, QPoint):
+                try:
+                    widget.move(final_pos)
+                except Exception:
+                    pass
             effect = widget.graphicsEffect()
             if isinstance(effect, QGraphicsOpacityEffect):
                 try:
@@ -1152,17 +1159,9 @@ class AnimatedBackground(QWidget):
         widget = self._resolve_animation_widget(spec.get('target'))
         if widget is None:
             return None
-        anim_type = spec.get('type', 'fade')
-        if anim_type != 'fade':
-            return None
-        try:
-            start = float(spec.get('start', 0.0))
-        except Exception:
-            start = 0.0
-        try:
-            end = float(spec.get('end', 1.0))
-        except Exception:
-            end = 1.0
+        anim_type_raw = spec.get('type', 'fade')
+        anim_type = str(anim_type_raw).lower() if anim_type_raw is not None else 'fade'
+
         try:
             duration = int(spec.get('duration', 400) or 400)
         except Exception:
@@ -1170,49 +1169,141 @@ class AnimatedBackground(QWidget):
         easing = spec.get('easing')
         if not isinstance(easing, QEasingCurve):
             easing = QEasingCurve.InOutCubic
-        remove_effect = bool(spec.get('remove_effect', True))
-        effect = QGraphicsOpacityEffect(widget)
-        widget.setGraphicsEffect(effect)
-        try:
-            effect.setOpacity(start)
-        except Exception:
-            effect.setOpacity(0.0)
-        animation = QPropertyAnimation(effect, b'opacity', widget)
-        animation.setDuration(duration)
-        animation.setStartValue(start)
-        animation.setEndValue(end)
-        animation.setEasingCurve(easing)
+
+        entry: dict[str, Any] = {'widget': widget}
+
+        if anim_type == 'fade':
+            try:
+                start = float(spec.get('start', 0.0))
+            except Exception:
+                start = 0.0
+            try:
+                end = float(spec.get('end', 1.0))
+            except Exception:
+                end = 1.0
+            remove_effect = bool(spec.get('remove_effect', True))
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+            try:
+                effect.setOpacity(start)
+            except Exception:
+                effect.setOpacity(0.0)
+            animation = QPropertyAnimation(effect, b'opacity', widget)
+            animation.setDuration(duration)
+            animation.setStartValue(start)
+            animation.setEndValue(end)
+            animation.setEasingCurve(easing)
+            entry['effect'] = effect
+
+            def cleanup(end_value=end, remove=remove_effect, effect_ref=effect, widget_ref=widget):
+                try:
+                    effect_ref.setOpacity(end_value)
+                except Exception:
+                    pass
+                if remove:
+                    try:
+                        widget_ref.setGraphicsEffect(None)
+                    except Exception:
+                        pass
+                if entry in getattr(self, '_running_page_anims', []):
+                    try:
+                        self._running_page_anims.remove(entry)
+                    except ValueError:
+                        pass
+
+        elif anim_type in {'slide', 'slide_fade'}:
+            try:
+                offset = float(spec.get('offset', 36.0))
+            except Exception:
+                offset = 36.0
+            offset = abs(offset)
+            direction = str(spec.get('direction', 'down') or 'down').lower()
+            if direction not in {'down', 'up'}:
+                direction = 'down'
+            fade_enabled = anim_type == 'slide_fade'
+            fade_enabled = bool(spec.get('fade', fade_enabled))
+            try:
+                end_pos = widget.pos()
+            except Exception:
+                end_pos = QPoint(0, 0)
+            widget.setProperty('_techhome_final_pos', end_pos)
+            delta = -offset if direction == 'down' else offset
+            start_pos = QPoint(end_pos.x(), end_pos.y() + int(round(delta)))
+            try:
+                widget.move(start_pos)
+            except Exception:
+                pass
+            try:
+                widget.show()
+            except Exception:
+                pass
+            pos_anim = QPropertyAnimation(widget, b'pos', widget)
+            pos_anim.setDuration(duration)
+            pos_anim.setStartValue(start_pos)
+            pos_anim.setEndValue(end_pos)
+            pos_anim.setEasingCurve(easing)
+            effect = None
+            animations: list[QPropertyAnimation] = []
+            animations.append(pos_anim)
+            if fade_enabled:
+                effect = QGraphicsOpacityEffect(widget)
+                widget.setGraphicsEffect(effect)
+                try:
+                    effect.setOpacity(0.0)
+                except Exception:
+                    pass
+                fade_anim = QPropertyAnimation(effect, b'opacity', widget)
+                fade_anim.setDuration(duration)
+                fade_anim.setStartValue(0.0)
+                fade_anim.setEndValue(1.0)
+                fade_anim.setEasingCurve(easing)
+                animations.append(fade_anim)
+            entry['effect'] = effect
+            remove_effect = bool(spec.get('remove_effect', fade_enabled))
+            if len(animations) == 1:
+                animation = animations[0]
+            else:
+                group = QParallelAnimationGroup(widget)
+                for anim in animations:
+                    group.addAnimation(anim)
+                animation = group
+
+            def cleanup(end_value=1.0, remove=remove_effect, effect_ref=effect, widget_ref=widget, final_pos=end_pos):
+                try:
+                    widget_ref.move(final_pos)
+                except Exception:
+                    pass
+                if isinstance(effect_ref, QGraphicsOpacityEffect):
+                    try:
+                        effect_ref.setOpacity(end_value)
+                    except Exception:
+                        pass
+                if remove and isinstance(effect_ref, QGraphicsOpacityEffect):
+                    try:
+                        widget_ref.setGraphicsEffect(None)
+                    except Exception:
+                        pass
+                if entry in getattr(self, '_running_page_anims', []):
+                    try:
+                        self._running_page_anims.remove(entry)
+                    except ValueError:
+                        pass
+
+        else:
+            return None
+
         prepare = spec.get('prepare')
         if callable(prepare):
+            effect_obj = entry.get('effect')
             try:
-                prepare(widget, effect)
+                prepare(widget, effect_obj)
             except TypeError:
                 try:
                     prepare(widget)
                 except TypeError:
                     prepare()
-        entry: dict[str, Any] = {
-            'widget': widget,
-            'effect': effect,
-            'animation': animation,
-        }
 
-        def cleanup(end_value=end, remove=remove_effect, effect_ref=effect, widget_ref=widget):
-            try:
-                effect_ref.setOpacity(end_value)
-            except Exception:
-                pass
-            if remove:
-                try:
-                    widget_ref.setGraphicsEffect(None)
-                except Exception:
-                    pass
-            if entry in getattr(self, '_running_page_anims', []):
-                try:
-                    self._running_page_anims.remove(entry)
-                except ValueError:
-                    pass
-
+        entry['animation'] = animation
         entry['cleanup'] = cleanup
         animation.finished.connect(cleanup)
         return entry

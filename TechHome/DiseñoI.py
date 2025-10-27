@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtCore import Qt, QSize, QTimer, QEasingCurve
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QFrame,
@@ -199,19 +199,20 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
 def create_home_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para los bloques principales de la página de inicio."""
 
-    def fade(target_getter, *, delay: int = 0, duration: int = 420) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 420, offset: float = 38.0, step: int = 90) -> dict[str, object]:
         return {
-            'type': 'fade',
+            'type': 'slide_fade',
             'target': target_getter,
-            'delay': delay,
+            'delay': max(0, order) * step,
             'duration': duration,
-            'start': 0.0,
-            'end': 1.0,
+            'offset': offset,
+            'direction': 'down',
+            'easing': QEasingCurve.OutCubic,
         }
 
     return [
-        fade(lambda: getattr(app, 'home_greeting_frame', None), delay=0, duration=360),
-        fade(lambda: getattr(app, 'home_notifications_container', None), delay=100, duration=420),
-        fade(lambda: getattr(app, 'home_metrics_container', None), delay=200, duration=420),
-        fade(lambda: getattr(app, 'home_quick_access_frame', None), delay=260, duration=440),
+        slide(lambda: getattr(app, 'home_greeting_frame', None), 0, duration=360, offset=32.0),
+        slide(lambda: getattr(app, 'home_notifications_container', None), 1, duration=420),
+        slide(lambda: getattr(app, 'home_metrics_container', None), 2, duration=420),
+        slide(lambda: getattr(app, 'home_quick_access_frame', None), 3, duration=440, offset=44.0),
     ]

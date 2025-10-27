@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QEasingCurve
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -218,18 +218,19 @@ def build_devices_page(app):
 def create_devices_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para la cabecera y el listado de dispositivos."""
 
-    def fade(target_getter, *, delay: int = 0, duration: int = 420) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 420, offset: float = 36.0, step: int = 90) -> dict[str, object]:
         return {
-            'type': 'fade',
+            'type': 'slide_fade',
             'target': target_getter,
-            'delay': delay,
+            'delay': max(0, order) * step,
             'duration': duration,
-            'start': 0.0,
-            'end': 1.0,
+            'offset': offset,
+            'direction': 'down',
+            'easing': QEasingCurve.OutCubic,
         }
 
     return [
-        fade(lambda: getattr(app, 'devices_group_container', None), delay=0, duration=380),
-        fade(lambda: getattr(app, 'group_indicator', None), delay=120, duration=400),
-        fade(lambda: getattr(app, 'device_list_widget', None), delay=200, duration=460),
+        slide(lambda: getattr(app, 'devices_group_container', None), 0, duration=360, offset=28.0),
+        slide(lambda: getattr(app, 'group_indicator', None), 1, duration=400),
+        slide(lambda: getattr(app, 'device_list_widget', None), 2, duration=460, offset=44.0),
     ]

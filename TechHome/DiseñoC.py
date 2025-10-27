@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEasingCurve
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -100,20 +100,21 @@ def build_config_page(app):
 def create_config_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para las tarjetas de configuración."""
 
-    def fade(target_getter, *, delay: int = 0, duration: int = 420) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 420, offset: float = 30.0, step: int = 80) -> dict[str, object]:
         return {
-            'type': 'fade',
+            'type': 'slide_fade',
             'target': target_getter,
-            'delay': delay,
+            'delay': max(0, order) * step,
             'duration': duration,
-            'start': 0.0,
-            'end': 1.0,
+            'offset': offset,
+            'direction': 'down',
+            'easing': QEasingCurve.OutCubic,
         }
 
     return [
-        fade(lambda: getattr(app, 'config_theme_frame', None), delay=0, duration=360),
-        fade(lambda: getattr(app, 'config_language_frame', None), delay=100, duration=380),
-        fade(lambda: getattr(app, 'config_time_frame', None), delay=200, duration=400),
-        fade(lambda: getattr(app, 'config_notifications_frame', None), delay=260, duration=420),
-        fade(lambda: getattr(app, 'config_about_frame', None), delay=320, duration=420),
+        slide(lambda: getattr(app, 'config_theme_frame', None), 0, duration=340, offset=24.0),
+        slide(lambda: getattr(app, 'config_language_frame', None), 1, duration=360),
+        slide(lambda: getattr(app, 'config_time_frame', None), 2, duration=380),
+        slide(lambda: getattr(app, 'config_notifications_frame', None), 3, duration=400, offset=36.0),
+        slide(lambda: getattr(app, 'config_about_frame', None), 4, duration=420, offset=40.0),
     ]
