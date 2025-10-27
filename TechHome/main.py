@@ -2,6 +2,8 @@ import sys
 import random
 import csv
 import os
+from dataclasses import dataclass
+from typing import Callable
 from datetime import datetime, timedelta
 from PyQt5.QtCore import Qt, QPoint, QTimer, QDate, QPropertyAnimation, QEasingCurve, pyqtProperty, QSize, QPointF, QRectF
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
@@ -11,6 +13,20 @@ except Exception:
     QSvgRenderer = None
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QStackedWidget, QLineEdit, QComboBox, QScrollBar, QTableWidget, QTableWidgetItem, QTabWidget, QListWidget, QListWidgetItem, QDialog, QTextEdit, QDateTimeEdit, QSpinBox, QCalendarWidget, QCheckBox, QStyledItemDelegate, QStyle, QToolButton, QTableView, QHeaderView, QAbstractSpinBox, QSizePolicy, QProgressBar, QGraphicsOpacityEffect
 from constants import *
+
+
+def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
+    return max(minimum, min(maximum, value))
+
+
+@dataclass(frozen=True)
+class MetricSpec:
+    key: str
+    icon_name: str
+    label: str
+    progress_fn: Callable[["MetricsDetailsDialog", float], float]
+    value_fn: Callable[["MetricsDetailsDialog", float], str]
+    graph_color: str = CLR_TITLE
 
 def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
     try:
@@ -309,45 +325,13 @@ class MetricsDetailsDialog(QDialog):
         cards_layout = QHBoxLayout()
         cards_layout.setSpacing(16)
         self.card_widgets: dict[str, dict[str, QWidget]] = {}
-        gauge_specs = [('devices', 'mobile.svg'), ('temp', 'temperature-high.svg'), ('energy', 'bolt.svg'), ('water', 'droplet.svg')]
-        for key, icon_name in gauge_specs:
-            card = QFrame(outer)
-            card.setStyleSheet(f'background:{CLR_SURFACE}; border:none; border-radius:8px;')
-            card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(16, 16, 16, 16)
-            card_layout.setSpacing(8)
-            gauge = MetricGauge(icon_name)
-            gauge.setMinimumSize(160, 160)
-            try:
-                from PyQt5.QtWidgets import QSizePolicy
-                gauge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            except Exception:
-                pass
-            card_layout.addWidget(gauge, alignment=Qt.AlignHCenter)
-            class_label = QLabel('', card)
-            class_label.setAlignment(Qt.AlignCenter)
-            class_label.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}';")
-            card_layout.addWidget(class_label)
-            value_label = QLabel('', card)
-            value_label.setAlignment(Qt.AlignCenter)
-            value_label.setStyleSheet(f"color:{CLR_TITLE}; font:700 22px '{FONT_FAM}';")
-            card_layout.addWidget(value_label)
-            trend_container = QWidget(card)
-            trend_layout = QHBoxLayout(trend_container)
-            trend_layout.setContentsMargins(0, 0, 0, 0)
-            trend_layout.setSpacing(4)
-            arrow_label = QLabel(trend_container)
-            percent_label = QLabel(trend_container)
-            percent_label.setStyleSheet(f"font:500 14px '{FONT_FAM}';")
-            trend_layout.addWidget(arrow_label)
-            trend_layout.addWidget(percent_label)
-            trend_layout.addStretch(1)
-            trend_container.setVisible(False)
-            card_layout.addWidget(trend_container)
-            graph = GraphWidget(card)
-            graph.setMinimumHeight(40)
-            card_layout.addWidget(graph)
-            self.card_widgets[key] = {'gauge': gauge, 'class': class_label, 'value': value_label, 'arrow': arrow_label, 'percent': percent_label, 'graph': graph}
+        self._metric_specs = self._build_metric_specs()
+        for key in self._metric_order:
+            spec = self._metric_specs.get(key)
+            if spec is None:
+                continue
+            card, widget_map = self._create_metric_card(spec, outer)
+            self.card_widgets[key] = widget_map
             cards_layout.addWidget(card)
         outer_layout.addLayout(cards_layout)
         border_frame = QFrame(self)
@@ -364,41 +348,131 @@ class MetricsDetailsDialog(QDialog):
         self._arrow_up_pix = tint_pixmap(load_icon_pixmap('arrow-up.svg', QSize(16, 16)), self._trend_up_color)
         self._arrow_down_pix = tint_pixmap(load_icon_pixmap('arrow-down.svg', QSize(16, 16)), self._trend_down_color)
 
+    def _build_metric_specs(self) -> dict[str, MetricSpec]:
+        specs = [
+            MetricSpec(
+                key='devices',
+                icon_name='mobile.svg',
+                label='Dispositivos',
+                progress_fn=MetricsDetailsDialog._devices_progress,
+                value_fn=MetricsDetailsDialog._format_devices_value,
+            ),
+            MetricSpec(
+                key='temp',
+                icon_name='temperature-high.svg',
+                label='Temperatura',
+                progress_fn=lambda dlg, value: dlg._progress_by_scale(value, 40.0),
+                value_fn=lambda dlg, value: f'{value:.1f}°C',
+            ),
+            MetricSpec(
+                key='energy',
+                icon_name='bolt.svg',
+                label='Energía',
+                progress_fn=lambda dlg, value: dlg._progress_by_scale(value, 5.0),
+                value_fn=lambda dlg, value: f'{value:.2f} kW',
+            ),
+            MetricSpec(
+                key='water',
+                icon_name='droplet.svg',
+                label='Agua',
+                progress_fn=lambda dlg, value: dlg._progress_by_scale(value, 200.0),
+                value_fn=lambda dlg, value: f'{int(value)} L',
+            ),
+        ]
+        self._metric_order = [spec.key for spec in specs]
+        return {spec.key: spec for spec in specs}
+
+    def _create_metric_card(self, spec: MetricSpec, parent: QWidget) -> tuple[QFrame, dict[str, QWidget]]:
+        card = QFrame(parent)
+        card.setStyleSheet(f'background:{CLR_SURFACE}; border:none; border-radius:8px;')
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 16, 16, 16)
+        card_layout.setSpacing(8)
+        gauge = MetricGauge(spec.icon_name)
+        gauge.setMinimumSize(160, 160)
+        try:
+            from PyQt5.QtWidgets import QSizePolicy
+            gauge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        except Exception:
+            pass
+        card_layout.addWidget(gauge, alignment=Qt.AlignHCenter)
+        class_label = QLabel('', card)
+        class_label.setAlignment(Qt.AlignCenter)
+        class_label.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}';")
+        card_layout.addWidget(class_label)
+        value_label = QLabel('', card)
+        value_label.setAlignment(Qt.AlignCenter)
+        value_label.setStyleSheet(f"color:{CLR_TITLE}; font:700 22px '{FONT_FAM}';")
+        card_layout.addWidget(value_label)
+        trend_container = QWidget(card)
+        trend_layout = QHBoxLayout(trend_container)
+        trend_layout.setContentsMargins(0, 0, 0, 0)
+        trend_layout.setSpacing(4)
+        arrow_label = QLabel(trend_container)
+        percent_label = QLabel(trend_container)
+        percent_label.setStyleSheet(f"font:500 14px '{FONT_FAM}';")
+        trend_layout.addWidget(arrow_label)
+        trend_layout.addWidget(percent_label)
+        trend_layout.addStretch(1)
+        trend_container.setVisible(False)
+        card_layout.addWidget(trend_container)
+        graph = GraphWidget(card)
+        graph.setMinimumHeight(40)
+        card_layout.addWidget(graph)
+        widget_map = {
+            'gauge': gauge,
+            'class': class_label,
+            'value': value_label,
+            'arrow': arrow_label,
+            'percent': percent_label,
+            'graph': graph,
+        }
+        return card, widget_map
+
+    def _total_devices(self) -> int:
+        return len(getattr(self._main, 'devices_buttons', []))
+
+    def _devices_progress(self, active_devices: float) -> float:
+        total = self._total_devices()
+        if total <= 0:
+            return 0.0
+        return active_devices / total
+
+    def _format_devices_value(self, active_devices: float) -> str:
+        total = self._total_devices()
+        active = int(round(active_devices))
+        if total > 0:
+            return f'{active} de {total}'
+        return f'{active}'
+
+    @staticmethod
+    def _progress_by_scale(value: float, maximum: float) -> float:
+        if maximum <= 0:
+            return 0.0
+        return value / maximum
+
     def update_metrics(self) -> None:
         metrics = getattr(self._main, 'home_metrics', {})
         history = getattr(self._main, 'metric_history', {})
-        total_devices = len(getattr(self._main, 'devices_buttons', []))
-        active_devices = metrics.get('devices', 0)
         for key, widgets in self.card_widgets.items():
-            curr = metrics.get(key, 0)
-            if key == 'devices':
-                progress = active_devices / total_devices if total_devices > 0 else 0.0
-            elif key == 'temp':
-                progress = curr / 40.0 if curr >= 0 else 0.0
-            elif key == 'energy':
-                progress = curr / 5.0
-            elif key == 'water':
-                progress = curr / 200.0
-            progress = max(0.0, min(1.0, progress))
+            spec = self._metric_specs.get(key)
+            if spec is None:
+                continue
+            raw_value = metrics.get(key, 0)
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                value = 0.0
+            progress = clamp(spec.progress_fn(self, value))
             widgets['gauge'].setValue(progress, animate=True)
-            metric_names = {'devices': 'Dispositivos', 'temp': 'Temperatura', 'energy': 'Energía', 'water': 'Agua'}
-            widgets['class'].setText(metric_names.get(key, key))
-            if key == 'devices':
-                val_text = f'{active_devices} de {total_devices}' if total_devices > 0 else f'{active_devices}'
-            elif key == 'temp':
-                val_text = f'{curr:.1f}°C'
-            elif key == 'energy':
-                val_text = f'{curr:.2f} kW'
-            elif key == 'water':
-                val_text = f'{curr} L'
-            widgets['value'].setText(val_text)
+            widgets['class'].setText(spec.label)
+            widgets['value'].setText(spec.value_fn(self, value))
             widgets['arrow'].setVisible(False)
             widgets['percent'].setText('')
             widgets['percent'].setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:500 14px '{FONT_FAM}';")
-            graph_color = QColor(CLR_TITLE)
             prev_vals = history.get(key, [])
             graph_values = prev_vals[-12:] if prev_vals else []
-            widgets['graph'].setValues(graph_values, graph_color, animate=True)
+            widgets['graph'].setValues(graph_values, QColor(spec.graph_color), animate=True)
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.LeftButton:
