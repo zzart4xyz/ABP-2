@@ -1,7 +1,7 @@
 """Support routines for AnimatedBackground (app_devices)."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _on_device_category_changed(self, index: int) -> None:
     if getattr(self, 'loading_settings', False):

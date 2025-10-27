@@ -8,8 +8,13 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QDialog
 
 import database
-from TechHome.app_window import MainWindow
-from TechHome.dialogs import LoginDialog, SplashScreen
+
+try:
+    from app_window import MainWindow
+    from dialogs import LoginDialog, SplashScreen
+except ModuleNotFoundError:  # pragma: no cover - fallback when executed as package
+    from .app_window import MainWindow
+    from .dialogs import LoginDialog, SplashScreen
 
 if __name__ == "__main__":
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)

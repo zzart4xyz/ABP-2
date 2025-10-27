@@ -1,7 +1,7 @@
 """Persistence and state helpers for AnimatedBackground."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _load_persistent_state(self) -> None:
     if not getattr(self, 'username', None):

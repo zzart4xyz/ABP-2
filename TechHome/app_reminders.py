@@ -1,7 +1,7 @@
 """Support routines for AnimatedBackground (app_reminders)."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _check_reminders(self):
     now = datetime.now()

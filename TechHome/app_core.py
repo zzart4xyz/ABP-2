@@ -1,7 +1,7 @@
 """Support routines for AnimatedBackground (app_core)."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _on_timeout(self):
     self._angle = (self._angle + 1) % 360

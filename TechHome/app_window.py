@@ -1,17 +1,15 @@
 """Application window definitions for TechHome."""
 from __future__ import annotations
 
-from TechHome.app_common import *
-from TechHome import (
-    app_core,
-    app_devices,
-    app_layout,
-    app_lists,
-    app_metrics,
-    app_notifications,
-    app_reminders,
-    app_state,
-)
+from app_common import *
+import app_core
+import app_devices
+import app_layout
+import app_lists
+import app_metrics
+import app_notifications
+import app_reminders
+import app_state
 
 class AnimatedBackground(QWidget):
     def __init__(self, parent=None, *, username: str | None=None, login_time: datetime | None=None):

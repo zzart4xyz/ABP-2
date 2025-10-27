@@ -1,7 +1,7 @@
 """Support routines for AnimatedBackground (app_metrics)."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _make_health_page(self):
     w = QWidget()

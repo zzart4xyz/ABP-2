@@ -1,7 +1,7 @@
 """Support routines for layout composition."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _style_popup_label(self):
     self.popup_label.setStyleSheet(f"QLabel {{ background:qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {CLR_HEADER_BG}, stop:1 {CLR_HOVER}); border:2px solid {CLR_TITLE}; border-radius:5px; padding:8px 12px; color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}'; }}")

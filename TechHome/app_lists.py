@@ -1,7 +1,7 @@
 """Support routines for AnimatedBackground (app_lists)."""
 from __future__ import annotations
 
-from TechHome.app_common import *
+from app_common import *
 
 def _on_list_selected(self, name):
     self.list_title.setText(name)
