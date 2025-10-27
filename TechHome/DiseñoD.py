@@ -233,8 +233,10 @@ def build_devices_page(app):
 def create_devices_animations(app) -> list[dict[str, object]]:
     """Animaciones con deslizamiento suave para todo el apartado de dispositivos."""
 
-    def slide(target_getter, order: int, *, duration: int = 165, offset: float = 12.0,
-              step: int = 26, fade: bool = True) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 210, offset: float = 18.0,
+              step: int = 30, fade: bool = True) -> dict[str, object]:
+        """Clonar la animación de inicio para cada elemento del listado."""
+
         return {
             'type': 'slide_fade' if fade else 'slide',
             'target': target_getter,
@@ -250,27 +252,28 @@ def create_devices_animations(app) -> list[dict[str, object]]:
     specs: list[dict[str, object]] = []
 
     order = 0
-    specs.append(slide(lambda: getattr(app, 'devices_title_label', None), order, duration=150, offset=8.0))
-    specs.append(slide(lambda: getattr(app, 'devices_add_button', None), order, duration=150, offset=8.0))
+    # Encabezado principal y botón de agregar replican la animación de bienvenida de inicio.
+    specs.append(slide(lambda: getattr(app, 'devices_title_label', None), order))
+    specs.append(slide(lambda: getattr(app, 'devices_add_button', None), order))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_groups_label', None), order, duration=155, offset=9.0))
+    specs.append(slide(lambda: getattr(app, 'devices_groups_label', None), order))
     order += 1
 
     group_cards = list(getattr(app, 'group_cards', []))
     for idx, card in enumerate(group_cards):
-        specs.append(slide(lambda card=card: card, order + idx, duration=165, offset=10.0))
+        specs.append(slide(lambda card=card: card, order + idx))
     order += len(group_cards)
     if hasattr(app, 'add_group_card'):
-        specs.append(slide(lambda: getattr(app, 'add_group_card', None), order, duration=165, offset=10.0))
+        specs.append(slide(lambda: getattr(app, 'add_group_card', None), order))
         order += 1
 
-    specs.append(slide(lambda: getattr(app, 'group_indicator', None), order, duration=160, offset=9.0))
+    specs.append(slide(lambda: getattr(app, 'group_indicator', None), order))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order, duration=165, offset=9.0))
+    specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order))
     order += 1
 
     device_rows = list(getattr(app, 'device_rows', []))
     for idx, row in enumerate(device_rows):
-        specs.append(slide(lambda row=row: row, order + idx, duration=180, offset=8.0))
+        specs.append(slide(lambda row=row: row, order + idx))
 
     return specs
