@@ -886,15 +886,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from constants import HEALTH_CSV_PATH, CLR_HEADER_BG, CLR_HOVER, CLR_TITLE, CLR_TEXT_IDLE, FONT_FAM, make_shadow, CLR_BG, FRAME_RAD, set_theme_constants, TRANSLATIONS_EN, TRANSLATIONS_ES, MAX_NOTIFICATIONS, HOME_RECENT_COUNT, PANEL_W, CLR_PANEL, CLR_ITEM_ACT, CLR_SURFACE, CLR_TRACK, CLR_HEADER_TEXT, CURRENT_THEME, button_style, icon, input_style, pixmap
 from dialogs import NewNoteDialog, NewListDialog, NewElementDialog
-from loading_screen import SplashScreen
-from auth_dialog import LoginDialog
-from pages import (
-    build_home_page,
-    build_devices_page,
-    build_more_page,
-    build_health_page,
-    build_config_page,
-)
+from DiseñoPC import SplashScreen
+from DiseñoIR import LoginDialog
+from DiseñoI import build_home_page
+from DiseñoD import build_devices_page
+from DiseñoM import build_more_page
+from DiseñoS import build_health_page
+from DiseñoC import build_config_page
 import database
 from widgets import NotesManager, DraggableNote, CustomScrollBar, NoFocusDelegate, style_table, CurrentMonthCalendar, CardButton, QuickAccessButton, GroupCard, DeviceRow
 from health import BPMGauge, MetricsPanel
