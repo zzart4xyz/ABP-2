@@ -3,8 +3,8 @@ import random
 import csv
 from datetime import datetime, timedelta
 
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QColor, QIcon, QPixmap
+from PyQt5.QtCore import Qt, QDate, QSize
+from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
 """
@@ -109,10 +109,99 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # that path does not exist on the current platform, the code falls
 # back to the local ``Icons N`` directory relative to ``constants.py``.
 _user_icon_path = r"C:/Users/zzart4.xyz/Desktop/TechHome/Icons N"
+_default_icon_dir = os.path.join(ROOT_DIR, "Icons N")
+
+# Search order: prefer the user-provided directory when it contains the
+# renamed (Spanish) icons, otherwise fall back to the packaged assets.
+_icon_search_paths: list[str] = []
 if os.path.isdir(_user_icon_path):
-    ICON_DIR = _user_icon_path
-else:
-    ICON_DIR = os.path.join(ROOT_DIR, "Icons N")
+    _icon_search_paths.append(_user_icon_path)
+_icon_search_paths.append(_default_icon_dir)
+
+def _has_localized_icons(path: str) -> bool:
+    """Return ``True`` if the directory contains the renamed SVG assets."""
+
+    required = ("Inicio.svg", "Dispositivos.svg", "Luz.svg")
+    return all(os.path.isfile(os.path.join(path, name)) for name in required)
+
+
+ICON_DIR = next((path for path in _icon_search_paths if _has_localized_icons(path)), _default_icon_dir)
+ICON_SEARCH_PATHS = tuple(dict.fromkeys(_icon_search_paths))
+
+
+def resolve_icon_path(name: str) -> str | None:
+    """Return the absolute path to an icon, searching known directories."""
+
+    for base in ICON_SEARCH_PATHS:
+        candidate = os.path.join(base, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
+    """Load ``name`` as a pixmap of ``size`` searching known icon folders."""
+
+    try:
+        icon_path = resolve_icon_path(name)
+        if icon_path:
+            ico = QIcon(icon_path)
+            pix = ico.pixmap(size)
+            if not pix.isNull():
+                return pix
+    except Exception:
+        pass
+    base_dir = None
+    try:
+        base_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "node_modules",
+            "@fortawesome",
+            "fontawesome-free",
+            "svgs",
+            "solid",
+        )
+        candidate = os.path.join(base_dir, name)
+        if os.path.isfile(candidate):
+            ico = QIcon(candidate)
+            pix = ico.pixmap(size)
+            if not pix.isNull():
+                return pix
+    except Exception:
+        pass
+    fallback_candidates = []
+    if base_dir is not None:
+        fallback_candidates.append(os.path.join(base_dir, "circle-info.svg"))
+        fallback_candidates.append(os.path.join(base_dir, "info.svg"))
+    info_path = resolve_icon_path("Información.svg")
+    if info_path:
+        fallback_candidates.append(info_path)
+    for fb in fallback_candidates:
+        if fb and os.path.isfile(fb):
+            try:
+                ico = QIcon(fb)
+                pix = ico.pixmap(size)
+                if not pix.isNull():
+                    return pix
+            except Exception:
+                continue
+    return QPixmap(size)
+
+
+def tint_pixmap(pixmap: QPixmap, color: QColor) -> QPixmap:
+    """Return a tinted copy of ``pixmap`` using ``color`` as the overlay."""
+
+    if pixmap.isNull():
+        return pixmap
+    tinted = QPixmap(pixmap.size())
+    tinted.fill(Qt.transparent)
+    painter = QPainter(tinted)
+    painter.setCompositionMode(QPainter.CompositionMode_Source)
+    painter.drawPixmap(0, 0, pixmap)
+    painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+    painter.fillRect(tinted.rect(), color)
+    painter.end()
+    return tinted
 
 # Path to the logo used in the splash screen.  By default this points to
 # ``Logos/Logo.png`` relative to the project root.  Users may provide a
@@ -349,13 +438,15 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
 def icon(name: str) -> QIcon:
     """
     Load an icon from the ``Icons N`` directory.  The argument should be
-    the filename of the icon (for example ``'Home.svg'``).
+    the filename of the icon (for example ``'Inicio.svg'``).
     """
-    return QIcon(os.path.join(ICON_DIR, name))
+    path = resolve_icon_path(name)
+    return QIcon(path) if path else QIcon()
 
 def pixmap(name: str) -> QPixmap:
     """Convenience wrapper for loading a QPixmap from the icon directory."""
-    return QPixmap(os.path.join(ICON_DIR, name))
+    path = resolve_icon_path(name)
+    return QPixmap(path) if path else QPixmap()
 
 def button_style(color: str = None, padding: str = "0px") -> str:
     """
