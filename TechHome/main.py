@@ -126,6 +126,40 @@ class MetricGauge(QWidget):
         painter.drawPixmap(int(ix), int(iy), pm)
         painter.end()
 
+
+class SlideFadeEffect(QGraphicsOpacityEffect):
+    """Efecto gráfico que combina deslizamiento vertical y desvanecimiento."""
+
+    def __init__(self, *, direction: str = 'down', offset: float = 36.0, fade_enabled: bool = True, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._progress: float = 0.0
+        self._offset: float = float(offset)
+        self._direction: str = direction if direction in {'down', 'up'} else 'down'
+        self._fade_enabled: bool = fade_enabled
+        if fade_enabled:
+            super().setOpacity(0.0)
+        else:
+            super().setOpacity(1.0)
+
+    @pyqtProperty(float)
+    def progress(self) -> float:
+        return self._progress
+
+    @progress.setter
+    def progress(self, value: float) -> None:
+        self._progress = clamp(value, 0.0, 1.0)
+        if self._fade_enabled:
+            super().setOpacity(self._progress)
+        self.update()
+
+    def draw(self, painter: QPainter) -> None:  # type: ignore[override]
+        painter.save()
+        direction_multiplier = -1.0 if self._direction == 'down' else 1.0
+        translation = (1.0 - self._progress) * self._offset * direction_multiplier
+        painter.translate(0.0, translation)
+        super().draw(painter)
+        painter.restore()
+
 class GraphWidget(QWidget):
 
     def __init__(self, parent: QWidget | None=None) -> None:
@@ -1222,60 +1256,21 @@ class AnimatedBackground(QWidget):
                 direction = 'down'
             fade_enabled = anim_type == 'slide_fade'
             fade_enabled = bool(spec.get('fade', fade_enabled))
-            try:
-                end_pos = widget.pos()
-            except Exception:
-                end_pos = QPoint(0, 0)
-            widget.setProperty('_techhome_final_pos', end_pos)
-            delta = -offset if direction == 'down' else offset
-            start_pos = QPoint(end_pos.x(), end_pos.y() + int(round(delta)))
-            try:
-                widget.move(start_pos)
-            except Exception:
-                pass
-            try:
-                widget.show()
-            except Exception:
-                pass
-            pos_anim = QPropertyAnimation(widget, b'pos', widget)
-            pos_anim.setDuration(duration)
-            pos_anim.setStartValue(start_pos)
-            pos_anim.setEndValue(end_pos)
-            pos_anim.setEasingCurve(easing)
-            effect = None
-            animations: list[QPropertyAnimation] = []
-            animations.append(pos_anim)
-            if fade_enabled:
-                effect = QGraphicsOpacityEffect(widget)
-                widget.setGraphicsEffect(effect)
-                try:
-                    effect.setOpacity(0.0)
-                except Exception:
-                    pass
-                fade_anim = QPropertyAnimation(effect, b'opacity', widget)
-                fade_anim.setDuration(duration)
-                fade_anim.setStartValue(0.0)
-                fade_anim.setEndValue(1.0)
-                fade_anim.setEasingCurve(easing)
-                animations.append(fade_anim)
+            effect = SlideFadeEffect(direction=direction, offset=offset, fade_enabled=fade_enabled, parent=widget)
+            widget.setGraphicsEffect(effect)
+            effect.progress = 0.0
+            animation = QPropertyAnimation(effect, b'progress', widget)
+            animation.setDuration(duration)
+            animation.setStartValue(0.0)
+            animation.setEndValue(1.0)
+            animation.setEasingCurve(easing)
             entry['effect'] = effect
-            remove_effect = bool(spec.get('remove_effect', fade_enabled))
-            if len(animations) == 1:
-                animation = animations[0]
-            else:
-                group = QParallelAnimationGroup(widget)
-                for anim in animations:
-                    group.addAnimation(anim)
-                animation = group
+            remove_effect = bool(spec.get('remove_effect', True))
 
-            def cleanup(end_value=1.0, remove=remove_effect, effect_ref=effect, widget_ref=widget, final_pos=end_pos):
-                try:
-                    widget_ref.move(final_pos)
-                except Exception:
-                    pass
-                if isinstance(effect_ref, QGraphicsOpacityEffect):
+            def cleanup(end_value=1.0, remove=remove_effect, effect_ref=effect, widget_ref=widget):
+                if isinstance(effect_ref, SlideFadeEffect):
                     try:
-                        effect_ref.setOpacity(end_value)
+                        effect_ref.progress = end_value
                     except Exception:
                         pass
                 if remove and isinstance(effect_ref, QGraphicsOpacityEffect):
