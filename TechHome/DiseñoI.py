@@ -159,6 +159,7 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
     l4 = QLabel('Accesos Rápidos')
     l4.setStyleSheet(f"background:{CLR_PANEL}; color:{CLR_TITLE}; font:700 20px '{FONT_FAM}'; padding:6px 12px; border-top-left-radius:5px; border-top-right-radius:5px;")
     grid.addWidget(l4, 4, 0, 1, 2)
+    app.home_quick_access_label = l4
 
     h_notif = l4.sizeHint().height()
     h_metrics = metrics_header.sizeHint().height()
@@ -211,8 +212,11 @@ def create_home_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'home_greeting_frame', None), 0, duration=210, offset=18.0),
-        slide(lambda: getattr(app, 'home_notifications_container', None), 1, duration=225, offset=21.0),
-        slide(lambda: getattr(app, 'home_metrics_container', None), 2, duration=235, offset=24.0),
-        slide(lambda: getattr(app, 'home_quick_access_frame', None), 3, duration=245, offset=26.0),
+        slide(lambda: getattr(app, 'home_greeting_frame', None), 0, duration=205, offset=16.0),
+        slide(lambda: getattr(app, 'home_notifications_header', None), 1, duration=210, offset=18.0),
+        slide(lambda: getattr(app, 'home_notifications_container', None), 2, duration=220, offset=20.0),
+        slide(lambda: getattr(app, 'home_metrics_header', None), 3, duration=225, offset=21.0),
+        slide(lambda: getattr(app, 'home_metrics_container', None), 4, duration=230, offset=22.0),
+        slide(lambda: getattr(app, 'home_quick_access_label', None), 5, duration=235, offset=23.0, step=28),
+        slide(lambda: getattr(app, 'home_quick_access_frame', None), 6, duration=240, offset=24.0),
     ]

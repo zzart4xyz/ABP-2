@@ -93,6 +93,7 @@ def build_devices_page(app):
     v.addWidget(grp_scroll)
 
     app.devices_groups_scroll = grp_scroll
+    app.devices_groups_scrollbar = grp_scroll.horizontalScrollBar()
 
     app.group_indicator = QLabel('Grupo Actual: Todo')
     app.group_indicator.setStyleSheet(f"background:{CLR_HOVER}; color:{CLR_TITLE}; font:700 16px '{FONT_FAM}'; padding:4px 8px; border-radius:5px;")
@@ -268,6 +269,10 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         order += 1
 
     specs.append(slide(lambda: getattr(app, 'group_indicator', None), order))
+    order += 1
+    specs.append(slide(lambda: getattr(app, 'devices_groups_scroll', None), order))
+    order += 1
+    specs.append(slide(lambda: getattr(app, 'devices_groups_scrollbar', None), order, duration=185, offset=12.0, fade=False))
     order += 1
     specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order))
     order += 1
