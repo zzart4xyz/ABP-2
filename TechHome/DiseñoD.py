@@ -49,9 +49,14 @@ def build_devices_page(app):
     hh.addWidget(plus)
     v.addLayout(hh)
 
+    app.devices_title_label = lbl
+    app.devices_add_button = plus
+
     g_lbl = QLabel('Grupos')
     g_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:600 18px '{FONT_FAM}'; border:none;")
     v.addWidget(g_lbl)
+
+    app.devices_groups_label = g_lbl
 
     grp_w = QWidget()
     grp_w.setStyleSheet('background:transparent;')
@@ -86,6 +91,8 @@ def build_devices_page(app):
     grp_scroll.setStyleSheet('background:transparent;')
     grp_scroll.viewport().setStyleSheet('background:transparent;')
     v.addWidget(grp_scroll)
+
+    app.devices_groups_scroll = grp_scroll
 
     app.group_indicator = QLabel('Grupo Actual: Todo')
     app.group_indicator.setStyleSheet(f"background:{CLR_HOVER}; color:{CLR_TITLE}; font:700 16px '{FONT_FAM}'; padding:4px 8px; border-radius:5px;")
@@ -224,9 +231,10 @@ def build_devices_page(app):
 # ------------------------------------------------------------------
 
 def create_devices_animations(app) -> list[dict[str, object]]:
-    """Animaciones afinadas para un arranque ligero del apartado de dispositivos."""
+    """Animaciones con deslizamiento suave para todo el apartado de dispositivos."""
 
-    def slide(target_getter, order: int, *, duration: int = 180, offset: float = 14.0, step: int = 24, fade: bool = True) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 165, offset: float = 12.0,
+              step: int = 26, fade: bool = True) -> dict[str, object]:
         return {
             'type': 'slide_fade' if fade else 'slide',
             'target': target_getter,
@@ -236,10 +244,33 @@ def create_devices_animations(app) -> list[dict[str, object]]:
             'direction': 'down',
             'easing': QEasingCurve.OutCubic,
             'fade': fade,
+            'remove_effect': True,
         }
 
-    return [
-        slide(lambda: getattr(app, 'devices_group_container', None), 0, duration=165, offset=12.0),
-        slide(lambda: getattr(app, 'group_indicator', None), 1, duration=170, offset=10.0),
-        slide(lambda: getattr(app, 'devices_filter_bar', None), 2, duration=175, offset=11.0),
-    ]
+    specs: list[dict[str, object]] = []
+
+    order = 0
+    specs.append(slide(lambda: getattr(app, 'devices_title_label', None), order, duration=150, offset=8.0))
+    specs.append(slide(lambda: getattr(app, 'devices_add_button', None), order, duration=150, offset=8.0))
+    order += 1
+    specs.append(slide(lambda: getattr(app, 'devices_groups_label', None), order, duration=155, offset=9.0))
+    order += 1
+
+    group_cards = list(getattr(app, 'group_cards', []))
+    for idx, card in enumerate(group_cards):
+        specs.append(slide(lambda card=card: card, order + idx, duration=165, offset=10.0))
+    order += len(group_cards)
+    if hasattr(app, 'add_group_card'):
+        specs.append(slide(lambda: getattr(app, 'add_group_card', None), order, duration=165, offset=10.0))
+        order += 1
+
+    specs.append(slide(lambda: getattr(app, 'group_indicator', None), order, duration=160, offset=9.0))
+    order += 1
+    specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order, duration=165, offset=9.0))
+    order += 1
+
+    device_rows = list(getattr(app, 'device_rows', []))
+    for idx, row in enumerate(device_rows):
+        specs.append(slide(lambda row=row: row, order + idx, duration=180, offset=8.0))
+
+    return specs
