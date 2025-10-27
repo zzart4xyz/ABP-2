@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QEasingCurve, QPropertyAnimation
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QVBoxLayout,
     QWidget,
+    QGraphicsOpacityEffect,
 )
 
 from constants import (
@@ -60,6 +61,7 @@ def build_devices_page(app):
     gl.setSpacing(16)
     app.grp_layout = gl
     app.group_cards = []
+    app.devices_group_container = grp_w
     groups = [
         ('Todo', 'Todo.svg'),
         ('Dormitorio', 'Dormitorio.svg'),
@@ -103,6 +105,9 @@ def build_devices_page(app):
     cb2.addItems(['De La A A La Z', 'De La Z A La A'])
     app.device_category_cb = cb1
     app.device_sort_cb = cb2
+    app.devices_search_field = search
+    app.devices_category_combo = cb1
+    app.devices_sort_combo = cb2
     for cb in (cb1, cb2):
         cb.setFixedHeight(40)
         cb.setStyleSheet(f"\n                QComboBox {{ background:{CLR_SURFACE};color:{CLR_TEXT_IDLE};\n             font:700 16px '{FONT_FAM}';border:2px solid {CLR_TITLE};\n                              border-radius:5px;padding:0 12px; }}\n                QComboBox::drop-down {{ border:none; }}\n                QComboBox QAbstractItemView {{ background:{CLR_PANEL};\n                              border:2px solid {CLR_TITLE};\n                              selection-background-color:{CLR_ITEM_ACT};\n                              color:{CLR_TEXT_IDLE};outline:none;padding:4px; }}\n                QComboBox QAbstractItemView::item {{ height:30px;padding-left:10px; }}\n                QComboBox QAbstractItemView::item:hover {{ background:{CLR_ITEM_ACT}; }}\n            ")
@@ -119,6 +124,7 @@ def build_devices_page(app):
     dl.setContentsMargins(0, 0, 0, 0)
     dl.setSpacing(12)
     app.device_filter_container = dl
+    app.device_list_widget = dev_w
     app.devices_buttons = []
     app.device_rows = []
     devices = [
@@ -204,3 +210,42 @@ def build_devices_page(app):
     select_group(app.group_cards[0])
 
     return w
+
+
+# ------------------------------------------------------------------
+# Animaciones
+# ------------------------------------------------------------------
+
+def create_devices_animations(app) -> list[dict[str, object]]:
+    """Configurar animaciones suaves para la página de dispositivos."""
+
+    animations: list[dict[str, object]] = []
+
+    widgets = [
+        getattr(app, 'devices_group_container', None),
+        getattr(app, 'group_indicator', None),
+        getattr(app, 'devices_search_field', None),
+        getattr(app, 'devices_category_combo', None),
+        getattr(app, 'devices_sort_combo', None),
+        getattr(app, 'device_list_widget', None),
+    ]
+
+    for idx, widget in enumerate(filter(None, widgets)):
+        effect = widget.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(420)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": idx * 90,
+            }
+        )
+
+    return animations

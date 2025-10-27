@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from PyQt5.QtCore import Qt, QTimer, QRectF
+from PyQt5.QtCore import Qt, QTimer, QRectF, QEasingCurve, QPropertyAnimation
 from PyQt5.QtGui import QColor, QConicalGradient, QIcon, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QDialog,
@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QProgressBar,
     QWidget,
+    QGraphicsOpacityEffect,
 )
 
 import constants as c
@@ -277,3 +278,53 @@ class SplashScreen(QDialog):
             self._paused = False
             self._timer.start(30)
             self.pause_btn.setText("Pausar")
+
+
+# ------------------------------------------------------------------
+# Animaciones
+# ------------------------------------------------------------------
+
+def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
+    """Crear animaciones suaves asociadas a la pantalla de carga."""
+
+    animations: list[dict[str, object]] = []
+
+    labels = [getattr(splash, "status_lbl", None), getattr(splash, "sub_status_lbl", None)]
+    for idx, label in enumerate(filter(None, labels)):
+        effect = label.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(label)
+            label.setGraphicsEffect(effect)
+        fade = QPropertyAnimation(effect, b"opacity", splash)
+        fade.setDuration(600)
+        fade.setStartValue(0.0)
+        fade.setEndValue(1.0)
+        fade.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": fade,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": idx * 120,
+            }
+        )
+
+    if hasattr(splash, "continue_btn"):
+        btn = splash.continue_btn
+        effect = btn.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(btn)
+            btn.setGraphicsEffect(effect)
+        btn_anim = QPropertyAnimation(effect, b"opacity", splash)
+        btn_anim.setDuration(500)
+        btn_anim.setStartValue(0.0)
+        btn_anim.setEndValue(1.0)
+        btn_anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": btn_anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": 300,
+            }
+        )
+
+    return animations

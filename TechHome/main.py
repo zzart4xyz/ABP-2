@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from typing import Callable
 from datetime import datetime, timedelta
-from PyQt5.QtCore import Qt, QPoint, QTimer, QDate, QPropertyAnimation, QEasingCurve, pyqtProperty, QSize, QPointF, QRectF
+from PyQt5.QtCore import Qt, QPoint, QTimer, QDate, QPropertyAnimation, QEasingCurve, pyqtProperty, QSize, QPointF, QRectF, QAbstractAnimation
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
 try:
     from PyQt5.QtSvg import QSvgRenderer
@@ -834,13 +834,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from constants import HEALTH_CSV_PATH, CLR_HEADER_BG, CLR_HOVER, CLR_TITLE, CLR_TEXT_IDLE, FONT_FAM, make_shadow, CLR_BG, FRAME_RAD, set_theme_constants, TRANSLATIONS_EN, TRANSLATIONS_ES, MAX_NOTIFICATIONS, HOME_RECENT_COUNT, PANEL_W, CLR_PANEL, CLR_ITEM_ACT, CLR_SURFACE, CLR_TRACK, CLR_HEADER_TEXT, CURRENT_THEME, button_style, icon, input_style, pixmap
 from dialogs import NewNoteDialog, NewListDialog, NewElementDialog
-from DiseñoPC import SplashScreen
+from DiseñoPC import SplashScreen, create_splash_animations
 from DiseñoIR import LoginDialog
-from DiseñoI import build_home_page
-from DiseñoD import build_devices_page
-from DiseñoM import build_more_page
-from DiseñoS import build_health_page
-from DiseñoC import build_config_page
+from DiseñoI import build_home_page, create_home_animations
+from DiseñoD import build_devices_page, create_devices_animations
+from DiseñoM import build_more_page, create_more_animations
+from DiseñoS import build_health_page, create_health_animations
+from DiseñoC import build_config_page, create_config_animations
 import database
 from widgets import NotesManager, DraggableNote, CustomScrollBar, NoFocusDelegate, style_table, CurrentMonthCalendar, CardButton, QuickAccessButton, GroupCard, DeviceRow
 from health import BPMGauge, MetricsPanel
@@ -1126,6 +1126,45 @@ class AnimatedBackground(QWidget):
             anim_in.start()
         anim_out.finished.connect(on_faded)
         anim_out.start()
+
+    def _play_page_animations(self, index: int) -> None:
+        animations = getattr(self, '_page_animations', {}).get(index)
+        if not animations:
+            return
+
+        for spec in animations:
+            anim = spec.get('animation') if isinstance(spec, dict) else None
+            if anim is None:
+                continue
+            prepare = spec.get('prepare') if isinstance(spec, dict) else None
+            if callable(prepare):
+                try:
+                    prepare()
+                except Exception:
+                    pass
+            delay = 0
+            if isinstance(spec, dict):
+                try:
+                    delay = int(spec.get('delay', 0) or 0)
+                except Exception:
+                    delay = 0
+
+            def start_anim(animation=anim):
+                try:
+                    animation.stop()
+                except Exception:
+                    pass
+                if hasattr(animation, 'setDirection'):
+                    try:
+                        animation.setDirection(QAbstractAnimation.Forward)
+                    except Exception:
+                        pass
+                animation.start()
+
+            if delay > 0:
+                QTimer.singleShot(delay, start_anim)
+            else:
+                start_anim()
 
     def _change_language(self, lang):
         if self.lang == lang:
@@ -1854,6 +1893,22 @@ class AnimatedBackground(QWidget):
         self.stack.addWidget(build_config_page(self))
         self.buttons[0].setChecked(True)
         self.stack.setCurrentIndex(0)
+        animation_builders = [
+            create_home_animations,
+            create_devices_animations,
+            create_more_animations,
+            create_health_animations,
+            create_config_animations,
+        ]
+        self._page_animations: dict[int, list[dict[str, object]]] = {}
+        for idx, builder in enumerate(animation_builders):
+            try:
+                specs = builder(self)
+            except Exception:
+                specs = []
+            self._page_animations[idx] = specs
+        self.stack.currentChanged.connect(self._play_page_animations)
+        self._play_page_animations(self.stack.currentIndex())
         right = QWidget()
         vr = QVBoxLayout(right)
         vr.setContentsMargins(30, 0, 30, 20)
@@ -2495,6 +2550,41 @@ if __name__ == '__main__':
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
     app = QApplication(sys.argv)
     splash = SplashScreen()
+    splash_specs = create_splash_animations(splash)
+    for spec in splash_specs:
+        if not isinstance(spec, dict):
+            continue
+        prepare = spec.get('prepare')
+        if callable(prepare):
+            try:
+                prepare()
+            except Exception:
+                pass
+        anim = spec.get('animation')
+        if anim is None:
+            continue
+        delay = 0
+        try:
+            delay = int(spec.get('delay', 0) or 0)
+        except Exception:
+            delay = 0
+
+        def start_anim(animation=anim):
+            try:
+                animation.stop()
+            except Exception:
+                pass
+            if hasattr(animation, 'setDirection'):
+                try:
+                    animation.setDirection(QAbstractAnimation.Forward)
+                except Exception:
+                    pass
+            animation.start()
+
+        if delay > 0:
+            QTimer.singleShot(delay, start_anim)
+        else:
+            start_anim()
     splash.exec_()
     login = LoginDialog(
         init_callback=database.init_db,

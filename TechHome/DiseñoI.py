@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtCore import Qt, QSize, QTimer, QEasingCurve, QPropertyAnimation
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QFrame,
@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
+    QGraphicsOpacityEffect,
 )
 
 from constants import CLR_BG, CLR_PANEL, CLR_SURFACE, CLR_TITLE, CLR_TEXT_IDLE, CLR_HOVER, HOME_RECENT_COUNT, FONT_FAM
@@ -46,6 +47,7 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
     app.home_time_label = tim
     QTimer(tim, timeout=lambda: tim.setText(app.current_time())).start(1000)
     grid.addWidget(greet, 0, 0, 1, 2)
+    app.home_greeting_frame = greet
 
     notif_header = QFrame()
     notif_header.setStyleSheet(f'background:{CLR_PANEL}; padding:8px 12px; border-top-left-radius:5px; border-top-right-radius:5px;')
@@ -71,6 +73,7 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
     notif_info_btn.clicked.connect(app._open_notifications_details)
     notif_layout.addWidget(notif_info_btn, alignment=Qt.AlignRight | Qt.AlignVCenter)
     grid.addWidget(notif_header, 1, 0)
+    app.home_notifications_header = notif_header
 
     nc = QFrame()
     nc.setStyleSheet(f'background:{CLR_BG}; border:none; border-radius:5px;')
@@ -103,6 +106,7 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
         ni_l.addWidget(row_frame)
     nv.addWidget(notif_inner)
     grid.addWidget(nc, 2, 0, 2, 1)
+    app.home_notifications_container = nc
 
     metrics_header = QFrame()
     metrics_header.setStyleSheet(f'background:{CLR_PANEL}; padding:8px 12px; border-top-left-radius:5px; border-top-right-radius:5px;')
@@ -128,6 +132,7 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
     info_btn.setStyleSheet('border:none; padding:0;')
     header_layout.addWidget(info_btn, alignment=Qt.AlignRight | Qt.AlignVCenter)
     grid.addWidget(metrics_header, 1, 1)
+    app.home_metrics_header = metrics_header
 
     sumf = QFrame()
     sumf.setStyleSheet(f'background:{CLR_PANEL}; border-bottom-left-radius:5px; border-bottom-right-radius:5px;')
@@ -150,6 +155,7 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
         gs.addWidget(g_container, r, cidx, alignment=Qt.AlignCenter)
         app.home_metric_gauges[key] = gauge
     grid.addWidget(sumf, 2, 1, 2, 1)
+    app.home_metrics_container = sumf
 
     l4 = QLabel('Accesos Rápidos')
     l4.setStyleSheet(f"background:{CLR_PANEL}; color:{CLR_TITLE}; font:700 20px '{FONT_FAM}'; padding:6px 12px; border-top-left-radius:5px; border-top-right-radius:5px;")
@@ -174,11 +180,92 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
         ('Cuenta', 'Cuenta.svg', 'Cuenta'),
     ]
     hh.addStretch(1)
+    app.quick_access_buttons = []
     for n, icn, page in acts:
         b = QuickAccessButton(n, icn)
         b.clicked.connect(lambda p=page: app._open_more_section(p, True))
         hh.addWidget(b)
+        app.quick_access_buttons.append(b)
     hh.addStretch(1)
     grid.addWidget(cf, 5, 0, 1, 2)
+    app.home_quick_access_frame = cf
 
     return w
+
+
+# ------------------------------------------------------------------
+# Animaciones
+# ------------------------------------------------------------------
+
+def create_home_animations(app) -> list[dict[str, object]]:
+    """Configurar animaciones suaves para la página de inicio."""
+
+    animations: list[dict[str, object]] = []
+
+    widgets_to_fade = [
+        getattr(app, 'home_greeting_frame', None),
+        getattr(app, 'home_notifications_header', None),
+        getattr(app, 'home_notifications_container', None),
+        getattr(app, 'home_metrics_header', None),
+        getattr(app, 'home_metrics_container', None),
+        getattr(app, 'home_quick_access_frame', None),
+    ]
+
+    for idx, widget in enumerate(filter(None, widgets_to_fade)):
+        effect = widget.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(450)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": idx * 80,
+            }
+        )
+
+    notif_rows = getattr(app, 'home_notif_rows', [])
+    for idx, (_icon_lbl, text_lbl) in enumerate(notif_rows):
+        row = text_lbl.parentWidget() or text_lbl
+        effect = row.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(row)
+            row.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(420)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": 180 + idx * 70,
+            }
+        )
+
+    quick_buttons = getattr(app, 'quick_access_buttons', [])
+    for idx, button in enumerate(quick_buttons):
+        effect = button.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(button)
+            button.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(400)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": 320 + idx * 90,
+            }
+        )
+
+    return animations

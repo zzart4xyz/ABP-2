@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QEasingCurve, QPropertyAnimation
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractSpinBox,
@@ -28,6 +28,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QSizePolicy,
+    QGraphicsOpacityEffect,
 )
 
 from constants import (
@@ -72,6 +73,7 @@ def build_more_page(app):
     items = ['Listas Y Notas', 'Recordatorios', 'Alarmas Y Timers', 'Calendario', 'Notificaciones', 'Cámaras', 'Historial De Salud', 'Información']
     page_map = {text: i + 1 for i, text in enumerate(items)}
     app.more_pages = page_map
+    app.more_grid_widget = gp
     icon_map = {
         'Listas Y Notas': 'Listas Y Notas.svg',
         'Recordatorios': 'Recordatorios.svg',
@@ -82,6 +84,7 @@ def build_more_page(app):
         'Historial De Salud': 'Historial De Salud.svg',
         'Información': 'Información.svg',
     }
+    app.more_card_buttons = []
     for idx, text in enumerate(items):
         icon_name = icon_map.get(text, None)
         ccard = CardButton(text, icon_name)
@@ -93,6 +96,7 @@ def build_more_page(app):
             ccard.clicked.connect(lambda ix=page_map[text], s=app: (setattr(s, 'from_home_more', False), s._switch_page(s.more_stack, ix)))
         r, cidx = divmod(idx, 2)
         g.addWidget(ccard, r, cidx)
+        app.more_card_buttons.append(ccard)
     g.setRowStretch(4, 1)
     app.more_stack.addWidget(gp)
     ln = QWidget()
@@ -627,4 +631,54 @@ def build_more_page(app):
     app.more_stack.addWidget(account_page)
     layout.addWidget(app.more_stack)
     return w
+
+
+# ------------------------------------------------------------------
+# Animaciones
+# ------------------------------------------------------------------
+
+def create_more_animations(app) -> list[dict[str, object]]:
+    """Configurar animaciones suaves para el apartado "Más"."""
+
+    animations: list[dict[str, object]] = []
+
+    grid_widget = getattr(app, 'more_grid_widget', None)
+    if grid_widget is not None:
+        effect = grid_widget.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(grid_widget)
+            grid_widget.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(450)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": 0,
+            }
+        )
+
+    cards = getattr(app, 'more_card_buttons', [])
+    for idx, card in enumerate(cards):
+        effect = card.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(card)
+            card.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(380)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": 120 + idx * 80,
+            }
+        )
+
+    return animations
 

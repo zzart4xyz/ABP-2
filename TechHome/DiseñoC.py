@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEasingCurve, QPropertyAnimation
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
+    QGraphicsOpacityEffect,
 )
 
 from constants import CLR_PANEL, CLR_TEXT_IDLE, CLR_TITLE, CLR_SURFACE, CLR_ITEM_ACT, FONT_FAM
@@ -24,6 +25,7 @@ def build_config_page(app):
     lbl_title = QLabel('Configuración')
     lbl_title.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:700 24px '{FONT_FAM}';")
     v.addWidget(lbl_title)
+    app.config_sections = []
 
     def make_combo_frame(label_text, options, callback):
         frame = QFrame()
@@ -51,6 +53,7 @@ def build_config_page(app):
 
     time_frame, app.combo_time = make_combo_frame('Tiempo:', ['24 hr', '12 hr'], lambda ix: app._set_time_format(ix == 0))
     v.addWidget(time_frame)
+    app.config_sections.extend([theme_frame, lang_frame, time_frame])
 
     notifF = QFrame()
     notifF.setFixedHeight(60)
@@ -66,6 +69,7 @@ def build_config_page(app):
     nh.addWidget(app.chk_notif)
     nh.addStretch(1)
     v.addWidget(notifF)
+    app.config_sections.append(notifF)
 
     aboutF = QFrame()
     aboutF.setFixedHeight(100)
@@ -79,6 +83,38 @@ def build_config_page(app):
     ah.addWidget(lbl_app)
     ah.addWidget(lbl_desc)
     v.addWidget(aboutF)
+    app.config_sections.append(aboutF)
     v.addStretch(1)
 
     return w
+
+
+# ------------------------------------------------------------------
+# Animaciones
+# ------------------------------------------------------------------
+
+def create_config_animations(app) -> list[dict[str, object]]:
+    """Configurar animaciones suaves para la página de configuración."""
+
+    animations: list[dict[str, object]] = []
+
+    sections = getattr(app, 'config_sections', [])
+    for idx, section in enumerate(sections):
+        effect = section.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(section)
+            section.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(400)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": idx * 100,
+            }
+        )
+
+    return animations

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QVBoxLayout, QWidget
+from PyQt5.QtCore import Qt, QEasingCurve, QPropertyAnimation
+from PyQt5.QtWidgets import QVBoxLayout, QWidget, QGraphicsOpacityEffect
 
 from health import BPMGauge, MetricsPanel
 
@@ -21,4 +21,36 @@ def build_health_page(app):
     l.addWidget(gauge, alignment=Qt.AlignHCenter)
     l.addWidget(metrics, alignment=Qt.AlignHCenter)
     l.addStretch(1)
+    app.health_gauge = gauge
+    app.health_metrics = metrics
     return w
+
+
+# ------------------------------------------------------------------
+# Animaciones
+# ------------------------------------------------------------------
+
+def create_health_animations(app) -> list[dict[str, object]]:
+    """Configurar animaciones suaves para la vista de salud."""
+
+    animations: list[dict[str, object]] = []
+
+    for idx, widget in enumerate(filter(None, [getattr(app, 'health_gauge', None), getattr(app, 'health_metrics', None)])):
+        effect = widget.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", app)
+        anim.setDuration(500)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.InOutCubic)
+        animations.append(
+            {
+                "animation": anim,
+                "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "delay": idx * 120,
+            }
+        )
+
+    return animations
