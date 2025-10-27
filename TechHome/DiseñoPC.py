@@ -300,6 +300,10 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
         fade.setStartValue(0.0)
         fade.setEndValue(1.0)
         fade.setEasingCurve(QEasingCurve.InOutCubic)
+        try:
+            fade.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
+        except Exception:
+            pass
         animations.append(
             {
                 "animation": fade,
@@ -319,6 +323,10 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
         btn_anim.setStartValue(0.0)
         btn_anim.setEndValue(1.0)
         btn_anim.setEasingCurve(QEasingCurve.InOutCubic)
+        try:
+            btn_anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
+        except Exception:
+            pass
         animations.append(
             {
                 "animation": btn_anim,

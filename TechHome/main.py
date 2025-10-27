@@ -1842,6 +1842,8 @@ class AnimatedBackground(QWidget):
         for pos, ccol in colors:
             grad.setColorAt(pos, ccol)
         p.fillRect(self.rect(), grad)
+        if p.isActive():
+            p.end()
 
     def _build_ui(self, container):
         root = QHBoxLayout(container)

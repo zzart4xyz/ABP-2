@@ -221,6 +221,10 @@ def create_home_animations(app) -> list[dict[str, object]]:
         anim.setStartValue(0.0)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.InOutCubic)
+        try:
+            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
+        except Exception:
+            pass
         animations.append(
             {
                 "animation": anim,
@@ -241,6 +245,10 @@ def create_home_animations(app) -> list[dict[str, object]]:
         anim.setStartValue(0.0)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.InOutCubic)
+        try:
+            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
+        except Exception:
+            pass
         animations.append(
             {
                 "animation": anim,
@@ -260,6 +268,10 @@ def create_home_animations(app) -> list[dict[str, object]]:
         anim.setStartValue(0.0)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.InOutCubic)
+        try:
+            anim.finished.connect(lambda eff=effect: eff.setOpacity(1.0))
+        except Exception:
+            pass
         animations.append(
             {
                 "animation": anim,
