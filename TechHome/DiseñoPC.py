@@ -308,6 +308,8 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
             {
                 "animation": fade,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": label,
                 "delay": idx * 120,
             }
         )
@@ -331,6 +333,8 @@ def create_splash_animations(splash: SplashScreen) -> list[dict[str, object]]:
             {
                 "animation": btn_anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": btn,
                 "delay": 300,
             }
         )

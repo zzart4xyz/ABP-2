@@ -229,6 +229,8 @@ def create_home_animations(app) -> list[dict[str, object]]:
             {
                 "animation": anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": widget,
                 "delay": idx * 80,
             }
         )
@@ -253,6 +255,8 @@ def create_home_animations(app) -> list[dict[str, object]]:
             {
                 "animation": anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": row,
                 "delay": 180 + idx * 70,
             }
         )
@@ -276,6 +280,8 @@ def create_home_animations(app) -> list[dict[str, object]]:
             {
                 "animation": anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": button,
                 "delay": 320 + idx * 90,
             }
         )

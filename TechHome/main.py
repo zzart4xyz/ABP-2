@@ -1137,11 +1137,8 @@ class AnimatedBackground(QWidget):
             if anim is None:
                 continue
             prepare = spec.get('prepare') if isinstance(spec, dict) else None
-            if callable(prepare):
-                try:
-                    prepare()
-                except Exception:
-                    pass
+            effect = spec.get('effect') if isinstance(spec, dict) else None
+            widget = spec.get('widget') if isinstance(spec, dict) else None
             delay = 0
             if isinstance(spec, dict):
                 try:
@@ -1149,7 +1146,22 @@ class AnimatedBackground(QWidget):
                 except Exception:
                     delay = 0
 
-            def start_anim(animation=anim):
+            def start_anim(
+                animation=anim,
+                prep=prepare,
+                eff=effect,
+                target=widget,
+            ):
+                if isinstance(target, QWidget) and isinstance(eff, QGraphicsOpacityEffect):
+                    try:
+                        target.setGraphicsEffect(eff)
+                    except Exception:
+                        pass
+                if callable(prep):
+                    try:
+                        prep()
+                    except Exception:
+                        pass
                 try:
                     animation.stop()
                 except Exception:
@@ -1165,6 +1177,22 @@ class AnimatedBackground(QWidget):
                 QTimer.singleShot(delay, start_anim)
             else:
                 start_anim()
+
+            if isinstance(effect, QGraphicsOpacityEffect):
+                duration = 0
+                try:
+                    duration = int(getattr(anim, 'duration', lambda: 0)() or 0)
+                except Exception:
+                    duration = 0
+
+                def ensure_visible(eff=effect):
+                    try:
+                        eff.setOpacity(1.0)
+                    except Exception:
+                        pass
+
+                total_delay = max(delay, 0) + max(duration, 0) + 50
+                QTimer.singleShot(total_delay, ensure_visible)
 
     def _change_language(self, lang):
         if self.lang == lang:

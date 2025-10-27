@@ -661,6 +661,8 @@ def create_more_animations(app) -> list[dict[str, object]]:
             {
                 "animation": anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": grid_widget,
                 "delay": 0,
             }
         )
@@ -684,6 +686,8 @@ def create_more_animations(app) -> list[dict[str, object]]:
             {
                 "animation": anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": card,
                 "delay": 120 + idx * 80,
             }
         )

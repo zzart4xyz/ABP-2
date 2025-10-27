@@ -248,6 +248,8 @@ def create_devices_animations(app) -> list[dict[str, object]]:
             {
                 "animation": anim,
                 "prepare": (lambda eff=effect: eff.setOpacity(0.0)),
+                "effect": effect,
+                "widget": widget,
                 "delay": idx * 90,
             }
         )
