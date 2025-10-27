@@ -55,7 +55,7 @@ def _get_notification_icon_name(self, text: str) -> str:
                     original = self._renamed_devices.get(name, name)
             except Exception:
                 original = name
-            icon_name = 'Devices.svg'
+            icon_name = 'Dispositivos.svg'
             for key, fname in self._device_icon_map.items():
                 # Match against the original name to preserve the icon assignment
                 if key in original:

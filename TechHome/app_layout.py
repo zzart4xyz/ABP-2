@@ -25,7 +25,7 @@ def _build_ui(self, container):
     menu_l.setContentsMargins(0, 0, 0, 0)
     menu_l.setSpacing(16)
     self.buttons = []
-    menu_items = [('Inicio', 'Home.svg'), ('Dispositivos', 'Devices.svg'), ('Más', 'More.svg'), ('Salud', 'Health.svg'), ('Configuración', 'Config.svg')]
+    menu_items = [('Inicio', 'Inicio.svg'), ('Dispositivos', 'Dispositivos.svg'), ('Más', 'Mas.svg'), ('Salud', 'Salud.svg'), ('Configuración', 'Configuracion.svg')]
     for i, (label, icn) in enumerate(menu_items):
         btn = QPushButton()
         btn.base_text = label
@@ -321,7 +321,7 @@ def _make_more_page(self):
     notes_l.setContentsMargins(0, 0, 0, 0)
     notes_l.setSpacing(8)
     add_note = QPushButton('Agregar nota')
-    add_note.setIcon(icon('More.svg'))
+    add_note.setIcon(icon('Mas.svg'))
     add_note.setIconSize(QSize(24, 24))
     add_note.setFixedHeight(40)
     add_note.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}'; background:transparent; border:none;")
@@ -378,7 +378,7 @@ def _make_more_page(self):
     self.input_record_datetime.setStyleSheet(input_style('QDateTimeEdit', CLR_SURFACE))
     self.input_record_datetime.setButtonSymbols(QAbstractSpinBox.NoButtons)
     btn_add_rec = QPushButton(' Añadir')
-    btn_add_rec.setIcon(icon('More.svg'))
+    btn_add_rec.setIcon(icon('Mas.svg'))
     btn_add_rec.setIconSize(QSize(16, 16))
     btn_add_rec.setFixedSize(120, 32)
     btn_add_rec.setCursor(Qt.PointingHandCursor)
@@ -452,7 +452,7 @@ def _make_more_page(self):
     self.input_alarm_datetime.setStyleSheet(input_style('QDateTimeEdit', CLR_SURFACE))
     self.input_alarm_datetime.setButtonSymbols(QAbstractSpinBox.NoButtons)
     btn_add_alarm = QPushButton(' Añadir')
-    btn_add_alarm.setIcon(icon('More.svg'))
+    btn_add_alarm.setIcon(icon('Mas.svg'))
     btn_add_alarm.setIconSize(QSize(16, 16))
     btn_add_alarm.setFixedSize(120, 32)
     btn_add_alarm.setCursor(Qt.PointingHandCursor)
@@ -507,7 +507,7 @@ def _make_more_page(self):
     self.input_timer_seconds.setStyleSheet(input_style('QSpinBox', CLR_SURFACE))
     self.input_timer_seconds.setButtonSymbols(QAbstractSpinBox.NoButtons)
     btn_add_timer = QPushButton(' Añadir')
-    btn_add_timer.setIcon(icon('More.svg'))
+    btn_add_timer.setIcon(icon('Mas.svg'))
     btn_add_timer.setIconSize(QSize(16, 16))
     btn_add_timer.setFixedSize(120, 32)
     btn_add_timer.setCursor(Qt.PointingHandCursor)

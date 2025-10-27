@@ -28,7 +28,7 @@ def _load_persistent_state(self) -> None:
                     original = self._renamed_devices.get(device_name, device_name)
             except Exception:
                 original = device_name
-            icon_override = 'Devices.svg'
+            icon_override = 'Dispositivos.svg'
             try:
                 for key, fname in self._device_icon_map.items():
                     if key in original:

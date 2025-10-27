@@ -73,7 +73,7 @@ def _add_device(self):
     # deliberately do not use the rename mapping here because this is a
     # freshly created device.  The override ensures consistent icons on
     # subsequent application launches.
-    icon_override = 'Devices.svg'
+    icon_override = 'Dispositivos.svg'
     try:
         # Use the device icon map defined in AnimatedBackground to select
         # an appropriate icon based on the name.  Fall back to the generic
@@ -215,7 +215,7 @@ def _make_devices_page(self):
     lbl = QLabel('Dispositivos')
     lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:700 24px '{FONT_FAM}'; border:none;")
     plus = QPushButton()
-    plus.setIcon(icon('More.svg'))
+    plus.setIcon(icon('Mas.svg'))
     plus.setIconSize(QSize(24, 24))
     plus.setFixedSize(32, 32)
     plus.setFlat(True)
@@ -235,12 +235,12 @@ def _make_devices_page(self):
     gl.setSpacing(16)
     self.grp_layout = gl
     self.group_cards = []
-    groups = [('Todo', 'Devices.svg'), ('Dormitorio', 'bed-front.svg'), ('Baño', 'toilet.svg'), ('Sala', 'tv.svg'), ('Comedor', 'utensils.svg'), ('Cocina', 'hat-chef.svg')]
+    groups = [('Todo', 'Dispositivos.svg'), ('Dormitorio', 'bed-front.svg'), ('Baño', 'toilet.svg'), ('Sala', 'tv.svg'), ('Comedor', 'utensils.svg'), ('Cocina', 'hat-chef.svg')]
     for title, icon_name in groups:
         card = GroupCard(title, icon_name, rename_callback=self._rename_group, select_callback=None)
         gl.addWidget(card)
         self.group_cards.append(card)
-    self.add_group_card = GroupCard('Grupo Nuevo', 'More.svg', add_callback=self._add_group)
+    self.add_group_card = GroupCard('Grupo Nuevo', 'Mas.svg', add_callback=self._add_group)
     gl.addWidget(self.add_group_card)
     grp_scroll = QScrollArea()
     grp_scroll.setWidget(grp_w)
@@ -296,7 +296,7 @@ def _make_devices_page(self):
                 original = self._renamed_devices.get(name, name)
         except Exception:
             original = name
-        icon_override = 'Devices.svg'
+        icon_override = 'Dispositivos.svg'
         for key, fname in self._device_icon_map.items():
             if key in original:
                 icon_override = fname

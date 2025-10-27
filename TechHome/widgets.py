@@ -459,7 +459,7 @@ class QuickAccessButton(QFrame):
 
 
 class GroupCard(QFrame):
-    def __init__(self, name: str, icon: str = "Home.svg", add_callback=None,
+    def __init__(self, name: str, icon: str = "Inicio.svg", add_callback=None,
                  rename_callback=None, select_callback=None):
         super().__init__()
         self.base_name = name
@@ -583,7 +583,7 @@ class DeviceRow(QFrame):
         h.setContentsMargins(12, 8, 12, 8)
         ic = QLabel()
         # Mapping of keywords to icon filenames.  If no keyword matches, the
-        # generic Devices.svg icon will be used.  This mapping mirrors the
+        # generic Dispositivos.svg icon will be used.  This mapping mirrors the
         # one used by AnimatedBackground for notifications.
         _icon_map = {
             "Luz": "lightbulb.svg",
@@ -611,7 +611,7 @@ class DeviceRow(QFrame):
         }
         # Determine which icon to use.  Use the override if provided,
         # otherwise search for a matching keyword in the device name.
-        icon_name = icon_override if icon_override else "Devices.svg"
+        icon_name = icon_override if icon_override else "Dispositivos.svg"
         if not icon_override:
             for key, fname in _icon_map.items():
                 if key in name:
