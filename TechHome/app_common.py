@@ -22,7 +22,14 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QLabel, 
 
 from constants import *
 from health import BPMGauge, MetricsPanel
-from widgets import CustomScrollBar, DeviceRow, DraggableNote, NotesManager, QuickAccessButton
+from widgets import (
+    CustomScrollBar,
+    DeviceRow,
+    DraggableNote,
+    NotesManager,
+    QuickAccessButton,
+    GroupCard,
+)
 
 def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
     return max(minimum, min(maximum, value))
