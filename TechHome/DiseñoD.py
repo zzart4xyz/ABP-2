@@ -91,7 +91,11 @@ def build_devices_page(app):
     app.group_indicator.setStyleSheet(f"background:{CLR_HOVER}; color:{CLR_TITLE}; font:700 16px '{FONT_FAM}'; padding:4px 8px; border-radius:5px;")
     v.addWidget(app.group_indicator)
 
-    fh = QHBoxLayout()
+    filter_bar = QWidget()
+    filter_bar.setStyleSheet('background:transparent;')
+    fh = QHBoxLayout(filter_bar)
+    fh.setContentsMargins(0, 0, 0, 0)
+    fh.setSpacing(12)
     search = QLineEdit()
     search.setFixedHeight(40)
     search.setPlaceholderText('Buscar')
@@ -115,7 +119,9 @@ def build_devices_page(app):
     fh.addWidget(search, 1)
     fh.addWidget(cb1)
     fh.addWidget(cb2)
-    v.addLayout(fh)
+    v.addWidget(filter_bar)
+
+    app.devices_filter_bar = filter_bar
 
     dev_w = QWidget()
     dev_w.setStyleSheet('background:transparent;')
@@ -164,6 +170,8 @@ def build_devices_page(app):
     dev_scroll.setStyleSheet('background:transparent;')
     dev_scroll.viewport().setStyleSheet('background:transparent;')
     v.addWidget(dev_scroll, 1)
+
+    app.device_scroll_area = dev_scroll
 
     app.active_group = 'Todo'
 
@@ -216,21 +224,22 @@ def build_devices_page(app):
 # ------------------------------------------------------------------
 
 def create_devices_animations(app) -> list[dict[str, object]]:
-    """Animaciones suaves para la cabecera y el listado de dispositivos."""
+    """Animaciones afinadas para un arranque ligero del apartado de dispositivos."""
 
-    def slide(target_getter, order: int, *, duration: int = 240, offset: float = 22.0, step: int = 28) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = 180, offset: float = 14.0, step: int = 24, fade: bool = True) -> dict[str, object]:
         return {
-            'type': 'slide_fade',
+            'type': 'slide_fade' if fade else 'slide',
             'target': target_getter,
             'delay': max(0, order) * step,
             'duration': duration,
             'offset': offset,
             'direction': 'down',
             'easing': QEasingCurve.OutCubic,
+            'fade': fade,
         }
 
     return [
-        slide(lambda: getattr(app, 'devices_group_container', None), 0, duration=205, offset=16.0),
-        slide(lambda: getattr(app, 'group_indicator', None), 1, duration=215, offset=19.0),
-        slide(lambda: getattr(app, 'device_list_widget', None), 2, duration=235, offset=24.0),
+        slide(lambda: getattr(app, 'devices_group_container', None), 0, duration=165, offset=12.0),
+        slide(lambda: getattr(app, 'group_indicator', None), 1, duration=170, offset=10.0),
+        slide(lambda: getattr(app, 'devices_filter_bar', None), 2, duration=175, offset=11.0),
     ]
