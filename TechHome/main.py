@@ -359,7 +359,7 @@ class MetricsDetailsDialog(QDialog):
             ),
             MetricSpec(
                 key='temp',
-                icon_name='temperature-high.svg',
+                icon_name='Calentador Agua.svg',
                 label='Temperatura',
                 progress_fn=lambda dlg, value: dlg._progress_by_scale(value, 40.0),
                 value_fn=lambda dlg, value: f'{value:.1f}°C',
@@ -938,7 +938,30 @@ class AnimatedBackground(QWidget):
         self.hide_anim.finished.connect(self.popup_label.hide)
         self.popup_label.hide()
         self.notifications_enabled = True
-        self._device_icon_map: dict[str, str] = {'Luz': 'lightbulb.svg', 'Luces': 'lightbulb.svg', 'Lámpara': 'lamp-desk.svg', 'Ventilador': 'fan.svg', 'Aire Acondicionado': 'air-conditioner.svg', 'Cortinas': 'blinds.svg', 'Persianas': 'blinds.svg', 'Enchufe': 'plug.svg', 'Extractor': 'wind.svg', 'Calentador Agua': 'temperature-high.svg', 'Espejo': 'circle-half-stroke.svg', 'Ducha': 'shower.svg', 'Televisor': 'tv.svg', 'Consola Juegos': 'gamepad.svg', 'Equipo Sonido': 'boombox.svg', 'Calefactor': 'fire.svg', 'Refrigerador': 'refrigerator.svg', 'Horno': 'oven.svg', 'Microondas': 'microwave.svg', 'Lavavajillas': 'washing-machine.svg', 'Licuadora': 'blender.svg', 'Cafetera': 'mug-saucer.svg'}
+        self._device_icon_map: dict[str, str] = {
+            'Luz': 'Luz.svg',
+            'Luces': 'Luces.svg',
+            'Lámpara': 'Lámpara.svg',
+            'Ventilador': 'Ventilador.svg',
+            'Aire Acondicionado': 'Aire Acondicionado.svg',
+            'Cortinas': 'Cortinas.svg',
+            'Persianas': 'Persianas.svg',
+            'Enchufe': 'Enchufe.svg',
+            'Extractor': 'Extractor.svg',
+            'Calentador Agua': 'Calentador Agua.svg',
+            'Espejo': 'Espejo.svg',
+            'Ducha': 'Ducha.svg',
+            'Televisor': 'Televisor.svg',
+            'Consola Juegos': 'Consola Juegos.svg',
+            'Equipo Sonido': 'Equipo Sonido.svg',
+            'Calefactor': 'Calefactor.svg',
+            'Refrigerador': 'Refrigerador.svg',
+            'Horno': 'Horno.svg',
+            'Microondas': 'Microondas.svg',
+            'Lavavajillas': 'Lavavajillas.svg',
+            'Licuadora': 'Licuadora.svg',
+            'Cafetera': 'Cafetera.svg',
+        }
         self.metric_timer = QTimer(self, timeout=self._update_metrics)
         self.metric_timer.start(5000)
         self.metric_history: dict[str, list[float]] = {'devices': [], 'temp': [], 'energy': [], 'water': []}
@@ -2001,7 +2024,7 @@ class AnimatedBackground(QWidget):
         gs.setContentsMargins(16, 16, 16, 16)
         gs.setHorizontalSpacing(16)
         gs.setVerticalSpacing(16)
-        gauge_specs = [('devices', 'mobile.svg'), ('temp', 'temperature-high.svg'), ('energy', 'bolt.svg'), ('water', 'droplet.svg')]
+        gauge_specs = [('devices', 'mobile.svg'), ('temp', 'Calentador Agua.svg'), ('energy', 'bolt.svg'), ('water', 'droplet.svg')]
         self.home_metric_gauges = {}
         for i, (key, icon_name) in enumerate(gauge_specs):
             r, cidx = divmod(i, 2)
@@ -2030,7 +2053,12 @@ class AnimatedBackground(QWidget):
         hh = QHBoxLayout(cf)
         hh.setContentsMargins(16, 16, 16, 16)
         hh.setSpacing(16)
-        acts = [('Historial De Salud', 'files-medical.svg', 'Historial De Salud'), ('Cámaras', 'camera-cctv.svg', 'Cámaras'), ('Notificaciones', 'bell-on.svg', 'Notificaciones'), ('Cuenta', 'user.svg', 'Cuenta')]
+        acts = [
+            ('Historial De Salud', 'Historial De Salud.svg', 'Historial De Salud'),
+            ('Cámaras', 'Cámaras.svg', 'Cámaras'),
+            ('Notificaciones', 'Notificaciones.svg', 'Notificaciones'),
+            ('Cuenta', 'Cuenta.svg', 'Cuenta'),
+        ]
         hh.addStretch(1)
         for n, icn, page in acts:
             b = QuickAccessButton(n, icn)
@@ -2069,7 +2097,14 @@ class AnimatedBackground(QWidget):
         gl.setSpacing(16)
         self.grp_layout = gl
         self.group_cards = []
-        groups = [('Todo', 'Devices.svg'), ('Dormitorio', 'bed-front.svg'), ('Baño', 'toilet.svg'), ('Sala', 'tv.svg'), ('Comedor', 'utensils.svg'), ('Cocina', 'hat-chef.svg')]
+        groups = [
+            ('Todo', 'Todo.svg'),
+            ('Dormitorio', 'Dormitorio.svg'),
+            ('Baño', 'Baño.svg'),
+            ('Sala', 'Sala.svg'),
+            ('Comedor', 'Comedor.svg'),
+            ('Cocina', 'Cocina.svg'),
+        ]
         for title, icon_name in groups:
             card = GroupCard(title, icon_name, rename_callback=self._rename_group, select_callback=None)
             gl.addWidget(card)
@@ -2204,7 +2239,16 @@ class AnimatedBackground(QWidget):
         items = ['Listas Y Notas', 'Recordatorios', 'Alarmas Y Timers', 'Calendario', 'Notificaciones', 'Cámaras', 'Historial De Salud', 'Información']
         page_map = {text: i + 1 for i, text in enumerate(items)}
         self.more_pages = page_map
-        icon_map = {'Listas Y Notas': 'clipboard-list.svg', 'Recordatorios': 'bell.svg', 'Alarmas Y Timers': 'alarm-clock.svg', 'Calendario': 'calendar-days.svg', 'Notificaciones': 'bell-on.svg', 'Cámaras': 'camera-cctv.svg', 'Historial De Salud': 'files-medical.svg', 'Información': 'info.svg'}
+        icon_map = {
+            'Listas Y Notas': 'clipboard-list.svg',
+            'Recordatorios': 'bell.svg',
+            'Alarmas Y Timers': 'alarm-clock.svg',
+            'Calendario': 'calendar-days.svg',
+            'Notificaciones': 'Notificaciones.svg',
+            'Cámaras': 'Cámaras.svg',
+            'Historial De Salud': 'Historial De Salud.svg',
+            'Información': 'info.svg',
+        }
         for idx, text in enumerate(items):
             icon_name = icon_map.get(text, None)
             ccard = CardButton(text, icon_name)
@@ -2674,10 +2718,36 @@ class AnimatedBackground(QWidget):
         grid.setContentsMargins(0, 8, 0, 0)
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(16)
-        summary_items = [('Dispositivos', 'acc_dev_label', 'cube.svg'), ('Listas', 'acc_list_label', 'clipboard-list.svg'), ('Notas', 'acc_note_label', 'note-sticky.svg'), ('Recordatorios', 'acc_rem_label', 'bell.svg'), ('Alarmas', 'acc_alarm_label', 'clock.svg'), ('Timers', 'acc_timer_label', 'stopwatch.svg'), ('Historial Salud', 'acc_health_label', 'file-medical.svg'), ('Acciones', 'acc_action_label', 'user.svg'), ('Tema', 'acc_theme_label', 'gear.svg'), ('Idioma', 'acc_lang_label', 'globe.svg'), ('Hora', 'acc_time_label', 'clock.svg'), ('Notificaciones', 'acc_notif_label', 'bell.svg')]
+        summary_items = [
+            ('Dispositivos', 'acc_dev_label', 'cube.svg'),
+            ('Listas', 'acc_list_label', 'clipboard-list.svg'),
+            ('Notas', 'acc_note_label', 'note-sticky.svg'),
+            ('Recordatorios', 'acc_rem_label', 'bell.svg'),
+            ('Alarmas', 'acc_alarm_label', 'clock.svg'),
+            ('Timers', 'acc_timer_label', 'stopwatch.svg'),
+            ('Historial Salud', 'acc_health_label', 'Historial De Salud.svg'),
+            ('Acciones', 'acc_action_label', 'user.svg'),
+            ('Tema', 'acc_theme_label', 'gear.svg'),
+            ('Idioma', 'acc_lang_label', 'globe.svg'),
+            ('Hora', 'acc_time_label', 'clock.svg'),
+            ('Notificaciones', 'acc_notif_label', 'bell.svg'),
+        ]
         cols = 3
         fa_solid_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid')
-        loc_icon_map = {'Dispositivos': 'house.svg', 'Listas': 'list.svg', 'Notas': 'note-sticky.svg', 'Recordatorios': 'calendar-days.svg', 'Alarmas': 'clock.svg', 'Timers': 'hourglass-half.svg', 'Historial Salud': 'file-medical.svg', 'Acciones': 'clock-rotate-left.svg', 'Tema': 'palette.svg', 'Idioma': 'language.svg', 'Hora': 'clock.svg', 'Notificaciones': 'bell.svg'}
+        loc_icon_map = {
+            'Dispositivos': 'house.svg',
+            'Listas': 'list.svg',
+            'Notas': 'note-sticky.svg',
+            'Recordatorios': 'calendar-days.svg',
+            'Alarmas': 'clock.svg',
+            'Timers': 'hourglass-half.svg',
+            'Historial Salud': 'Historial De Salud.svg',
+            'Acciones': 'clock-rotate-left.svg',
+            'Tema': 'palette.svg',
+            'Idioma': 'language.svg',
+            'Hora': 'clock.svg',
+            'Notificaciones': 'bell.svg',
+        }
         for idx, (title, attr_name, icon_name) in enumerate(summary_items):
             card = QFrame()
             card.setStyleSheet(f'background:{CLR_PANEL}; border:2px solid {CLR_TITLE}; border-radius:5px;')
