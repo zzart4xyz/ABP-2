@@ -2548,7 +2548,12 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     splash = SplashScreen()
     splash.exec_()
-    login = LoginDialog()
+    login = LoginDialog(
+        init_callback=database.init_db,
+        authenticate_callback=database.authenticate,
+        create_user_callback=database.create_user,
+        log_action_callback=database.log_action,
+    )
     if login.exec_() == QDialog.Accepted:
         username = getattr(login, 'current_user', None)
         login_ts = datetime.now()

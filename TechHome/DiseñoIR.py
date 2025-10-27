@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 import constants as c
-import database
 
 from PyQt5.QtCore import (
     Qt,
@@ -30,6 +31,20 @@ from PyQt5.QtWidgets import (
 )
 
 from ui_helpers import apply_rounded_mask as _apply_rounded_mask
+
+# ---------------------------------------------------------------------------
+# Tipos de callback para separar la lógica de la interfaz.
+#
+# El diseño debe vivir en este módulo, mientras que la lógica de acceso a
+# datos (por ejemplo, validaciones o escritura en base de datos) debe ser
+# suministrada desde el exterior.  Para ello se emplean ``Callable`` con
+# firmas bien definidas que pueden inyectarse desde ``main.py``.
+# ---------------------------------------------------------------------------
+
+AuthCallback = Callable[[str, str], bool]
+CreateUserCallback = Callable[[str, str], bool]
+LogActionCallback = Callable[[str, str], None]
+InitCallback = Callable[[], None]
 
 
 def show_message(parent, title: str, text: str) -> None:
@@ -383,7 +398,15 @@ class LoginDialog(QDialog):
     constants to maintain visual consistency.
     """
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        parent=None,
+        *,
+        init_callback: Optional[InitCallback] = None,
+        authenticate_callback: Optional[AuthCallback] = None,
+        create_user_callback: Optional[CreateUserCallback] = None,
+        log_action_callback: Optional[LogActionCallback] = None,
+    ):
         super().__init__(parent)
         # Apply frameless, translucent styling like the rest of the application.
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
@@ -395,8 +418,20 @@ class LoginDialog(QDialog):
         self.lang = getattr(parent, 'lang', 'es') if parent else 'es'
         self.mapping = c.TRANSLATIONS_EN if self.lang == 'en' else {}
 
-        # Initialise the local user database.
-        database.init_db()
+        # Callbacks que conectan la interfaz con la lógica de negocio.
+        # Si no se proveen, se utilizan versiones inertes para mantener
+        # el comportamiento puramente visual.
+        self._init_callback: InitCallback = init_callback or (lambda: None)
+        self._authenticate: AuthCallback = authenticate_callback or (lambda _u, _p: False)
+        self._create_user: CreateUserCallback = create_user_callback or (lambda _u, _p: False)
+        self._log_action: Optional[LogActionCallback] = log_action_callback
+
+        # Inicializar recursos externos si el llamador lo requiere.
+        try:
+            self._init_callback()
+        except Exception:
+            # El diseño no debe fallar si la inicialización externa falla.
+            pass
 
         # Track the username of the currently authenticated user.  This
         # attribute is set upon successful login in ``_on_login_action``.
@@ -876,7 +911,11 @@ class LoginDialog(QDialog):
         if not username or not password:
             show_message(self, "Error", "Debes introducir un usuario y una contraseña.")
             return
-        if database.authenticate(username, password):
+        try:
+            authenticated = self._authenticate(username, password)
+        except Exception:
+            authenticated = False
+        if authenticated:
             # Record the authenticated username for the calling code
             # before closing the dialog.  This allows the main
             # application to personalise the UI and log user actions.
@@ -897,8 +936,11 @@ class LoginDialog(QDialog):
                 "You must enter a username and a password."
             ))
             return
-        # Attempt to create the user in the database
-        if not database.create_user(username, password):
+        try:
+            created = self._create_user(username, password)
+        except Exception:
+            created = False
+        if not created:
             show_message(self, "Error", self.mapping.get(
                 "El nombre de usuario ya existe.",
                 "The username already exists."
@@ -909,7 +951,11 @@ class LoginDialog(QDialog):
         # account history.  This call uses the plain username rather than a
         # hashed value to keep the log readable.  It is safe from SQL
         # injection because the underlying function uses parameter binding.
-        database.log_action(username, "Registro de usuario")
+        if self._log_action is not None:
+            try:
+                self._log_action(username, "Registro de usuario")
+            except Exception:
+                pass
         show_message(
             self,
             self.mapping.get("Éxito", "Success"),
