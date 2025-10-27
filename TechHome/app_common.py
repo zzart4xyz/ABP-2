@@ -30,7 +30,11 @@ from widgets import (
     NotesManager,
     QuickAccessButton,
     GroupCard,
+    NoFocusDelegate,
+    style_table,
+    CurrentMonthCalendar,
 )
+from dialogs import NewElementDialog, NewListDialog, NewNoteDialog
 
 def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
     return max(minimum, min(maximum, value))

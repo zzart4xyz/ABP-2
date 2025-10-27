@@ -126,7 +126,7 @@ def _make_home_page(self):
     nv = QVBoxLayout(nc)
     nv.setContentsMargins(0, 0, 0, 0)
     nv.setSpacing(0)
-    self.home_notif_rows: list[tuple[QLabel, QLabel]] = []
+    self.home_notif_rows = []  # type: list[tuple[QLabel, QLabel]]
     notif_inner = QFrame()
     notif_inner.setStyleSheet('background:transparent;')
     ni_l = QVBoxLayout(notif_inner)

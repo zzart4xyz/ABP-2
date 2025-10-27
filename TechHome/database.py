@@ -29,23 +29,32 @@ Functions
 import sqlite3
 import os
 import hashlib
+import importlib
 from typing import Optional
 
-try:
-    # The argon2-cffi library provides a modern memory-hard password hashing
-    # function.  We use PasswordHasher to produce and verify password
-    # hashes.  The chosen parameters follow OWASP recommendations: a
-    # memory cost of 64 MiB, a time cost of 3 iterations, and a
-    # parallelism of 1 thread【861376995772924†L366-L383】.
-    from argon2 import PasswordHasher, exceptions as argon2_exceptions
 
-    # Configure Argon2id parameters.  memory_cost is in kibibytes.
-    _ph = PasswordHasher(memory_cost=64 * 1024, time_cost=3, parallelism=1)
-except Exception:
-    # If argon2-cffi is not available, raise an informative error when
-    # attempted to create or verify a password.  The code below will
-    # reference _ph; if it's None, an exception will be thrown.
-    _ph = None
+class _DummyArgon2Exceptions:
+    VerifyMismatchError = Exception
+    VerificationError = Exception
+
+
+argon2_exceptions = _DummyArgon2Exceptions()
+PasswordHasher = None
+_ph = None
+
+try:
+    argon2_module = importlib.import_module("argon2")
+except ImportError:
+    argon2_module = None
+else:
+    PasswordHasher = getattr(argon2_module, "PasswordHasher", None)
+    argon2_exceptions = getattr(argon2_module, "exceptions", argon2_exceptions)
+    if PasswordHasher is not None:
+        try:
+            # Configure Argon2id parameters.  memory_cost is in kibibytes.
+            _ph = PasswordHasher(memory_cost=64 * 1024, time_cost=3, parallelism=1)
+        except Exception:
+            _ph = None
 
 
 # -----------------------------------------------------------------------------
