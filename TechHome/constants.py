@@ -3,8 +3,8 @@ import random
 import csv
 from datetime import datetime, timedelta
 
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QColor, QIcon, QPixmap
+from PyQt5.QtCore import Qt, QDate, QSize
+from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
 """
@@ -137,6 +137,71 @@ def resolve_icon_path(name: str) -> str | None:
         if os.path.isfile(candidate):
             return candidate
     return None
+
+
+def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
+    """Load ``name`` as a pixmap of ``size`` searching known icon folders."""
+
+    try:
+        icon_path = resolve_icon_path(name)
+        if icon_path:
+            ico = QIcon(icon_path)
+            pix = ico.pixmap(size)
+            if not pix.isNull():
+                return pix
+    except Exception:
+        pass
+    base_dir = None
+    try:
+        base_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "node_modules",
+            "@fortawesome",
+            "fontawesome-free",
+            "svgs",
+            "solid",
+        )
+        candidate = os.path.join(base_dir, name)
+        if os.path.isfile(candidate):
+            ico = QIcon(candidate)
+            pix = ico.pixmap(size)
+            if not pix.isNull():
+                return pix
+    except Exception:
+        pass
+    fallback_candidates = []
+    if base_dir is not None:
+        fallback_candidates.append(os.path.join(base_dir, "circle-info.svg"))
+        fallback_candidates.append(os.path.join(base_dir, "info.svg"))
+    info_path = resolve_icon_path("Información.svg")
+    if info_path:
+        fallback_candidates.append(info_path)
+    for fb in fallback_candidates:
+        if fb and os.path.isfile(fb):
+            try:
+                ico = QIcon(fb)
+                pix = ico.pixmap(size)
+                if not pix.isNull():
+                    return pix
+            except Exception:
+                continue
+    return QPixmap(size)
+
+
+def tint_pixmap(pixmap: QPixmap, color: QColor) -> QPixmap:
+    """Return a tinted copy of ``pixmap`` using ``color`` as the overlay."""
+
+    if pixmap.isNull():
+        return pixmap
+    tinted = QPixmap(pixmap.size())
+    tinted.fill(Qt.transparent)
+    painter = QPainter(tinted)
+    painter.setCompositionMode(QPainter.CompositionMode_Source)
+    painter.drawPixmap(0, 0, pixmap)
+    painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+    painter.fillRect(tinted.rect(), color)
+    painter.end()
+    return tinted
 
 # Path to the logo used in the splash screen.  By default this points to
 # ``Logos/Logo.png`` relative to the project root.  Users may provide a

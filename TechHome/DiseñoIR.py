@@ -16,7 +16,7 @@ from PyQt5.QtCore import (
     QSize,
     pyqtProperty,
 )
-from PyQt5.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
+from PyQt5.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt5.QtWidgets import (
     QDialog,
     QFrame,

@@ -1,8 +1,8 @@
-from PyQt5.QtCore import Qt, QRectF, QPoint, QSize, QDate, QTimer, QPointF, pyqtSignal, QPropertyAnimation
+from PyQt5.QtCore import Qt, QRectF, QPoint, QSize, QDate, QTimer, QPointF, pyqtSignal, QPropertyAnimation, QEvent
 from PyQt5.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QPixmap,
     QRadialGradient, QConicalGradient, QTextCharFormat, QTransform,
-    QIcon
+    QIcon, QLinearGradient, QPainterPath
 )
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea,

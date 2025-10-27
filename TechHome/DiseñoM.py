@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractSpinBox,
     QCalendarWidget,
@@ -26,10 +27,12 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QVBoxLayout,
     QWidget,
+    QSizePolicy,
 )
 
 from constants import (
     CLR_BG,
+    CLR_HOVER,
     CLR_HEADER_BG,
     CLR_HEADER_TEXT,
     CLR_ITEM_ACT,
@@ -42,6 +45,8 @@ from constants import (
     icon,
     input_style,
     make_shadow,
+    load_icon_pixmap,
+    tint_pixmap,
 )
 from widgets import (
     CardButton,
@@ -49,6 +54,7 @@ from widgets import (
     DraggableNote,
     NoFocusDelegate,
     NotesManager,
+    CurrentMonthCalendar,
     style_table,
 )
 
