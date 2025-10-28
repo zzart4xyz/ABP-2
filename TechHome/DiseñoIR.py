@@ -6,31 +6,19 @@ from typing import Callable, Optional
 
 import constants as c
 
-from PyQt5.QtCore import (
-    Qt,
-    QEasingCurve,
-    QEvent,
-    QParallelAnimationGroup,
-    QPoint,
-    QPropertyAnimation,
-    QSize,
-    pyqtProperty,
-)
-from PyQt5.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPainterPath, QPen
+from PyQt5.QtCore import Qt, QEvent, QPoint, QPropertyAnimation, QSize
+from PyQt5.QtGui import QColor, QIcon, QPainter, QPen
 from PyQt5.QtWidgets import (
-    QDialog,
     QFrame,
-    QGraphicsOpacityEffect,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
     QToolButton,
     QVBoxLayout,
-    QHBoxLayout,
 )
 
-from ui_helpers import apply_rounded_mask as _apply_rounded_mask
+from dialogs import BaseFormDialog
 
 # ---------------------------------------------------------------------------
 # Tipos de callback para separar la lógica de la interfaz.
@@ -293,110 +281,150 @@ class FloatingLabelInput(QFrame):
 
     def setEchoMode(self, mode):
         self.line_edit.setEchoMode(mode)
-class TriangularBackground(QFrame):
-    """
-    A custom QFrame that draws a polygonal background with a diagonal edge
-    separating a coloured gradient from the dark panel.  The orientation
-    determines whether the gradient appears on the left or right side.  The
-    shape is controlled by two ratios which specify the width of the
-    gradient at the top and bottom.  A border is drawn along the edges of
-    the gradient region to match the application's accent colour.
+class _LoginContent(QFrame):
+    """Contenido reutilizable para el diálogo de inicio de sesión."""
 
-    Parameters
-    ----------
-    orientation : str
-        Either ``'left'`` or ``'right'``.  When ``'left'``, the gradient
-        region occupies the left side of the frame; when ``'right'``, it
-        occupies the right side.
-    t_ratio : float
-        The relative width of the gradient region at the top of the frame.
-        Must be between 0 and 1.  Defaults to 0.7.
-    b_ratio : float
-        The relative width of the gradient region at the bottom of the frame.
-        Must be between 0 and 1.  Defaults to 0.3.
-    """
-
-    def __init__(self, orientation: str = 'left', t_ratio: float = 0.7, b_ratio: float = 0.3, parent=None):
+    def __init__(self, mapping, parent=None):
         super().__init__(parent)
-        self.orientation = orientation
-        self.t_ratio = t_ratio
-        self.b_ratio = b_ratio
-        self.setStyleSheet("background:transparent;")
+        self._mapping = mapping or {}
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(18)
 
-    # Expose t_ratio and b_ratio as animatable properties.  Defining
-    # getters and setters along with ``pyqtProperty`` allows
-    # ``QPropertyAnimation`` to smoothly transition these values.  Each setter
-    # triggers a repaint so the diagonal updates in real time.
-    def getTRatio(self) -> float:
-        return self.t_ratio
+        title = QLabel(self._mapping.get("Iniciar Sesión", "Iniciar Sesión"))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 26px '{c.FONT_FAM}';")
+        layout.addWidget(title)
 
-    def setTRatio(self, value: float):
-        self.t_ratio = value
-        self.update()
+        subtitle = QLabel(self._mapping.get(
+            "Introduce tus credenciales para continuar.",
+            "Enter your credentials to continue.",
+        ))
+        subtitle.setWordWrap(True)
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:500 13px '{c.FONT_FAM}';")
+        layout.addWidget(subtitle)
 
-    def getBRatio(self) -> float:
-        return self.b_ratio
+        self.user_input = FloatingLabelInput(
+            self._mapping.get("Usuario", "Usuario"),
+            label_px=16,
+            right_icon_name="Usuario.svg",
+        )
+        self.user_input.setFixedHeight(64)
+        layout.addWidget(self.user_input)
 
-    def setBRatio(self, value: float):
-        self.b_ratio = value
-        self.update()
+        self.password_input = FloatingLabelInput(
+            self._mapping.get("Contraseña", "Contraseña"),
+            is_password=True,
+            label_px=16,
+        )
+        self.password_input.setFixedHeight(64)
+        layout.addWidget(self.password_input)
 
-    tRatio = pyqtProperty(float, fget=getTRatio, fset=setTRatio)
-    bRatio = pyqtProperty(float, fget=getBRatio, fset=setBRatio)
+        self.feedback = QLabel("")
+        self.feedback.setWordWrap(True)
+        self.feedback.setAlignment(Qt.AlignCenter)
+        self.feedback.hide()
+        layout.addWidget(self.feedback)
 
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        w = self.width()
-        h = self.height()
-        # Fill the gradient region
-        path = QPainterPath()
-        if self.orientation == 'left':
-            x_top = self.t_ratio * w
-            x_bottom = self.b_ratio * w
-            path.moveTo(0, 0)
-            path.lineTo(x_top, 0)
-            path.lineTo(x_bottom, h)
-            path.lineTo(0, h)
-            path.closeSubpath()
-        else:
-            x_top = w * (1 - self.t_ratio)
-            x_bottom = w * (1 - self.b_ratio)
-            path.moveTo(x_top, 0)
-            path.lineTo(w, 0)
-            path.lineTo(w, h)
-            path.lineTo(x_bottom, h)
-            path.closeSubpath()
-        grad = QLinearGradient(0, 0, w, h)
-        grad.setColorAt(0.0, QColor(c.CLR_TITLE))
-        grad.setColorAt(1.0, QColor(c.CLR_ITEM_ACT))
-        painter.fillPath(path, grad)
-        # Draw only the diagonal line to avoid conflicting with the global border
-        pen = QPen(QColor(c.CLR_TITLE))
-        pen.setWidth(2)
-        painter.setPen(pen)
-        if self.orientation == 'left':
-            painter.drawLine(int(x_top), 0, int(x_bottom), h)
-        else:
-            painter.drawLine(int(x_top), 0, int(x_bottom), h)
-        painter.end()
+        layout.addStretch(1)
 
-# The following class redeclaration replaces the previously defined
-# ``LoginDialog`` with a split‑screen design inspired by the reference
-# images supplied by the user.  In Python, later definitions of a
-# class with the same name override earlier ones at import time, so
-# this version will be used by the application.
-class LoginDialog(QDialog):
-    """Login and registration dialog with a modern split‑screen design.
+        self.register_button = QPushButton(self._mapping.get(
+            "¿No Tienes Una Cuenta? Regístrate",
+            "¿No Tienes Una Cuenta? Regístrate",
+        ))
+        self.register_button.setCursor(Qt.PointingHandCursor)
+        self.register_button.setStyleSheet(
+            f"QPushButton {{ background:transparent; border:none; color:{c.CLR_TITLE}; font:600 14px '{c.FONT_FAM}'; }}\n"
+            f"QPushButton:hover {{ color:{c.CLR_TEXT_IDLE}; }}"
+        )
+        layout.addWidget(self.register_button, alignment=Qt.AlignCenter)
 
-    This implementation replaces the old login/register layout with a two‑panel
-    interface.  The dark form panel contains the input fields and buttons,
-    while a gradient message panel occupies the opposite side.  Switching
-    between login and registration views triggers a sliding animation for a
-    fluid transition.  Colours are drawn from the application's theme
-    constants to maintain visual consistency.
-    """
+    def show_feedback(self, text: str, *, error: bool = True) -> None:
+        if not text:
+            self.feedback.hide()
+            self.feedback.setText("")
+            return
+        colour = "#ff6b6b" if error else c.CLR_TITLE
+        self.feedback.setStyleSheet(f"color:{colour}; font:600 13px '{c.FONT_FAM}';")
+        self.feedback.setText(text)
+        self.feedback.show()
+
+    def clear_password(self) -> None:
+        self.password_input.setText("")
+
+    def focus_username(self) -> None:
+        self.user_input.line_edit.setFocus()
+
+    def focus_password(self) -> None:
+        self.password_input.line_edit.setFocus()
+
+
+class _RegisterContent(QFrame):
+    """Contenido del diálogo de registro con estilo consistente."""
+
+    def __init__(self, mapping, parent=None):
+        super().__init__(parent)
+        self._mapping = mapping or {}
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(18)
+
+        title = QLabel(self._mapping.get("Registrarse", "Registrarse"))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 26px '{c.FONT_FAM}';")
+        layout.addWidget(title)
+
+        helper = QLabel(self._mapping.get(
+            "Crea tu cuenta para comenzar a personalizar TechHome.",
+            "Create your account to start personalising TechHome.",
+        ))
+        helper.setWordWrap(True)
+        helper.setAlignment(Qt.AlignCenter)
+        helper.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:500 13px '{c.FONT_FAM}';")
+        layout.addWidget(helper)
+
+        self.user_input = FloatingLabelInput(
+            self._mapping.get("Usuario", "Usuario"),
+            label_px=16,
+            right_icon_name="Usuario.svg",
+        )
+        self.user_input.setFixedHeight(64)
+        layout.addWidget(self.user_input)
+
+        self.password_input = FloatingLabelInput(
+            self._mapping.get("Contraseña", "Contraseña"),
+            is_password=True,
+            label_px=16,
+        )
+        self.password_input.setFixedHeight(64)
+        layout.addWidget(self.password_input)
+
+        self.feedback = QLabel("")
+        self.feedback.setWordWrap(True)
+        self.feedback.setAlignment(Qt.AlignCenter)
+        self.feedback.hide()
+        layout.addWidget(self.feedback)
+
+        layout.addStretch(1)
+
+    def show_feedback(self, text: str, *, error: bool = True) -> None:
+        if not text:
+            self.feedback.hide()
+            self.feedback.setText("")
+            return
+        colour = "#ff6b6b" if error else c.CLR_TITLE
+        self.feedback.setStyleSheet(f"color:{colour}; font:600 13px '{c.FONT_FAM}';")
+        self.feedback.setText(text)
+        self.feedback.show()
+
+    def clear(self) -> None:
+        self.user_input.setText("")
+        self.password_input.setText("")
+
+
+class LoginDialog(BaseFormDialog):
+    """Diálogo de inicio de sesión con el mismo marco que otras ventanas."""
 
     def __init__(
         self,
@@ -407,561 +435,177 @@ class LoginDialog(QDialog):
         create_user_callback: Optional[CreateUserCallback] = None,
         log_action_callback: Optional[LogActionCallback] = None,
     ):
-        super().__init__(parent)
-        # Apply frameless, translucent styling like the rest of the application.
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        # A larger canvas accommodates the split design.
-        self.resize(700, 420)
-
-        # Determine language settings from the parent if available; default to Spanish.
         self.lang = getattr(parent, 'lang', 'es') if parent else 'es'
         self.mapping = c.TRANSLATIONS_EN if self.lang == 'en' else {}
-
-        # Callbacks que conectan la interfaz con la lógica de negocio.
-        # Si no se proveen, se utilizan versiones inertes para mantener
-        # el comportamiento puramente visual.
         self._init_callback: InitCallback = init_callback or (lambda: None)
         self._authenticate: AuthCallback = authenticate_callback or (lambda _u, _p: False)
         self._create_user: CreateUserCallback = create_user_callback or (lambda _u, _p: False)
         self._log_action: Optional[LogActionCallback] = log_action_callback
-
-        # Inicializar recursos externos si el llamador lo requiere.
         try:
             self._init_callback()
         except Exception:
-            # El diseño no debe fallar si la inicialización externa falla.
             pass
 
-        # Track the username of the currently authenticated user.  This
-        # attribute is set upon successful login in ``_on_login_action``.
-        # It remains ``None`` until a valid login occurs.  External
-        # callers can read this attribute after the dialog closes to
-        # determine which account was authenticated.
         self.current_user: str | None = None
+        self._content = _LoginContent(self.mapping, parent=parent)
 
-        # Track which view is active for the sliding animation.
-        self.current_page = 'login'
-
-        # Root frame holds the pages but does not draw its own border.  A separate
-        # overlay will handle drawing the global border so that child panels can
-        # draw their own shapes without conflicting.
-        self.root = QFrame(self)
-        self.root.setObjectName('login_root')
-        self.root.setGeometry(0, 0, self.width(), self.height())
-        self.root.setStyleSheet(
-            f"QFrame#login_root {{ background:{c.CLR_PANEL}; border:none; border-radius:{c.FRAME_RAD}px; }}"
+        super().__init__(
+            self._t("Iniciar Sesión", "Log In"),
+            self._content,
+            self._t("Entrar", "Login"),
+            cancel_text=self._t("Cancelar", "Cancel"),
+            size=(460, 420),
+            parent=parent,
         )
 
-        # Create two pages that will slide horizontally.
-        w = self.width()
-        h = self.height()
-        self.login_page = QFrame(self.root)
-        self.login_page.setGeometry(0, 0, w, h)
-        self.register_page = QFrame(self.root)
-        # Start the register page off‑screen to the right.
-        self.register_page.setGeometry(w, 0, w, h)
+        try:
+            self.btn_ok.clicked.disconnect()
+        except Exception:
+            pass
+        self.btn_ok.clicked.connect(self._on_login_action)
+        self.btn_ok.setDefault(True)
 
-        # Construct the content for each page.
-        self._init_login_page()
-        self._init_register_page()
+        self._content.register_button.clicked.connect(self._open_register_dialog)
+        self._content.user_input.line_edit.returnPressed.connect(self._on_login_action)
+        self._content.password_input.line_edit.returnPressed.connect(self._on_login_action)
+        self._content.focus_username()
 
-        # Apply opacity effects to pages for cross‑fade animations.  Using
-        # QGraphicsOpacityEffect allows us to animate the transparency of
-        # the entire page widgets.  The login page starts fully opaque
-        # while the register page begins invisible off screen.  When
-        # animating between pages we will adjust these opacities in
-        # tandem with the slide transitions to approximate the blurred
-        # transition seen in the reference video.
-        self._login_opacity = QGraphicsOpacityEffect(self.login_page)
-        self._login_opacity.setOpacity(1.0)
-        self.login_page.setGraphicsEffect(self._login_opacity)
-        self._register_opacity = QGraphicsOpacityEffect(self.register_page)
-        self._register_opacity.setOpacity(0.0)
-        self.register_page.setGraphicsEffect(self._register_opacity)
+    def _t(self, text: str, fallback: str | None = None) -> str:
+        if self.mapping:
+            return self.mapping.get(text, fallback or text)
+        return text
 
-        # Overlay frame to draw the global border.  This sits on top of other
-        # widgets and has no background so mouse events pass through.  It uses
-        # the primary accent colour and matches the border radius.
-        self.border_overlay = QFrame(self.root)
-        self.border_overlay.setGeometry(0, 0, self.width(), self.height())
-        self.border_overlay.setStyleSheet(
-            f"background: transparent; border:3px solid {c.CLR_TITLE}; border-radius:{c.FRAME_RAD}px;"
-        )
-        self.border_overlay.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self.border_overlay.raise_()
-
-        # Ensure the top-level window is clipped to rounded corners (no transparent edges)
-        _apply_rounded_mask(self, c.FRAME_RAD)
-
-    # ------------------------------------------------------------------
-    # Page Construction
-    # ------------------------------------------------------------------
-    def _init_login_page(self):
-        """Set up the split layout and widgets for the login view."""
-        page = self.login_page
-        layout = QHBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        # The login view consists of a dark form panel on the left and a
-        # triangular gradient panel on the right.  Using our custom
-        # TriangularBackground widget we achieve the diagonal separation
-        # seen in the provided reference images.
-
-        # Left: form container for login; remove outline around text fields.
-        form = QFrame(page)
-        form.setStyleSheet(f"background:{c.CLR_PANEL};")
-        form_layout = QVBoxLayout(form)
-        form_layout.setContentsMargins(40, 40, 40, 40)
-        # Increase spacing between elements to enlarge the form vertically.
-        # Increase spacing further to enlarge the form vertically
-        form_layout.setSpacing(30)
-
-        # Title.
-        # Usar texto fijo en español para el título del formulario de inicio de sesión
-        title_text = "Iniciar Sesión"
-        title_lbl = QLabel(title_text)
-        # Enlarge title font further for better visibility
-        title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 38px '{c.FONT_FAM}';")
-        title_lbl.setAlignment(Qt.AlignCenter)
-        form_layout.addWidget(title_lbl)
-
-        # Username input using floating label style.
-        # Etiqueta y placeholder del campo de usuario en español
-        user_ph = "Usuario"
-        self.login_user = FloatingLabelInput(user_ph, label_px=20, right_icon_name="Usuario.svg")
-        # Increase input field height
-        self.login_user.setFixedHeight(70)
-        # Increase the line edit font size within the floating input
-        self.login_user.line_edit.setStyleSheet(
-            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
-        )
-        form_layout.addWidget(self.login_user)
-
-        # Password input.
-        # Etiqueta y placeholder del campo de contraseña en español
-        pass_ph = "Contraseña"
-        self.login_pass = FloatingLabelInput(pass_ph, is_password=True, label_px=20)
-        self.login_pass.setFixedHeight(70)
-        self.login_pass.line_edit.setStyleSheet(
-            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
-        )
-        form_layout.addWidget(self.login_pass)
-
-        # Login button.
-        # Texto del botón de entrada en español
-        self.btn_login = QPushButton("Entrar")
-        self.btn_login.setCursor(Qt.PointingHandCursor)
-        # Apply a larger font size and padding to the login button
-        self.btn_login.setStyleSheet(
-            f"QPushButton {{\n"
-            f"    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
-            f"    color: {c.CLR_BG};\n"
-            f"    border: none;\n"
-            f"    border-radius: {c.FRAME_RAD}px;\n"
-            f"    font:600 20px '{c.FONT_FAM}';\n"
-            f"    padding: 12px 28px;\n"
-            f"}}\n"
-            f"QPushButton:hover {{\n"
-            f"    background: qlineargradient(x1:1, y1:0, x2:0, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
-            f"}}"
-        )
-        self.btn_login.clicked.connect(self._on_login_action)
-        form_layout.addWidget(self.btn_login)
-
-        # Spacer to push the toggle link to the bottom.
-        form_layout.addStretch(1)
-
-        # Toggle to register link.
-        # Texto del enlace para cambiar al registro en español
-        self.link_to_register = QPushButton("¿No tienes una cuenta? Regístrate")
-        self.link_to_register.setCursor(Qt.PointingHandCursor)
-        # Increase the font size for the sign-up link
-        self.link_to_register.setStyleSheet(
-            f"background:transparent; border:none; color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; text-decoration: underline;"
-        )
-        self.link_to_register.clicked.connect(self._animate_to_register)
-        form_layout.addWidget(self.link_to_register, alignment=Qt.AlignCenter)
-
-        # Right: gradient message container with triangular shape.
-        # Use equal ratios so that the diagonal reaches the midpoint of the container.
-        # Centre the diagonal so it crosses the middle of the widget but remains slanted.
-        # Setting t_ratio and b_ratio such that their sum equals 1 ensures the line's midpoint
-        # sits at the centre of the panel.  For the login page the gradient is on the right,
-        # so t_ratio > b_ratio to slope downwards to the right.
-        # With a wider gradient panel we need t_ratio and b_ratio to sum to 1.5
-        # so that the diagonal crosses the overall centre of the root.
-        self.login_bg = TriangularBackground('right', t_ratio=0.90, b_ratio=0.20)
-        msg_layout = QVBoxLayout(self.login_bg)
-        msg_layout.setContentsMargins(40, 40, 40, 40)
-        msg_layout.setSpacing(10)
-        # Remove the welcome heading and tagline; retain spacing with stretches.
-        msg_layout.addStretch(1)
-        msg_layout.addStretch(1)
-        msg_layout.addStretch(1)
-
-        # Assemble the login page layout.
-        # Give the form 1/3 and the gradient 2/3 width so that the diagonal can
-        # be centred relative to the combined panels.
-        layout.addWidget(form, stretch=1)
-        layout.addWidget(self.login_bg, stretch=2)
-
-    def _init_register_page(self):
-        """Set up the split layout and widgets for the registration view."""
-        page = self.register_page
-        layout = QHBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        # The register view places the gradient welcome panel on the left and
-        # the registration form on the right, mirroring the login view but
-        # swapping sides.  A triangular gradient is drawn by the custom
-        # TriangularBackground class.
-
-        # Left: gradient message container.  Use equal ratios so that the diagonal
-        # reaches the midpoint of the container.
-        # Centre the diagonal in the register view, mirroring the login view.  For
-        # orientation 'left' the gradient is on the left so b_ratio > t_ratio to
-        # slope downwards to the left.  The sum of t_ratio and b_ratio is 1 to
-        # centre the diagonal line.
-        # With the gradient panel occupying two thirds of the space we set
-        # the ratios so that their sum is 1.5, centring the diagonal line.
-        self.signup_bg = TriangularBackground('left', t_ratio=0.90, b_ratio=0.20)
-        msg_layout = QVBoxLayout(self.signup_bg)
-        msg_layout.setContentsMargins(40, 40, 40, 40)
-        msg_layout.setSpacing(10)
-        # Remove the welcome heading and tagline; retain spacing with stretches.
-        msg_layout.addStretch(1)
-        msg_layout.addStretch(1)
-        msg_layout.addStretch(1)
-
-        # Right: form container for register; remove outline around text fields.
-        form = QFrame(page)
-        form.setStyleSheet(f"background:{c.CLR_PANEL};")
-        form_layout = QVBoxLayout(form)
-        form_layout.setContentsMargins(40, 40, 40, 40)
-        # Increase spacing between elements to enlarge the form vertically.
-        # Increase spacing further to enlarge the form vertically
-        form_layout.setSpacing(30)
-
-        # Usar texto fijo en español para el título del formulario de registro
-        title_text = "Registrarse"
-        title_lbl = QLabel(title_text)
-        # Enlarge title font further for better visibility
-        title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 38px '{c.FONT_FAM}';")
-        title_lbl.setAlignment(Qt.AlignCenter)
-        form_layout.addWidget(title_lbl)
-
-        # Username input for registration.
-        # Etiqueta y placeholder del campo de usuario en español
-        user_ph = "Usuario"
-        self.register_user = FloatingLabelInput(user_ph, label_px=20, right_icon_name="Usuario.svg")
-        self.register_user.setFixedHeight(70)
-        self.register_user.line_edit.setStyleSheet(
-            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
-        )
-        form_layout.addWidget(self.register_user)
-
-        # Password input.  The user requested the email field be replaced by a
-        # password field, so the second input captures the password.  Use the
-        # same translation as the login password field and enable password mode.
-        # Etiqueta y placeholder del campo de contraseña en español
-        pass_ph = "Contraseña"
-        self.register_pass = FloatingLabelInput(pass_ph, is_password=True, label_px=20)
-        self.register_pass.setFixedHeight(70)
-        self.register_pass.line_edit.setStyleSheet(
-            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
-        )
-        form_layout.addWidget(self.register_pass)
-
-        # Removed the confirm password input. Registration only requires username and password.
-
-        # Register button.
-        # Texto del botón de registro en español
-        self.btn_register = QPushButton("Registrar")
-        self.btn_register.setCursor(Qt.PointingHandCursor)
-        # Apply a larger font size and padding to the register button
-        self.btn_register.setStyleSheet(
-            f"QPushButton {{\n"
-            f"    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
-            f"    color: {c.CLR_BG};\n"
-            f"    border: none;\n"
-            f"    border-radius: {c.FRAME_RAD}px;\n"
-            f"    font:600 20px '{c.FONT_FAM}';\n"
-            f"    padding: 12px 28px;\n"
-            f"}}\n"
-            f"QPushButton:hover {{\n"
-            f"    background: qlineargradient(x1:1, y1:0, x2:0, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
-            f"}}"
-        )
-        self.btn_register.clicked.connect(self._on_register_action)
-        form_layout.addWidget(self.btn_register)
-
-        # Spacer to push the login link to the bottom.
-        form_layout.addStretch(1)
-
-        # Toggle back to login link.
-        # Texto del enlace para volver al inicio de sesión en español
-        self.link_to_login = QPushButton("¿Ya tienes una cuenta? Inicia sesión")
-        self.link_to_login.setCursor(Qt.PointingHandCursor)
-        self.link_to_login.setStyleSheet(
-            f"background:transparent; border:none; color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; text-decoration: underline;"
-        )
-        self.link_to_login.clicked.connect(self._animate_to_login)
-        form_layout.addWidget(self.link_to_login, alignment=Qt.AlignCenter)
-
-        # Assemble the register page layout: message on the left, form on the right.
-        # Use a 2/3 : 1/3 ratio so the diagonal can be centred relative to both panels.
-        layout.addWidget(self.signup_bg, stretch=2)
-        layout.addWidget(form, stretch=1)
-
-        # After constructing the registration page, ensure that the floating
-        # labels on the username and password fields start in their down
-        # position when the page first appears. Without this explicit
-        # reset the labels may remain in the up position (as if focused)
-        # because the resize events can fire before the widget is fully
-        # laid out. By clearing the focused state and invoking
-        # ``_update_label_state`` we guarantee the labels animate upward
-        # only when the user focuses a field or enters text.
-        for _fld in (self.register_user, self.register_pass):
-            # Ensure the field is marked as not focused
-            _fld._focused = False
-            # Force an initial update of the label state
-            _fld._update_label_state()
-
-    # ------------------------------------------------------------------
-    # Styles
-    # ------------------------------------------------------------------
-    def _line_edit_style(self) -> str:
-        """Return a stylesheet for line edits consistent with the design."""
-        return (
-            f"QLineEdit {{\n"
-            f"    border: none;\n"
-            f"    border-bottom: 2px solid {c.CLR_TITLE};\n"
-            f"    padding: 6px 8px;\n"
-            f"    background: transparent;\n"
-            f"    color: {c.CLR_TEXT_IDLE};\n"
-            f"    font:600 14px '{c.FONT_FAM}';\n"
-            f"}}\n"
-            f"QLineEdit::placeholder {{ color:{c.CLR_PLACEHOLDER}; }}"
-        )
-
-    def _primary_button_style(self) -> str:
-        """Return a stylesheet for primary action buttons."""
-        # Use a gradient background that brightens on hover.
-        return (
-            f"QPushButton {{\n"
-            f"    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
-            f"    color: {c.CLR_BG};\n"
-            f"    border: none;\n"
-            f"    border-radius: {c.FRAME_RAD}px;\n"
-            f"    font:600 16px '{c.FONT_FAM}';\n"
-            f"    padding: 8px 16px;\n"
-            f"}}\n"
-            f"QPushButton:hover {{\n"
-            f"    background: qlineargradient(x1:1, y1:0, x2:0, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
-            f"}}"
-        )
-
-    # ------------------------------------------------------------------
-    # Animations
-    # ------------------------------------------------------------------
-    def _animate_to_register(self):
-        """Slide the register page into view and hide the login page."""
-        if self.current_page == 'register':
-            return
-        self.current_page = 'register'
-        width = self.width()
-
-        # Ensure gradients are reset to their normal diagonal before starting.
-        self.login_bg.setTRatio(0.90)
-        self.login_bg.setBRatio(0.20)
-        self.signup_bg.setTRatio(0.90)
-        self.signup_bg.setBRatio(0.20)
-
-        # Prepare the register page position and opacity for the animation
-        self.register_page.move(width, 0)
-        self._register_opacity.setOpacity(0.0)
-
-        duration = 300  # milliseconds
-
-        # Animate login page sliding left and fading out
-        login_pos_anim = QPropertyAnimation(self.login_page, b"pos")
-        login_pos_anim.setDuration(duration)
-        login_pos_anim.setStartValue(self.login_page.pos())
-        login_pos_anim.setEndValue(QPoint(-width, 0))
-        login_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        login_opacity_anim = QPropertyAnimation(self._login_opacity, b"opacity")
-        login_opacity_anim.setDuration(duration)
-        login_opacity_anim.setStartValue(1.0)
-        login_opacity_anim.setEndValue(0.0)
-        login_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        # Animate register page sliding in and fading in
-        reg_pos_anim = QPropertyAnimation(self.register_page, b"pos")
-        reg_pos_anim.setDuration(duration)
-        reg_pos_anim.setStartValue(self.register_page.pos())
-        reg_pos_anim.setEndValue(QPoint(0, 0))
-        reg_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        reg_opacity_anim = QPropertyAnimation(self._register_opacity, b"opacity")
-        reg_opacity_anim.setDuration(duration)
-        reg_opacity_anim.setStartValue(0.0)
-        reg_opacity_anim.setEndValue(1.0)
-        reg_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        group = QParallelAnimationGroup(self)
-        group.addAnimation(login_pos_anim)
-        group.addAnimation(login_opacity_anim)
-        group.addAnimation(reg_pos_anim)
-        group.addAnimation(reg_opacity_anim)
-
-        # On finish, reset floating labels for registration fields
-        def on_finished():
-            self._reset_register_labels()
-            group.finished.disconnect(on_finished)
-        group.finished.connect(on_finished)
-        group.start()
-
-    def _animate_to_login(self):
-        """Slide the login page back into view and hide the register page."""
-        if self.current_page == 'login':
-            return
-        self.current_page = 'login'
-        width = self.width()
-
-        # Ensure gradients are reset to their normal diagonal before starting.
-        self.login_bg.setTRatio(0.90)
-        self.login_bg.setBRatio(0.20)
-        self.signup_bg.setTRatio(0.90)
-        self.signup_bg.setBRatio(0.20)
-
-        # Prepare the login page position and opacity for the animation
-        self.login_page.move(-width, 0)
-        self._login_opacity.setOpacity(0.0)
-
-        duration = 300  # milliseconds
-
-        # Animate register page sliding right and fading out
-        reg_pos_anim = QPropertyAnimation(self.register_page, b"pos")
-        reg_pos_anim.setDuration(duration)
-        reg_pos_anim.setStartValue(self.register_page.pos())
-        reg_pos_anim.setEndValue(QPoint(width, 0))
-        reg_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        reg_opacity_anim = QPropertyAnimation(self._register_opacity, b"opacity")
-        reg_opacity_anim.setDuration(duration)
-        reg_opacity_anim.setStartValue(1.0)
-        reg_opacity_anim.setEndValue(0.0)
-        reg_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        # Animate login page sliding in and fading in
-        login_pos_anim2 = QPropertyAnimation(self.login_page, b"pos")
-        login_pos_anim2.setDuration(duration)
-        login_pos_anim2.setStartValue(self.login_page.pos())
-        login_pos_anim2.setEndValue(QPoint(0, 0))
-        login_pos_anim2.setEasingCurve(QEasingCurve.InOutCubic)
-
-        login_opacity_anim2 = QPropertyAnimation(self._login_opacity, b"opacity")
-        login_opacity_anim2.setDuration(duration)
-        login_opacity_anim2.setStartValue(0.0)
-        login_opacity_anim2.setEndValue(1.0)
-        login_opacity_anim2.setEasingCurve(QEasingCurve.InOutCubic)
-
-        group = QParallelAnimationGroup(self)
-        group.addAnimation(reg_pos_anim)
-        group.addAnimation(reg_opacity_anim)
-        group.addAnimation(login_pos_anim2)
-        group.addAnimation(login_opacity_anim2)
-
-        # On finish, restore positions and opacity for next transition
-        def on_finished():
-            # Ensure pages are at correct positions after animation
-            self.register_page.move(width, 0)
-            self._register_opacity.setOpacity(0.0)
-            group.finished.disconnect(on_finished)
-        group.finished.connect(on_finished)
-        group.start()
-
-    def _reset_register_labels(self):
-        """Reset the floating labels for registration fields.
-
-        This helper iterates over the username, password and confirm
-        password inputs on the register page and forces their floating
-        labels to start in the down position by clearing the focused
-        state and updating the label.  It is scheduled via a
-        single‑shot timer from ``_animate_to_register`` to ensure
-        the page has finished animating and the widget geometries
-        have been computed before resetting.
-        """
-        for fld in (self.register_user, self.register_pass):
-            if fld is not None:
-                fld._focused = False
-                fld._update_label_state()
-
-    # ------------------------------------------------------------------
-    # Login and registration actions
-    # ------------------------------------------------------------------
-    def _on_login_action(self):
-        """Attempt to authenticate the user using the provided credentials."""
-        username = self.login_user.text().strip()
-        password = self.login_pass.text()
+    def _on_login_action(self) -> None:
+        username = self._content.user_input.text().strip()
+        password = self._content.password_input.text()
         if not username or not password:
-            show_message(self, "Error", "Debes introducir un usuario y una contraseña.")
+            self._content.show_feedback(
+                self._t(
+                    "Debes introducir un usuario y una contraseña.",
+                    "You must enter a username and a password.",
+                ),
+                error=True,
+            )
             return
         try:
             authenticated = self._authenticate(username, password)
         except Exception:
             authenticated = False
         if authenticated:
-            # Record the authenticated username for the calling code
-            # before closing the dialog.  This allows the main
-            # application to personalise the UI and log user actions.
             self.current_user = username
-            # Successful login ends the dialog with accept().
+            self._content.show_feedback("")
             self.accept()
-        else:
-            show_message(self, "Error", "Usuario o contraseña incorrectos.")
+            return
+        self._content.show_feedback(
+            self._t(
+                "Usuario o contraseña incorrectos.",
+                "Incorrect username or password.",
+            ),
+            error=True,
+        )
 
-    def _on_register_action(self):
-        """Attempt to register a new user with the provided information."""
-        username = self.register_user.text().strip()
-        password = self.register_pass.text()
-        # Ensure required fields are populated
+    def _open_register_dialog(self) -> None:
+        dialog = RegisterDialog(
+            mapping=self.mapping,
+            parent=self,
+            create_user_callback=self._create_user,
+            log_action_callback=self._log_action,
+        )
+        if dialog.exec_() == dialog.Accepted and dialog.registered_user:
+            username = dialog.registered_user
+            self._content.user_input.setText(username)
+            self._content.clear_password()
+            self._content.show_feedback(
+                self._t(
+                    "Cuenta creada correctamente. Ahora puedes iniciar sesión.",
+                    "Account created successfully. You can now log in.",
+                ),
+                error=False,
+            )
+            self._content.focus_password()
+
+
+class RegisterDialog(BaseFormDialog):
+    """Ventana de registro que reutiliza el marco común de diálogos."""
+
+    def __init__(
+        self,
+        *,
+        mapping,
+        parent=None,
+        create_user_callback: Optional[CreateUserCallback] = None,
+        log_action_callback: Optional[LogActionCallback] = None,
+    ):
+        self.mapping = mapping or {}
+        self._create_user: CreateUserCallback = create_user_callback or (lambda _u, _p: False)
+        self._log_action: Optional[LogActionCallback] = log_action_callback
+        self._content = _RegisterContent(self.mapping, parent=parent)
+        super().__init__(
+            self._t("Registrarse", "Register"),
+            self._content,
+            self._t("Registrar", "Register"),
+            cancel_text=self._t("Cancelar", "Cancel"),
+            size=(460, 420),
+            parent=parent,
+        )
+
+        try:
+            self.btn_ok.clicked.disconnect()
+        except Exception:
+            pass
+        self.btn_ok.clicked.connect(self._on_register_action)
+        self.btn_ok.setDefault(True)
+
+        self._content.user_input.line_edit.returnPressed.connect(self._on_register_action)
+        self._content.password_input.line_edit.returnPressed.connect(self._on_register_action)
+
+        self.registered_user: str | None = None
+
+    def _t(self, text: str, fallback: str | None = None) -> str:
+        if self.mapping:
+            return self.mapping.get(text, fallback or text)
+        return text
+
+    def _on_register_action(self) -> None:
+        username = self._content.user_input.text().strip()
+        password = self._content.password_input.text()
         if not username or not password:
-            show_message(self, "Error", self.mapping.get(
-                "Debes introducir un nombre de usuario y una contraseña.",
-                "You must enter a username and a password."
-            ))
+            self._content.show_feedback(
+                self._t(
+                    "Debes introducir un nombre de usuario y una contraseña.",
+                    "You must enter a username and a password.",
+                ),
+                error=True,
+            )
             return
         try:
             created = self._create_user(username, password)
         except Exception:
             created = False
         if not created:
-            show_message(self, "Error", self.mapping.get(
-                "El nombre de usuario ya existe.",
-                "The username already exists."
-            ))
+            self._content.show_feedback(
+                self._t(
+                    "El nombre de usuario ya existe.",
+                    "The username already exists.",
+                ),
+                error=True,
+            )
             return
-        # Successful registration; inform the user and slide back to login.  Also
-        # record the registration in the actions table so it appears in the
-        # account history.  This call uses the plain username rather than a
-        # hashed value to keep the log readable.  It is safe from SQL
-        # injection because the underlying function uses parameter binding.
+
+        self.registered_user = username
         if self._log_action is not None:
             try:
                 self._log_action(username, "Registro de usuario")
             except Exception:
                 pass
+
+        self._content.show_feedback("")
         show_message(
             self,
-            self.mapping.get("Éxito", "Success"),
-            self.mapping.get(
+            self._t("Éxito", "Success"),
+            self._t(
                 "Cuenta creada correctamente. Ahora puedes iniciar sesión.",
-                "Account created successfully. You can now log in."
+                "Account created successfully. You can now log in.",
             ),
         )
-        self._animate_to_login()
+        self.accept()
