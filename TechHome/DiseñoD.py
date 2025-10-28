@@ -280,7 +280,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
     order += 1
     specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_vertical_scrollbar', None), order, offset=12.0, fade=False))
+    specs.append(slide(lambda: getattr(app, 'devices_vertical_scrollbar', None), order, offset=24.0, fade=True))
     order += 1
 
     device_rows = list(getattr(app, 'device_rows', []))
