@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
 )
 
 import constants as c
-from ui_helpers import apply_rounded_mask, crop_pixmap_to_content, find_pixmap_centroid
+from ui_helpers import apply_rounded_mask, crop_pixmap_to_content
 
 
 class CircularProgress(QWidget):
@@ -97,12 +97,9 @@ class CircularProgress(QWidget):
         span_angle = -int(progress_angle * 16)
         painter.drawArc(rect, start_angle, span_angle)
         if not self.icon_pixmap.isNull():
-            cx, cy = find_pixmap_centroid(self.icon_pixmap)
-            offset_x = (self.icon_pixmap.width() / 2.0) - cx
-            offset_y = (self.icon_pixmap.height() / 2.0) - cy
-            ix = (self.diameter - self.icon_pixmap.width()) / 2.0 + offset_x
-            iy = (self.diameter - self.icon_pixmap.height()) / 2.0 + offset_y
-            painter.drawPixmap(int(ix), int(iy), self.icon_pixmap)
+            pix_rect = QRectF(0, 0, self.icon_pixmap.width(), self.icon_pixmap.height())
+            pix_rect.moveCenter(self.rect().center())
+            painter.drawPixmap(pix_rect.toRect(), self.icon_pixmap)
         painter.end()
 
 
@@ -172,8 +169,17 @@ class SplashScreen(QDialog):
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet(
-            f"QProgressBar {{ background:{c.CLR_SURFACE}; border-radius:10px; height:18px; }}"
-            f"QProgressBar::chunk {{ border-radius:10px; background:qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #00BFFF, stop:1 #0066FF); }}"
+            f"QProgressBar {{"
+            f" background-color:{c.CLR_SURFACE};"
+            " border:0px;"
+            " border-radius:10px;"
+            " height:18px;"
+            "}}"
+            f"QProgressBar::chunk {{"
+            " border-radius:10px;"
+            " margin:0.5px;"
+            " background:qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #00BFFF, stop:1 #0066FF);"
+            "}}"
         )
         progress_layout.addWidget(self.progress_bar, 1)
         self.percent_lbl = QLabel("0%", self)
