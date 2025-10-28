@@ -6,10 +6,36 @@ from typing import Callable, Optional
 
 import constants as c
 
-from PyQt5.QtCore import Qt, QEvent, QPoint, QPropertyAnimation, QSize
-from PyQt5.QtGui import QColor, QIcon, QPainter, QPen
+try:
+    import database
+except Exception:  # pragma: no cover - el entorno puede carecer de dependencias
+    database = None  # type: ignore
+
+from PyQt5.QtCore import (
+    Qt,
+    QEvent,
+    QPoint,
+    QPropertyAnimation,
+    QSize,
+    QEasingCurve,
+    QParallelAnimationGroup,
+    QTimer,
+    pyqtProperty,
+)
+from PyQt5.QtGui import (
+    QColor,
+    QIcon,
+    QLinearGradient,
+    QPainter,
+    QPen,
+    QPainterPath,
+    QRegion,
+)
 from PyQt5.QtWidgets import (
+    QDialog,
     QFrame,
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -18,15 +44,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
 )
 
-from dialogs import BaseFormDialog
-
 # ---------------------------------------------------------------------------
 # Tipos de callback para separar la lógica de la interfaz.
-#
-# El diseño debe vivir en este módulo, mientras que la lógica de acceso a
-# datos (por ejemplo, validaciones o escritura en base de datos) debe ser
-# suministrada desde el exterior.  Para ello se emplean ``Callable`` con
-# firmas bien definidas que pueden inyectarse desde ``main.py``.
 # ---------------------------------------------------------------------------
 
 AuthCallback = Callable[[str, str], bool]
@@ -41,17 +60,34 @@ def show_message(parent, title: str, text: str) -> None:
     QMessageBox.information(parent, title, text)
 
 
+def _apply_rounded_mask(widget, radius: int) -> None:
+    """Aplicar un recorte con esquinas redondeadas a ``widget``."""
+
+    if radius <= 0:
+        widget.clearMask()
+        return
+    rect = widget.rect()
+    if rect.isNull():
+        return
+    path = QPainterPath()
+    path.addRoundedRect(rect, radius, radius)
+    region = QRegion(path.toFillPolygon().toPolygon())
+    widget.setMask(region)
+
+
 class FloatingLabelInput(QFrame):
-    """
-    Input con etiqueta flotante + iconos:
-      • Etiqueta flota al enfocar o tener texto.
-      • Icono izquierdo opcional (por ejemplo Usuario.svg).
-      • Para contraseñas: botón de candado que alterna mostrar/ocultar con una animación
-        y cambia entre Cerrado.svg ↔ Habierto.svg.
-    """
-    def __init__(self, text: str = "", is_password: bool = False, parent=None, label_px: int = 14, left_icon_name: str | None = None, right_icon_name: str | None = None):
+    """Campo de texto con etiqueta flotante e iconos opcionales."""
+
+    def __init__(
+        self,
+        text: str = "",
+        is_password: bool = False,
+        parent=None,
+        label_px: int = 14,
+        left_icon_name: str | None = None,
+        right_icon_name: str | None = None,
+    ):
         super().__init__(parent)
-        # Colores / estado
         self._active_colour = c.CLR_TITLE
         self._inactive_colour = c.CLR_PLACEHOLDER
         self._text_colour = c.CLR_TEXT_IDLE
@@ -59,7 +95,6 @@ class FloatingLabelInput(QFrame):
         self._label_px = label_px
         self._is_password = is_password
 
-        # QLineEdit base
         self.line_edit = QLineEdit(self)
         self.line_edit.setEchoMode(QLineEdit.Password if is_password else QLineEdit.Normal)
         self.line_edit.setFrame(False)
@@ -68,12 +103,10 @@ class FloatingLabelInput(QFrame):
         )
         self.line_edit.setPlaceholderText("")
 
-        # Etiqueta flotante
         self.label = QLabel(text, self)
         self.label.setStyleSheet(f"color:{self._inactive_colour}; font:600 {self._label_px}px '{c.FONT_FAM}';")
         self.label.show()
 
-        # Icono izquierdo opcional
         self.left_icon = None
         self._left_icon_w = 0
         if left_icon_name:
@@ -81,17 +114,12 @@ class FloatingLabelInput(QFrame):
             self.left_icon.setStyleSheet("background:transparent; border:none;")
             pm = c.pixmap(left_icon_name)
             if not pm.isNull():
-                # Escalar el icono izquierdo a 36px para adaptarlo al nuevo tamaño de iconos finales
                 self.left_icon.setPixmap(pm.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            # Aumentar el tamaño del contenedor del icono izquierdo para ajustarse al icono más grande
-            self.left_icon.setFixedSize(38, 38)  # área clicable un poco mayor
-            # Reservar más espacio a la izquierda para el icono y un margen adicional
-            self._left_icon_w = 42  # margen visual + separación del texto
-        
-        # Icono derecho opcional (Usuario a la derecha)
+            self.left_icon.setFixedSize(38, 38)
+            self._left_icon_w = 42
+
         self.right_icon = None
         self._has_right_icon = False
-        # Aumentar el tamaño de los iconos finales (por ejemplo, candado e icono derecho) a 36 px
         self._end_icon_w = 36
         self._end_margin = 6
         self._gap_between_end_icons = 6
@@ -100,10 +128,12 @@ class FloatingLabelInput(QFrame):
             self.right_icon.setStyleSheet("background:transparent; border:none;")
             rpm = c.pixmap(right_icon_name)
             if not rpm.isNull():
-                self.right_icon.setPixmap(rpm.scaled(self._end_icon_w, self._end_icon_w, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.right_icon.setPixmap(
+                    rpm.scaled(self._end_icon_w, self._end_icon_w, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                )
             self.right_icon.setFixedSize(self._end_icon_w, self._end_icon_w)
             self._has_right_icon = True
-# Botón de candado (solo para contraseñas)
+
         self.lock_btn = None
         self._right_pad = 0
         if is_password:
@@ -113,37 +143,33 @@ class FloatingLabelInput(QFrame):
             self._icon_locked = QIcon(c.pixmap("Cerrado.svg"))
             self._icon_unlocked = QIcon(c.pixmap("Habierto.svg"))
             self.lock_btn.setIcon(self._icon_locked)
-            # Ajustar el tamaño del icono del candado al nuevo ancho de iconos finales
             self.lock_btn.setIconSize(QSize(self._end_icon_w, self._end_icon_w))
             self.lock_btn.clicked.connect(self._toggle_password_visibility)
-            # animación del botón (rebote de apertura)
             self._eye_anim = None
-        # Padding derecho del texto según iconos al final
-        end_count = int(bool(getattr(self, 'lock_btn', None))) + int(bool(getattr(self, 'right_icon', None)))
-        self._right_pad = (end_count * self._end_icon_w + max(0, end_count - 1) * self._gap_between_end_icons + self._end_margin + 4)
+        end_count = int(bool(getattr(self, "lock_btn", None))) + int(bool(getattr(self, "right_icon", None)))
+        self._right_pad = (
+            end_count * self._end_icon_w
+            + max(0, end_count - 1) * self._gap_between_end_icons
+            + self._end_margin
+            + 4
+        )
 
-        # Animación etiqueta
         self._anim = None
         self._up_pos = QPoint(0, 0)
         self._down_pos = QPoint(0, 0)
 
-        # Eventos para foco/click
         self.setFocusPolicy(Qt.StrongFocus)
         self.installEventFilter(self)
         self.line_edit.installEventFilter(self)
         self.label.setCursor(Qt.IBeamCursor)
         self.label.installEventFilter(self)
 
-        # Actualizar etiqueta cuando cambia el texto
         self.line_edit.textChanged.connect(self._update_label_state)
-
-        # Márgenes del texto para no chocar con iconos
         self.line_edit.setTextMargins(self._left_icon_w, 0, self._right_pad, 0)
 
     def sizeHint(self):
         return QSize(240, 56)
 
-    # ---------- Interacción ----------
     def eventFilter(self, source, event):
         if source is self.line_edit:
             if event.type() == QEvent.FocusIn:
@@ -162,46 +188,32 @@ class FloatingLabelInput(QFrame):
         return super().eventFilter(source, event)
 
     def _toggle_password_visibility(self):
-        """
-        Toggle the password visibility and animate the lock icon without
-        shrinking it.  The animation now begins and ends at the
-        default icon size (26×26), briefly enlarging the icon mid‑way
-        for visual feedback.  This prevents the unlocked icon from
-        appearing smaller after the toggle.
-        """
-        # Alternar modo de eco y actualizar el icono correspondiente
         if self.line_edit.echoMode() == QLineEdit.Password:
             self.line_edit.setEchoMode(QLineEdit.Normal)
-            self.lock_btn.setIcon(self._icon_unlocked)
+            if self.lock_btn:
+                self.lock_btn.setIcon(self._icon_unlocked)
         else:
             self.line_edit.setEchoMode(QLineEdit.Password)
-            self.lock_btn.setIcon(self._icon_locked)
-        # Restablecer el tamaño del icono antes de animar para evitar
-        # que quede reducido tras la animación.
-        # Restablecer el tamaño del icono antes de animar para evitar
-        # que quede reducido tras la animación.
-        self.lock_btn.setIconSize(QSize(self._end_icon_w, self._end_icon_w))
-        # Animación de rebote: no se reduce, sólo se agranda y vuelve
-        anim = QPropertyAnimation(self.lock_btn, b"iconSize", self)
-        anim.setDuration(180)
-        # Inicia y finaliza en el tamaño por defecto
-        anim.setStartValue(QSize(self._end_icon_w, self._end_icon_w))
-        # A mitad de animación se agranda para dar sensación de clic
-        anim.setKeyValueAt(0.5, QSize(self._end_icon_w + 6, self._end_icon_w + 6))
-        # Termina en el tamaño por defecto
-        anim.setEndValue(QSize(self._end_icon_w, self._end_icon_w))
-        anim.start()
-        # Mantener referencia para evitar garbage collection prematuro
-        self._eye_anim = anim
+            if self.lock_btn:
+                self.lock_btn.setIcon(self._icon_locked)
+        if self.lock_btn:
+            self.lock_btn.setIconSize(QSize(self._end_icon_w, self._end_icon_w))
+            anim = QPropertyAnimation(self.lock_btn, b"iconSize", self)
+            anim.setDuration(180)
+            anim.setStartValue(QSize(self._end_icon_w, self._end_icon_w))
+            anim.setKeyValueAt(0.5, QSize(self._end_icon_w + 6, self._end_icon_w + 6))
+            anim.setEndValue(QSize(self._end_icon_w, self._end_icon_w))
+            anim.start()
+            self._eye_anim = anim
 
-    # ---------- Etiqueta flotante ----------
     def _update_label_state(self):
         has_text = bool(self.line_edit.text())
         target_up = self._focused or has_text
         dest = self._up_pos if target_up else self._down_pos
         new_colour = self._active_colour if target_up else self._inactive_colour
         if self._anim:
-            self._anim.stop(); self._anim = None
+            self._anim.stop()
+            self._anim = None
         if self.label.pos() != dest:
             self._anim = QPropertyAnimation(self.label, b"pos", self)
             self._anim.setDuration(220)
@@ -213,17 +225,14 @@ class FloatingLabelInput(QFrame):
         self.label.setStyleSheet(f"color:{new_colour}; font:600 {self._label_px}px '{c.FONT_FAM}';")
         self.update()
 
-    # ---------- Layout ----------
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        w = self.width(); h = self.height()
+        w = self.width()
+        h = self.height()
         label_h = self.label.sizeHint().height()
-        # Ajustar la altura de línea para que los iconos más grandes no se corten. Si el ancho del icono final supera 28px,
-        # se añade un margen adicional de 4px para que quepa cómodamente.
-        line_h = max(28, getattr(self, '_end_icon_w', 26) + 4)
+        line_h = max(28, getattr(self, "_end_icon_w", 26) + 4)
         line_y = max(0, h - line_h - 2)
         self.line_edit.setGeometry(0, line_y, w, line_h)
-        # Posiciones etiqueta
         up_y = 2
         down_y = line_y + max(0, (line_h - label_h) // 2)
         if down_y <= up_y:
@@ -231,48 +240,48 @@ class FloatingLabelInput(QFrame):
         self._up_pos = QPoint(0, up_y)
         self._down_pos = QPoint(0, down_y)
         self.label.resize(w, label_h)
-        # Icono izquierdo
         if self.left_icon:
             ix = 2
             iy = line_y + (line_h - self.left_icon.height()) // 2
             self.left_icon.move(ix, iy)
             self.left_icon.show()
-        # Botones/íconos del extremo derecho: candado al borde, luego icono derecho
-        anchor_right = w - getattr(self, '_end_margin', 6)
-        iy = line_y + (line_h - getattr(self, '_end_icon_w', 26)) // 2
+        anchor_right = w - getattr(self, "_end_margin", 6)
+        iy = line_y + (line_h - getattr(self, "_end_icon_w", 26)) // 2
         right_x = anchor_right
-        def _place_end_widget(wdg):
+
+        def _place_end_widget(widget):
             nonlocal right_x
-            if not wdg:
+            if not widget:
                 return
-            size = getattr(self, '_end_icon_w', 26)
-            wdg.resize(size, size)
+            size = getattr(self, "_end_icon_w", 26)
+            widget.resize(size, size)
             right_x -= size
-            wdg.move(right_x, iy)
-            wdg.show()
-            right_x -= getattr(self, '_gap_between_end_icons', 6)
-        _place_end_widget(getattr(self, 'lock_btn', None) if getattr(self, '_is_password', False) else None)
-        _place_end_widget(getattr(self, 'right_icon', None) if getattr(self, '_has_right_icon', False) else None)
-        # actualizar márgenes de texto
-        self.line_edit.setTextMargins(self._left_icon_w, 0, getattr(self, '_right_pad', 0), 0)
-        # colocar etiqueta conforme al estado actual
+            widget.move(right_x, iy)
+            widget.show()
+            right_x -= getattr(self, "_gap_between_end_icons", 6)
+
+        if getattr(self, "_is_password", False):
+            _place_end_widget(getattr(self, "lock_btn", None))
+        if getattr(self, "_has_right_icon", False):
+            _place_end_widget(getattr(self, "right_icon", None))
+        self.line_edit.setTextMargins(self._left_icon_w, 0, getattr(self, "_right_pad", 0), 0)
         initial = self._up_pos if (self._focused or bool(self.line_edit.text())) else self._down_pos
         self.label.move(initial)
         self._update_label_state()
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
         has_text = bool(self.line_edit.text())
         colour = self._active_colour if (self._focused or has_text) else self._inactive_colour
-        pen = QPen(QColor(colour)); pen.setWidth(2)
-        p.setPen(pen)
+        pen = QPen(QColor(colour))
+        pen.setWidth(2)
+        painter.setPen(pen)
         y = self.height() - 1
-        p.drawLine(0, y, self.width(), y)
-        p.end()
+        painter.drawLine(0, y, self.width(), y)
+        painter.end()
 
-    # ---------- Proxies ----------
     def text(self) -> str:
         return self.line_edit.text()
 
@@ -281,150 +290,71 @@ class FloatingLabelInput(QFrame):
 
     def setEchoMode(self, mode):
         self.line_edit.setEchoMode(mode)
-class _LoginContent(QFrame):
-    """Contenido reutilizable para el diálogo de inicio de sesión."""
 
-    def __init__(self, mapping, parent=None):
+
+class TriangularBackground(QFrame):
+    """Panel que dibuja un gradiente diagonal para el diseño dividido."""
+
+    def __init__(self, orientation: str = "left", t_ratio: float = 0.7, b_ratio: float = 0.3, parent=None):
         super().__init__(parent)
-        self._mapping = mapping or {}
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(18)
+        self.orientation = orientation
+        self.t_ratio = t_ratio
+        self.b_ratio = b_ratio
+        self.setStyleSheet("background:transparent;")
 
-        title = QLabel(self._mapping.get("Iniciar Sesión", "Iniciar Sesión"))
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 26px '{c.FONT_FAM}';")
-        layout.addWidget(title)
+    def getTRatio(self) -> float:
+        return self.t_ratio
 
-        subtitle = QLabel(self._mapping.get(
-            "Introduce tus credenciales para continuar.",
-            "Enter your credentials to continue.",
-        ))
-        subtitle.setWordWrap(True)
-        subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:500 13px '{c.FONT_FAM}';")
-        layout.addWidget(subtitle)
+    def setTRatio(self, value: float) -> None:
+        self.t_ratio = value
+        self.update()
 
-        self.user_input = FloatingLabelInput(
-            self._mapping.get("Usuario", "Usuario"),
-            label_px=16,
-            right_icon_name="Usuario.svg",
-        )
-        self.user_input.setFixedHeight(64)
-        layout.addWidget(self.user_input)
+    def getBRatio(self) -> float:
+        return self.b_ratio
 
-        self.password_input = FloatingLabelInput(
-            self._mapping.get("Contraseña", "Contraseña"),
-            is_password=True,
-            label_px=16,
-        )
-        self.password_input.setFixedHeight(64)
-        layout.addWidget(self.password_input)
+    def setBRatio(self, value: float) -> None:
+        self.b_ratio = value
+        self.update()
 
-        self.feedback = QLabel("")
-        self.feedback.setWordWrap(True)
-        self.feedback.setAlignment(Qt.AlignCenter)
-        self.feedback.hide()
-        layout.addWidget(self.feedback)
+    tRatio = pyqtProperty(float, fget=getTRatio, fset=setTRatio)
+    bRatio = pyqtProperty(float, fget=getBRatio, fset=setBRatio)
 
-        layout.addStretch(1)
-
-        self.register_button = QPushButton(self._mapping.get(
-            "¿No Tienes Una Cuenta? Regístrate",
-            "¿No Tienes Una Cuenta? Regístrate",
-        ))
-        self.register_button.setCursor(Qt.PointingHandCursor)
-        self.register_button.setStyleSheet(
-            f"QPushButton {{ background:transparent; border:none; color:{c.CLR_TITLE}; font:600 14px '{c.FONT_FAM}'; }}\n"
-            f"QPushButton:hover {{ color:{c.CLR_TEXT_IDLE}; }}"
-        )
-        layout.addWidget(self.register_button, alignment=Qt.AlignCenter)
-
-    def show_feedback(self, text: str, *, error: bool = True) -> None:
-        if not text:
-            self.feedback.hide()
-            self.feedback.setText("")
-            return
-        colour = "#ff6b6b" if error else c.CLR_TITLE
-        self.feedback.setStyleSheet(f"color:{colour}; font:600 13px '{c.FONT_FAM}';")
-        self.feedback.setText(text)
-        self.feedback.show()
-
-    def clear_password(self) -> None:
-        self.password_input.setText("")
-
-    def focus_username(self) -> None:
-        self.user_input.line_edit.setFocus()
-
-    def focus_password(self) -> None:
-        self.password_input.line_edit.setFocus()
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        w = self.width()
+        h = self.height()
+        path = QPainterPath()
+        if self.orientation == "left":
+            x_top = self.t_ratio * w
+            x_bottom = self.b_ratio * w
+            path.moveTo(0, 0)
+            path.lineTo(x_top, 0)
+            path.lineTo(x_bottom, h)
+            path.lineTo(0, h)
+            path.closeSubpath()
+        else:
+            x_top = w * (1 - self.t_ratio)
+            x_bottom = w * (1 - self.b_ratio)
+            path.moveTo(x_top, 0)
+            path.lineTo(w, 0)
+            path.lineTo(w, h)
+            path.lineTo(x_bottom, h)
+            path.closeSubpath()
+        grad = QLinearGradient(0, 0, w, h)
+        grad.setColorAt(0.0, QColor(c.CLR_TITLE))
+        grad.setColorAt(1.0, QColor(c.CLR_ITEM_ACT))
+        painter.fillPath(path, grad)
+        pen = QPen(QColor(c.CLR_TITLE))
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.drawLine(int(path.elementAt(1).x), int(path.elementAt(1).y), int(path.elementAt(2).x), int(path.elementAt(2).y))
+        painter.end()
 
 
-class _RegisterContent(QFrame):
-    """Contenido del diálogo de registro con estilo consistente."""
-
-    def __init__(self, mapping, parent=None):
-        super().__init__(parent)
-        self._mapping = mapping or {}
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(18)
-
-        title = QLabel(self._mapping.get("Registrarse", "Registrarse"))
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 26px '{c.FONT_FAM}';")
-        layout.addWidget(title)
-
-        helper = QLabel(self._mapping.get(
-            "Crea tu cuenta para comenzar a personalizar TechHome.",
-            "Create your account to start personalising TechHome.",
-        ))
-        helper.setWordWrap(True)
-        helper.setAlignment(Qt.AlignCenter)
-        helper.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:500 13px '{c.FONT_FAM}';")
-        layout.addWidget(helper)
-
-        self.user_input = FloatingLabelInput(
-            self._mapping.get("Usuario", "Usuario"),
-            label_px=16,
-            right_icon_name="Usuario.svg",
-        )
-        self.user_input.setFixedHeight(64)
-        layout.addWidget(self.user_input)
-
-        self.password_input = FloatingLabelInput(
-            self._mapping.get("Contraseña", "Contraseña"),
-            is_password=True,
-            label_px=16,
-        )
-        self.password_input.setFixedHeight(64)
-        layout.addWidget(self.password_input)
-
-        self.feedback = QLabel("")
-        self.feedback.setWordWrap(True)
-        self.feedback.setAlignment(Qt.AlignCenter)
-        self.feedback.hide()
-        layout.addWidget(self.feedback)
-
-        layout.addStretch(1)
-
-    def show_feedback(self, text: str, *, error: bool = True) -> None:
-        if not text:
-            self.feedback.hide()
-            self.feedback.setText("")
-            return
-        colour = "#ff6b6b" if error else c.CLR_TITLE
-        self.feedback.setStyleSheet(f"color:{colour}; font:600 13px '{c.FONT_FAM}';")
-        self.feedback.setText(text)
-        self.feedback.show()
-
-    def clear(self) -> None:
-        self.user_input.setText("")
-        self.password_input.setText("")
-
-
-class LoginDialog(BaseFormDialog):
-    """Diálogo de inicio de sesión con el mismo marco que otras ventanas."""
+class LoginDialog(QDialog):
+    """Diálogo combinado de inicio de sesión y registro con diseño dividido."""
 
     def __init__(
         self,
@@ -435,56 +365,379 @@ class LoginDialog(BaseFormDialog):
         create_user_callback: Optional[CreateUserCallback] = None,
         log_action_callback: Optional[LogActionCallback] = None,
     ):
-        self.lang = getattr(parent, 'lang', 'es') if parent else 'es'
-        self.mapping = c.TRANSLATIONS_EN if self.lang == 'en' else {}
-        self._init_callback: InitCallback = init_callback or (lambda: None)
-        self._authenticate: AuthCallback = authenticate_callback or (lambda _u, _p: False)
-        self._create_user: CreateUserCallback = create_user_callback or (lambda _u, _p: False)
-        self._log_action: Optional[LogActionCallback] = log_action_callback
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.resize(700, 420)
+
+        self.lang = getattr(parent, "lang", "es") if parent else "es"
+        self.mapping = c.TRANSLATIONS_EN if self.lang == "en" else {}
+
+        self._init_callback = self._resolve_init(init_callback)
+        self._authenticate = self._resolve_auth(authenticate_callback)
+        self._create_user = self._resolve_create(create_user_callback)
+        self._log_action = self._resolve_logger(log_action_callback)
+
         try:
             self._init_callback()
         except Exception:
             pass
 
         self.current_user: str | None = None
-        self._content = _LoginContent(self.mapping, parent=parent)
+        self.current_page = "login"
 
-        super().__init__(
-            self._t("Iniciar Sesión", "Log In"),
-            self._content,
-            self._t("Entrar", "Login"),
-            cancel_text=self._t("Cancelar", "Cancel"),
-            size=(460, 420),
-            parent=parent,
+        self.root = QFrame(self)
+        self.root.setObjectName("login_root")
+        self.root.setGeometry(0, 0, self.width(), self.height())
+        self.root.setStyleSheet(
+            f"QFrame#login_root {{ background:{c.CLR_PANEL}; border:none; border-radius:{c.FRAME_RAD}px; }}"
         )
 
-        try:
-            self.btn_ok.clicked.disconnect()
-        except Exception:
-            pass
-        self.btn_ok.clicked.connect(self._on_login_action)
-        self.btn_ok.setDefault(True)
+        w = self.width()
+        h = self.height()
+        self.login_page = QFrame(self.root)
+        self.login_page.setGeometry(0, 0, w, h)
+        self.register_page = QFrame(self.root)
+        self.register_page.setGeometry(w, 0, w, h)
 
-        self._content.register_button.clicked.connect(self._open_register_dialog)
-        self._content.user_input.line_edit.returnPressed.connect(self._on_login_action)
-        self._content.password_input.line_edit.returnPressed.connect(self._on_login_action)
-        self._content.focus_username()
+        self._init_login_page()
+        self._init_register_page()
+
+        self._login_opacity = QGraphicsOpacityEffect(self.login_page)
+        self._login_opacity.setOpacity(1.0)
+        self.login_page.setGraphicsEffect(self._login_opacity)
+        self._register_opacity = QGraphicsOpacityEffect(self.register_page)
+        self._register_opacity.setOpacity(0.0)
+        self.register_page.setGraphicsEffect(self._register_opacity)
+
+        self.border_overlay = QFrame(self.root)
+        self.border_overlay.setGeometry(0, 0, self.width(), self.height())
+        self.border_overlay.setStyleSheet(
+            f"background: transparent; border:3px solid {c.CLR_TITLE}; border-radius:{c.FRAME_RAD}px;"
+        )
+        self.border_overlay.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.border_overlay.raise_()
+
+        QTimer.singleShot(0, lambda: _apply_rounded_mask(self, c.FRAME_RAD))
+
+    # ------------------------------------------------------------------
+    # Resolución de callbacks
+    # ------------------------------------------------------------------
+    def _resolve_init(self, callback: Optional[InitCallback]) -> InitCallback:
+        if callback:
+            return callback
+        if database and hasattr(database, "init_db"):
+            return getattr(database, "init_db")
+        return lambda: None
+
+    def _resolve_auth(self, callback: Optional[AuthCallback]) -> AuthCallback:
+        if callback:
+            return callback
+        if database and hasattr(database, "authenticate"):
+            return getattr(database, "authenticate")
+        return lambda _u, _p: False
+
+    def _resolve_create(self, callback: Optional[CreateUserCallback]) -> CreateUserCallback:
+        if callback:
+            return callback
+        if database and hasattr(database, "create_user"):
+            return getattr(database, "create_user")
+        return lambda _u, _p: False
+
+    def _resolve_logger(self, callback: Optional[LogActionCallback]) -> Optional[LogActionCallback]:
+        if callback:
+            return callback
+        if database and hasattr(database, "log_action"):
+            return getattr(database, "log_action")
+        return None
 
     def _t(self, text: str, fallback: str | None = None) -> str:
         if self.mapping:
             return self.mapping.get(text, fallback or text)
         return text
 
+    # ------------------------------------------------------------------
+    # Construcción de páginas
+    # ------------------------------------------------------------------
+    def _init_login_page(self) -> None:
+        page = self.login_page
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        form = QFrame(page)
+        form.setStyleSheet(f"background:{c.CLR_PANEL};")
+        form_layout = QVBoxLayout(form)
+        form_layout.setContentsMargins(40, 40, 40, 40)
+        form_layout.setSpacing(30)
+
+        title_lbl = QLabel(self._t("Iniciar Sesión", "Log In"))
+        title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 38px '{c.FONT_FAM}';")
+        title_lbl.setAlignment(Qt.AlignCenter)
+        form_layout.addWidget(title_lbl)
+
+        self.login_user = FloatingLabelInput(
+            self._t("Usuario", "Username"),
+            label_px=20,
+            right_icon_name="Usuario.svg",
+        )
+        self.login_user.setFixedHeight(70)
+        self.login_user.line_edit.setStyleSheet(
+            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
+        )
+        form_layout.addWidget(self.login_user)
+
+        self.login_pass = FloatingLabelInput(
+            self._t("Contraseña", "Password"),
+            is_password=True,
+            label_px=20,
+        )
+        self.login_pass.setFixedHeight(70)
+        self.login_pass.line_edit.setStyleSheet(
+            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
+        )
+        form_layout.addWidget(self.login_pass)
+
+        self.btn_login = QPushButton(self._t("Entrar", "Login"))
+        self.btn_login.setCursor(Qt.PointingHandCursor)
+        self.btn_login.setStyleSheet(
+            f"QPushButton {{\n"
+            f"    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
+            f"    color: {c.CLR_BG};\n"
+            f"    border: none;\n"
+            f"    border-radius: {c.FRAME_RAD}px;\n"
+            f"    font:600 20px '{c.FONT_FAM}';\n"
+            f"    padding: 12px 28px;\n"
+            f"}}\n"
+            f"QPushButton:hover {{\n"
+            f"    background: qlineargradient(x1:1, y1:0, x2:0, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
+            f"}}"
+        )
+        self.btn_login.clicked.connect(self._on_login_action)
+        self.login_user.line_edit.returnPressed.connect(self._on_login_action)
+        self.login_pass.line_edit.returnPressed.connect(self._on_login_action)
+        form_layout.addWidget(self.btn_login)
+
+        form_layout.addStretch(1)
+
+        self.link_to_register = QPushButton(self._t("¿No tienes una cuenta? Regístrate", "Need an account? Sign up"))
+        self.link_to_register.setCursor(Qt.PointingHandCursor)
+        self.link_to_register.setStyleSheet(
+            f"background:transparent; border:none; color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; text-decoration: underline;"
+        )
+        self.link_to_register.clicked.connect(self._animate_to_register)
+        form_layout.addWidget(self.link_to_register, alignment=Qt.AlignCenter)
+
+        self.login_bg = TriangularBackground("right", t_ratio=0.90, b_ratio=0.20)
+        msg_layout = QVBoxLayout(self.login_bg)
+        msg_layout.setContentsMargins(40, 40, 40, 40)
+        msg_layout.setSpacing(10)
+        msg_layout.addStretch(3)
+
+        layout.addWidget(form, stretch=1)
+        layout.addWidget(self.login_bg, stretch=2)
+
+    def _init_register_page(self) -> None:
+        page = self.register_page
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.signup_bg = TriangularBackground("left", t_ratio=0.90, b_ratio=0.20)
+        msg_layout = QVBoxLayout(self.signup_bg)
+        msg_layout.setContentsMargins(40, 40, 40, 40)
+        msg_layout.setSpacing(10)
+        msg_layout.addStretch(3)
+
+        form = QFrame(page)
+        form.setStyleSheet(f"background:{c.CLR_PANEL};")
+        form_layout = QVBoxLayout(form)
+        form_layout.setContentsMargins(40, 40, 40, 40)
+        form_layout.setSpacing(30)
+
+        title_lbl = QLabel(self._t("Registrarse", "Register"))
+        title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 38px '{c.FONT_FAM}';")
+        title_lbl.setAlignment(Qt.AlignCenter)
+        form_layout.addWidget(title_lbl)
+
+        self.register_user = FloatingLabelInput(
+            self._t("Usuario", "Username"),
+            label_px=20,
+            right_icon_name="Usuario.svg",
+        )
+        self.register_user.setFixedHeight(70)
+        self.register_user.line_edit.setStyleSheet(
+            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
+        )
+        form_layout.addWidget(self.register_user)
+
+        self.register_pass = FloatingLabelInput(
+            self._t("Contraseña", "Password"),
+            is_password=True,
+            label_px=20,
+        )
+        self.register_pass.setFixedHeight(70)
+        self.register_pass.line_edit.setStyleSheet(
+            f"QLineEdit {{ border:none; background:transparent; color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}'; }}"
+        )
+        form_layout.addWidget(self.register_pass)
+
+        self.btn_register = QPushButton(self._t("Registrar", "Register"))
+        self.btn_register.setCursor(Qt.PointingHandCursor)
+        self.btn_register.setStyleSheet(
+            f"QPushButton {{\n"
+            f"    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
+            f"    color: {c.CLR_BG};\n"
+            f"    border: none;\n"
+            f"    border-radius: {c.FRAME_RAD}px;\n"
+            f"    font:600 20px '{c.FONT_FAM}';\n"
+            f"    padding: 12px 28px;\n"
+            f"}}\n"
+            f"QPushButton:hover {{\n"
+            f"    background: qlineargradient(x1:1, y1:0, x2:0, y2:0, stop:0 {c.CLR_TITLE}, stop:1 {c.CLR_ITEM_ACT});\n"
+            f"}}"
+        )
+        self.btn_register.clicked.connect(self._on_register_action)
+        self.register_user.line_edit.returnPressed.connect(self._on_register_action)
+        self.register_pass.line_edit.returnPressed.connect(self._on_register_action)
+        form_layout.addWidget(self.btn_register)
+
+        form_layout.addStretch(1)
+
+        self.link_to_login = QPushButton(self._t("¿Ya tienes una cuenta? Inicia sesión", "Already have an account? Log in"))
+        self.link_to_login.setCursor(Qt.PointingHandCursor)
+        self.link_to_login.setStyleSheet(
+            f"background:transparent; border:none; color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; text-decoration: underline;"
+        )
+        self.link_to_login.clicked.connect(self._animate_to_login)
+        form_layout.addWidget(self.link_to_login, alignment=Qt.AlignCenter)
+
+        layout.addWidget(self.signup_bg, stretch=2)
+        layout.addWidget(form, stretch=1)
+
+        for field in (self.register_user, self.register_pass):
+            field._focused = False
+            field._update_label_state()
+
+    # ------------------------------------------------------------------
+    # Animaciones
+    # ------------------------------------------------------------------
+    def _animate_to_register(self) -> None:
+        if self.current_page == "register":
+            return
+        self.current_page = "register"
+        width = self.width()
+
+        self.register_page.move(width, 0)
+        self._register_opacity.setOpacity(0.0)
+
+        duration = 600
+
+        login_pos_anim = QPropertyAnimation(self.login_page, b"pos")
+        login_pos_anim.setDuration(duration)
+        login_pos_anim.setStartValue(self.login_page.pos())
+        login_pos_anim.setEndValue(QPoint(-width, 0))
+        login_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        login_opacity_anim = QPropertyAnimation(self._login_opacity, b"opacity")
+        login_opacity_anim.setDuration(duration)
+        login_opacity_anim.setStartValue(1.0)
+        login_opacity_anim.setEndValue(0.0)
+        login_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        reg_pos_anim = QPropertyAnimation(self.register_page, b"pos")
+        reg_pos_anim.setDuration(duration)
+        reg_pos_anim.setStartValue(self.register_page.pos())
+        reg_pos_anim.setEndValue(QPoint(0, 0))
+        reg_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        reg_opacity_anim = QPropertyAnimation(self._register_opacity, b"opacity")
+        reg_opacity_anim.setDuration(duration)
+        reg_opacity_anim.setStartValue(0.0)
+        reg_opacity_anim.setEndValue(1.0)
+        reg_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(login_pos_anim)
+        group.addAnimation(login_opacity_anim)
+        group.addAnimation(reg_pos_anim)
+        group.addAnimation(reg_opacity_anim)
+
+        def finished():
+            self._reset_register_labels()
+            group.finished.disconnect(finished)
+
+        group.finished.connect(finished)
+        group.start()
+
+    def _animate_to_login(self) -> None:
+        if self.current_page == "login":
+            return
+        self.current_page = "login"
+        width = self.width()
+
+        self.login_page.move(-width, 0)
+        self._login_opacity.setOpacity(0.0)
+
+        duration = 600
+
+        reg_pos_anim = QPropertyAnimation(self.register_page, b"pos")
+        reg_pos_anim.setDuration(duration)
+        reg_pos_anim.setStartValue(self.register_page.pos())
+        reg_pos_anim.setEndValue(QPoint(width, 0))
+        reg_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        reg_opacity_anim = QPropertyAnimation(self._register_opacity, b"opacity")
+        reg_opacity_anim.setDuration(duration)
+        reg_opacity_anim.setStartValue(1.0)
+        reg_opacity_anim.setEndValue(0.0)
+        reg_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        login_pos_anim = QPropertyAnimation(self.login_page, b"pos")
+        login_pos_anim.setDuration(duration)
+        login_pos_anim.setStartValue(self.login_page.pos())
+        login_pos_anim.setEndValue(QPoint(0, 0))
+        login_pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        login_opacity_anim = QPropertyAnimation(self._login_opacity, b"opacity")
+        login_opacity_anim.setDuration(duration)
+        login_opacity_anim.setStartValue(0.0)
+        login_opacity_anim.setEndValue(1.0)
+        login_opacity_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(reg_pos_anim)
+        group.addAnimation(reg_opacity_anim)
+        group.addAnimation(login_pos_anim)
+        group.addAnimation(login_opacity_anim)
+
+        def finished():
+            self.login_page.move(0, 0)
+            self._login_opacity.setOpacity(1.0)
+            group.finished.disconnect(finished)
+
+        group.finished.connect(finished)
+        group.start()
+
+    def _reset_register_labels(self) -> None:
+        for field in (self.register_user, self.register_pass):
+            field._focused = False
+            field._update_label_state()
+
+    # ------------------------------------------------------------------
+    # Acciones de autenticación
+    # ------------------------------------------------------------------
     def _on_login_action(self) -> None:
-        username = self._content.user_input.text().strip()
-        password = self._content.password_input.text()
+        username = self.login_user.text().strip()
+        password = self.login_pass.text()
         if not username or not password:
-            self._content.show_feedback(
+            show_message(
+                self,
+                self._t("Error", "Error"),
                 self._t(
                     "Debes introducir un usuario y una contraseña.",
                     "You must enter a username and a password.",
                 ),
-                error=True,
             )
             return
         try:
@@ -493,89 +746,28 @@ class LoginDialog(BaseFormDialog):
             authenticated = False
         if authenticated:
             self.current_user = username
-            self._content.show_feedback("")
             self.accept()
             return
-        self._content.show_feedback(
+        show_message(
+            self,
+            self._t("Error", "Error"),
             self._t(
                 "Usuario o contraseña incorrectos.",
                 "Incorrect username or password.",
             ),
-            error=True,
         )
-
-    def _open_register_dialog(self) -> None:
-        dialog = RegisterDialog(
-            mapping=self.mapping,
-            parent=self,
-            create_user_callback=self._create_user,
-            log_action_callback=self._log_action,
-        )
-        if dialog.exec_() == dialog.Accepted and dialog.registered_user:
-            username = dialog.registered_user
-            self._content.user_input.setText(username)
-            self._content.clear_password()
-            self._content.show_feedback(
-                self._t(
-                    "Cuenta creada correctamente. Ahora puedes iniciar sesión.",
-                    "Account created successfully. You can now log in.",
-                ),
-                error=False,
-            )
-            self._content.focus_password()
-
-
-class RegisterDialog(BaseFormDialog):
-    """Ventana de registro que reutiliza el marco común de diálogos."""
-
-    def __init__(
-        self,
-        *,
-        mapping,
-        parent=None,
-        create_user_callback: Optional[CreateUserCallback] = None,
-        log_action_callback: Optional[LogActionCallback] = None,
-    ):
-        self.mapping = mapping or {}
-        self._create_user: CreateUserCallback = create_user_callback or (lambda _u, _p: False)
-        self._log_action: Optional[LogActionCallback] = log_action_callback
-        self._content = _RegisterContent(self.mapping, parent=parent)
-        super().__init__(
-            self._t("Registrarse", "Register"),
-            self._content,
-            self._t("Registrar", "Register"),
-            cancel_text=self._t("Cancelar", "Cancel"),
-            size=(460, 420),
-            parent=parent,
-        )
-
-        try:
-            self.btn_ok.clicked.disconnect()
-        except Exception:
-            pass
-        self.btn_ok.clicked.connect(self._on_register_action)
-        self.btn_ok.setDefault(True)
-
-        self._content.user_input.line_edit.returnPressed.connect(self._on_register_action)
-        self._content.password_input.line_edit.returnPressed.connect(self._on_register_action)
-
-        self.registered_user: str | None = None
-
-    def _t(self, text: str, fallback: str | None = None) -> str:
-        if self.mapping:
-            return self.mapping.get(text, fallback or text)
-        return text
 
     def _on_register_action(self) -> None:
-        username = self._content.user_input.text().strip()
-        password = self._content.password_input.text()
+        username = self.register_user.text().strip()
+        password = self.register_pass.text()
         if not username or not password:
-            self._content.show_feedback(
+            show_message(
+                self,
+                self._t("Error", "Error"),
                 self._t(
                     "Debes introducir un nombre de usuario y una contraseña.",
                     "You must enter a username and a password.",
                 ),
-                error=True,
             )
             return
         try:
@@ -583,23 +775,22 @@ class RegisterDialog(BaseFormDialog):
         except Exception:
             created = False
         if not created:
-            self._content.show_feedback(
+            show_message(
+                self,
+                self._t("Error", "Error"),
                 self._t(
                     "El nombre de usuario ya existe.",
                     "The username already exists.",
                 ),
-                error=True,
             )
             return
 
-        self.registered_user = username
         if self._log_action is not None:
             try:
                 self._log_action(username, "Registro de usuario")
             except Exception:
                 pass
 
-        self._content.show_feedback("")
         show_message(
             self,
             self._t("Éxito", "Success"),
@@ -608,4 +799,8 @@ class RegisterDialog(BaseFormDialog):
                 "Account created successfully. You can now log in.",
             ),
         )
-        self.accept()
+        QTimer.singleShot(0, self._animate_to_login)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        _apply_rounded_mask(self, c.FRAME_RAD)
