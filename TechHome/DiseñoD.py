@@ -174,12 +174,14 @@ def build_devices_page(app):
     dev_scroll.setWidget(dev_w)
     dev_scroll.setWidgetResizable(True)
     dev_scroll.setFrameShape(QFrame.NoFrame)
-    dev_scroll.setVerticalScrollBar(CustomScrollBar(Qt.Vertical))
+    vertical_scrollbar = CustomScrollBar(Qt.Vertical)
+    dev_scroll.setVerticalScrollBar(vertical_scrollbar)
     dev_scroll.setStyleSheet('background:transparent;')
     dev_scroll.viewport().setStyleSheet('background:transparent;')
     v.addWidget(dev_scroll, 1)
 
     app.device_scroll_area = dev_scroll
+    app.devices_vertical_scrollbar = vertical_scrollbar
 
     app.active_group = 'Todo'
 
@@ -277,6 +279,8 @@ def create_devices_animations(app) -> list[dict[str, object]]:
     specs.append(slide(lambda: getattr(app, 'devices_groups_scrollbar', None), order, offset=12.0, fade=False))
     order += 1
     specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order))
+    order += 1
+    specs.append(slide(lambda: getattr(app, 'devices_vertical_scrollbar', None), order, offset=12.0, fade=False))
     order += 1
 
     device_rows = list(getattr(app, 'device_rows', []))
