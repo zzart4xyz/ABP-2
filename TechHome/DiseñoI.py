@@ -200,9 +200,9 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
 def create_home_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para los bloques principales de la página de inicio."""
 
-    base_duration = 220
+    base_duration = 360
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 22.0, step: int = 30) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 28.0, step: int = 45) -> dict[str, object]:
         return {
             'type': 'slide_fade',
             'target': target_getter,
@@ -214,11 +214,11 @@ def create_home_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'home_greeting_frame', None), 0, offset=16.0),
-        slide(lambda: getattr(app, 'home_notifications_header', None), 1, offset=18.0),
-        slide(lambda: getattr(app, 'home_notifications_container', None), 2, offset=20.0),
-        slide(lambda: getattr(app, 'home_metrics_header', None), 3, offset=21.0),
-        slide(lambda: getattr(app, 'home_metrics_container', None), 4, offset=22.0),
-        slide(lambda: getattr(app, 'home_quick_access_label', None), 5, offset=23.0, step=28),
-        slide(lambda: getattr(app, 'home_quick_access_frame', None), 6, offset=24.0),
+        slide(lambda: getattr(app, 'home_greeting_frame', None), 0, offset=24.0),
+        slide(lambda: getattr(app, 'home_notifications_header', None), 1, offset=26.0),
+        slide(lambda: getattr(app, 'home_notifications_container', None), 2, offset=28.0),
+        slide(lambda: getattr(app, 'home_metrics_header', None), 3, offset=30.0),
+        slide(lambda: getattr(app, 'home_metrics_container', None), 4, offset=32.0),
+        slide(lambda: getattr(app, 'home_quick_access_label', None), 5, offset=34.0, step=45),
+        slide(lambda: getattr(app, 'home_quick_access_frame', None), 6, offset=36.0),
     ]

@@ -100,9 +100,9 @@ def build_config_page(app):
 def create_config_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para las tarjetas de configuración."""
 
-    base_duration = 220
+    base_duration = 360
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 20.0, step: int = 28) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 28.0, step: int = 45) -> dict[str, object]:
         return {
             'type': 'slide_fade',
             'target': target_getter,
@@ -114,9 +114,9 @@ def create_config_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'config_theme_frame', None), 0, offset=15.0),
-        slide(lambda: getattr(app, 'config_language_frame', None), 1, offset=17.0),
-        slide(lambda: getattr(app, 'config_time_frame', None), 2, offset=19.0),
-        slide(lambda: getattr(app, 'config_notifications_frame', None), 3, offset=22.0),
-        slide(lambda: getattr(app, 'config_about_frame', None), 4, offset=24.0),
+        slide(lambda: getattr(app, 'config_theme_frame', None), 0, offset=24.0),
+        slide(lambda: getattr(app, 'config_language_frame', None), 1, offset=26.0),
+        slide(lambda: getattr(app, 'config_time_frame', None), 2, offset=28.0),
+        slide(lambda: getattr(app, 'config_notifications_frame', None), 3, offset=32.0),
+        slide(lambda: getattr(app, 'config_about_frame', None), 4, offset=34.0),
     ]

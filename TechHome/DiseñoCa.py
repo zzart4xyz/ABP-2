@@ -205,9 +205,9 @@ def build_account_page(app) -> QWidget:
 def create_account_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para los bloques principales de la cuenta."""
 
-    base_duration = 220
+    base_duration = 360
 
-    def slide(target_getter, order: int, *, offset: float = 22.0, step: int = 28) -> dict[str, object]:
+    def slide(target_getter, order: int, *, offset: float = 30.0, step: int = 45) -> dict[str, object]:
         return {
             'type': 'slide_fade',
             'target': target_getter,
@@ -219,13 +219,13 @@ def create_account_animations(app) -> list[dict[str, object]]:
         }
 
     return [
-        slide(lambda: getattr(app, 'account_title_label', None), 0, offset=16.0, step=20),
-        slide(lambda: getattr(app, 'account_manage_button', None), 1, offset=16.0, step=20),
+        slide(lambda: getattr(app, 'account_title_label', None), 0, offset=26.0, step=35),
+        slide(lambda: getattr(app, 'account_manage_button', None), 1, offset=26.0, step=35),
         slide(lambda: getattr(app, 'account_summary_frame', None), 2),
         slide(lambda: getattr(app, 'account_security_frame', None), 3),
         slide(lambda: getattr(app, 'account_activity_frame', None), 4),
         slide(lambda: getattr(app, 'account_plan_frame', None), 5),
-        slide(lambda: getattr(app, 'account_invoice_button', None), 6, offset=18.0),
+        slide(lambda: getattr(app, 'account_invoice_button', None), 6, offset=32.0),
     ]
 
 

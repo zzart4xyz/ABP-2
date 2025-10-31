@@ -236,10 +236,10 @@ def build_devices_page(app):
 def create_devices_animations(app) -> list[dict[str, object]]:
     """Animaciones con deslizamiento suave para todo el apartado de dispositivos."""
 
-    base_duration = 220
+    base_duration = 360
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 18.0,
-              step: int = 30, fade: bool = True) -> dict[str, object]:
+    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 26.0,
+              step: int = 45, fade: bool = True) -> dict[str, object]:
         """Clonar la animación de inicio para cada elemento del listado."""
 
         return {
@@ -274,13 +274,13 @@ def create_devices_animations(app) -> list[dict[str, object]]:
 
     specs.append(slide(lambda: getattr(app, 'group_indicator', None), order))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_groups_scroll', None), order))
+    specs.append(slide(lambda: getattr(app, 'devices_groups_scroll', None), order, offset=28.0))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_groups_scrollbar', None), order, offset=12.0, fade=False))
+    specs.append(slide(lambda: getattr(app, 'devices_groups_scrollbar', None), order, offset=22.0, fade=False))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order))
+    specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order, offset=30.0))
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_vertical_scrollbar', None), order, offset=24.0, fade=True))
+    specs.append(slide(lambda: getattr(app, 'devices_vertical_scrollbar', None), order, offset=34.0, fade=True))
     order += 1
 
     device_rows = list(getattr(app, 'device_rows', []))

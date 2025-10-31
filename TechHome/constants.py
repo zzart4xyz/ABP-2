@@ -98,191 +98,125 @@ def with_alpha(color: str, alpha: float) -> str:
 
 
 def card_style(radius=None) -> str:
-    """Gradient background used for the main content shell."""
+    """Return a flat card style similar to the earlier UI."""
 
     if radius is None:
         radius = globals().get("FRAME_RAD", 5)
-    top = tone(CLR_BG, 0.18)
-    mid = tone(CLR_BG, 0.04)
-    bottom = tone(CLR_BG, -0.18)
-    border = with_alpha("#FFFFFF", 0.08)
+    border = with_alpha(CLR_TITLE, 0.18)
     return (
-        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        f" stop:0 {top}, stop:0.55 {mid}, stop:1 {bottom});"
+        f"background:{CLR_SURFACE};"
         f"border-radius:{radius}px;"
         f"border:1px solid {border};"
     )
 
 
 def side_panel_style(radius=None) -> str:
-    """Gradient styling for the navigation side panel."""
+    """Return a solid navigation style closer to the previous UI."""
 
     if radius is None:
         radius = globals().get("FRAME_RAD", 5)
-    top = tone(CLR_PANEL, 0.22)
-    mid = tone(CLR_PANEL, 0.08)
-    bottom = tone(CLR_PANEL, -0.12)
-    border = with_alpha("#FFFFFF", 0.05)
+    border = with_alpha(CLR_TITLE, 0.12)
     return (
-        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        f" stop:0 {top}, stop:0.45 {mid}, stop:1 {bottom});"
+        f"background:{CLR_PANEL};"
         f"border-radius:{radius}px;"
         f"border:1px solid {border};"
     )
 
 
 def content_panel_style(radius=None) -> str:
-    """Styling for stacked pages container."""
+    """Return the simpler stacked-page styling used previously."""
 
     if radius is None:
         radius = globals().get("FRAME_RAD", 5)
-    top = tone(CLR_SURFACE, 0.14)
-    mid = tone(CLR_SURFACE, 0.02)
-    bottom = tone(CLR_SURFACE, -0.08)
-    border = with_alpha("#FFFFFF", 0.06)
+    border = with_alpha(CLR_TITLE, 0.08)
     return (
-        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        f" stop:0 {top}, stop:0.55 {mid}, stop:1 {bottom});"
+        f"background:{CLR_BG};"
         f"border-radius:{radius}px;"
         f"border:1px solid {border};"
     )
 
 
 def nav_button_style() -> str:
-    """Shared stylesheet for navigation buttons."""
+    """Return the simpler navigation styling from the previous UI."""
 
-    hover_bg = with_alpha(CLR_TITLE, 0.18)
-    checked_border = with_alpha(CLR_TITLE, 0.28)
-    gradient_a = with_alpha(CLR_TITLE, 0.28)
-    gradient_b = with_alpha(CLR_TITLE, 0.08)
+    hover_bg = with_alpha(CLR_TITLE, 0.15)
+    checked_bg = with_alpha(CLR_TITLE, 0.20)
+    indicator = with_alpha(CLR_TITLE, 0.65)
     return (
         "QPushButton {"
         f" color:{CLR_TEXT_IDLE};"
         " background:transparent;"
         " border:none;"
-        " padding:10px 18px;"
-        " border-radius:10px;"
-        f" font:700 18px '{FONT_FAM}';"
+        " padding:8px 16px;"
+        " border-radius:6px;"
+        f" font:600 16px '{FONT_FAM}';"
         " text-align:left;"
         "}"
         "QPushButton:hover {"
         f" background:{hover_bg};"
-        f" color:{CLR_TITLE};"
         "}"
         "QPushButton:checked {"
-        f" background:qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {gradient_a}, stop:1 {gradient_b});"
+        f" background:{checked_bg};"
+        f" border-left:3px solid {indicator};"
         f" color:{CLR_TITLE};"
-        f" border:1px solid {checked_border};"
         "}"
     )
 
 
 def build_global_stylesheet() -> str:
-    """Compose the shared application stylesheet."""
+    """Return the lightweight stylesheet used before the redesign."""
 
     radius = globals().get("FRAME_RAD", 5)
-    handle = with_alpha(CLR_TITLE, 0.7)
-    handle_hover = with_alpha(CLR_TITLE, 0.9)
-    track = with_alpha(CLR_TRACK, 0.35)
-    panel_glow = tone(CLR_PANEL, 0.25)
-    border = with_alpha(CLR_TITLE, 0.55)
-    field_bg = tone(CLR_SURFACE, 0.05)
-    field_border = with_alpha(CLR_TITLE, 0.25)
+    handle = with_alpha(CLR_TITLE, 0.55)
+    handle_hover = with_alpha(CLR_TITLE, 0.75)
+    track = with_alpha(CLR_TRACK, 0.4)
     return f"""
         QMainWindow {{
-            background: transparent;
+            background: {CLR_BG};
         }}
-        QWidget#card {{
-            background: transparent;
+        QFrame#card {{
+            background: {CLR_SURFACE};
+            border-radius: {radius}px;
         }}
         QScrollArea {{
             background: transparent;
             border: none;
         }}
         QScrollBar:vertical {{
-            background: transparent;
-            width: 12px;
-            margin: 8px 4px 8px 4px;
-        }}
-        QScrollBar::groove:vertical {{
             background: {track};
-            border-radius: 6px;
+            width: 10px;
+            margin: 4px;
+            border-radius: 4px;
         }}
         QScrollBar::handle:vertical {{
             background: {handle};
-            border-radius: 6px;
-            min-height: 36px;
+            border-radius: 4px;
+            min-height: 24px;
         }}
         QScrollBar::handle:vertical:hover {{
             background: {handle_hover};
         }}
-        QScrollBar:horizontal {{
-            background: transparent;
-            height: 12px;
-            margin: 4px 8px 4px 8px;
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            height: 0px;
         }}
-        QScrollBar::groove:horizontal {{
+        QScrollBar:horizontal {{
             background: {track};
-            border-radius: 6px;
+            height: 10px;
+            margin: 4px;
+            border-radius: 4px;
         }}
         QScrollBar::handle:horizontal {{
             background: {handle};
-            border-radius: 6px;
-            min-width: 36px;
+            border-radius: 4px;
+            min-width: 24px;
         }}
         QScrollBar::handle:horizontal:hover {{
             background: {handle_hover};
         }}
-        QScrollBar::add-line:vertical,
-        QScrollBar::sub-line:vertical,
         QScrollBar::add-line:horizontal,
         QScrollBar::sub-line:horizontal {{
             width: 0px;
-            height: 0px;
-        }}
-        QScrollBar::add-page:vertical,
-        QScrollBar::sub-page:vertical,
-        QScrollBar::add-page:horizontal,
-        QScrollBar::sub-page:horizontal {{
-            background: transparent;
-        }}
-        QToolTip {{
-            background: {panel_glow};
-            color: {CLR_TEXT_IDLE};
-            border: 1px solid {border};
-            padding: 6px 10px;
-            border-radius: 6px;
-            font: 600 11px '{FONT_FAM}';
-        }}
-        QComboBox,
-        QSpinBox,
-        QDoubleSpinBox,
-        QDateEdit,
-        QTimeEdit,
-        QDateTimeEdit {{
-            background: {field_bg};
-            border: 1px solid {field_border};
-            border-radius: {radius}px;
-            color: {CLR_TEXT_IDLE};
-            padding: 6px 10px;
-            font: 500 14px '{FONT_FAM}';
-        }}
-        QComboBox::drop-down {{
-            width: 22px;
-            border: none;
-            background: transparent;
-        }}
-        QComboBox QAbstractItemView {{
-            background: {tone(CLR_SURFACE, 0.1)};
-            border-radius: {radius}px;
-            border: 1px solid {field_border};
-            selection-background-color: {with_alpha(CLR_TITLE, 0.35)};
-            selection-color: {CLR_TEXT_IDLE};
-        }}
-        QFrame[variant="surface"] {{
-            background: {tone(CLR_SURFACE, 0.08)};
-            border-radius: {radius}px;
-            border: 1px solid {with_alpha('#FFFFFF', 0.04)};
         }}
     """
 
