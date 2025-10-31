@@ -510,6 +510,16 @@ class LoginDialog(QDialog):
         _apply_rounded_mask(self, c.FRAME_RAD)
 
     # ------------------------------------------------------------------
+    # Utilidades de traducción
+    # ------------------------------------------------------------------
+    def _tr(self, text: str, english: str | None = None) -> str:
+        """Obtener ``text`` en el idioma activo (español por defecto)."""
+
+        if self.mapping:
+            return self.mapping.get(text, english or text)
+        return text
+
+    # ------------------------------------------------------------------
     # Page Construction
     # ------------------------------------------------------------------
     def _init_login_page(self):
@@ -535,7 +545,7 @@ class LoginDialog(QDialog):
 
         # Title.
         # Usar texto fijo en español para el título del formulario de inicio de sesión
-        title_text = "Iniciar Sesión"
+        title_text = self._tr("Iniciar Sesión", "Log In")
         title_lbl = QLabel(title_text)
         # Enlarge title font further for better visibility
         title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 38px '{c.FONT_FAM}';")
@@ -544,7 +554,7 @@ class LoginDialog(QDialog):
 
         # Username input using floating label style.
         # Etiqueta y placeholder del campo de usuario en español
-        user_ph = "Usuario"
+        user_ph = self._tr("Usuario", "Username")
         self.login_user = FloatingLabelInput(user_ph, label_px=20, right_icon_name="Usuario.svg")
         # Increase input field height
         self.login_user.setFixedHeight(70)
@@ -556,7 +566,7 @@ class LoginDialog(QDialog):
 
         # Password input.
         # Etiqueta y placeholder del campo de contraseña en español
-        pass_ph = "Contraseña"
+        pass_ph = self._tr("Contraseña", "Password")
         self.login_pass = FloatingLabelInput(pass_ph, is_password=True, label_px=20)
         self.login_pass.setFixedHeight(70)
         self.login_pass.line_edit.setStyleSheet(
@@ -566,7 +576,7 @@ class LoginDialog(QDialog):
 
         # Login button.
         # Texto del botón de entrada en español
-        self.btn_login = QPushButton("Entrar")
+        self.btn_login = QPushButton(self._tr("Entrar", "Login"))
         self.btn_login.setCursor(Qt.PointingHandCursor)
         # Apply a larger font size and padding to the login button
         self.btn_login.setStyleSheet(
@@ -590,7 +600,9 @@ class LoginDialog(QDialog):
 
         # Toggle to register link.
         # Texto del enlace para cambiar al registro en español
-        self.link_to_register = QPushButton("¿No tienes una cuenta? Regístrate")
+        self.link_to_register = QPushButton(
+            self._tr("¿No tienes una cuenta? Regístrate", "Need an account? Sign up")
+        )
         self.link_to_register.setCursor(Qt.PointingHandCursor)
         # Increase the font size for the sign-up link
         self.link_to_register.setStyleSheet(
@@ -647,7 +659,7 @@ class LoginDialog(QDialog):
         form_layout.setSpacing(30)
 
         # Usar texto fijo en español para el título del formulario de registro
-        title_text = "Registrarse"
+        title_text = self._tr("Registrarse", "Register")
         title_lbl = QLabel(title_text)
         # Enlarge title font further for better visibility
         title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 38px '{c.FONT_FAM}';")
@@ -655,7 +667,7 @@ class LoginDialog(QDialog):
         form_layout.addWidget(title_lbl)
 
         # Username input for registration.
-        user_ph = "Usuario"
+        user_ph = self._tr("Usuario", "Username")
         self.register_user = FloatingLabelInput(user_ph, label_px=20, right_icon_name="Usuario.svg")
         self.register_user.setFixedHeight(70)
         self.register_user.line_edit.setStyleSheet(
@@ -664,7 +676,7 @@ class LoginDialog(QDialog):
         form_layout.addWidget(self.register_user)
 
         # Password input.
-        pass_ph = "Contraseña"
+        pass_ph = self._tr("Contraseña", "Password")
         self.register_pass = FloatingLabelInput(pass_ph, is_password=True, label_px=20)
         self.register_pass.setFixedHeight(70)
         self.register_pass.line_edit.setStyleSheet(
@@ -673,7 +685,7 @@ class LoginDialog(QDialog):
         form_layout.addWidget(self.register_pass)
 
         # Register button.
-        self.btn_register = QPushButton("Registrar")
+        self.btn_register = QPushButton(self._tr("Registrar", "Register"))
         self.btn_register.setCursor(Qt.PointingHandCursor)
         self.btn_register.setStyleSheet(
             f"QPushButton {{\n"
@@ -695,7 +707,9 @@ class LoginDialog(QDialog):
         form_layout.addStretch(1)
 
         # Toggle back to login link.
-        self.link_to_login = QPushButton("¿Ya tienes una cuenta? Inicia sesión")
+        self.link_to_login = QPushButton(
+            self._tr("¿Ya tienes una cuenta? Inicia sesión", "Already have an account? Log in")
+        )
         self.link_to_login.setCursor(Qt.PointingHandCursor)
         self.link_to_login.setStyleSheet(
             f"background:transparent; border:none; color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; text-decoration: underline;"
@@ -883,7 +897,11 @@ class LoginDialog(QDialog):
         username = self.login_user.text().strip()
         password = self.login_pass.text()
         if not username or not password:
-            show_message(self, "Error", "Debes introducir un usuario y una contraseña.")
+            show_message(
+                self,
+                self._tr("Error", "Error"),
+                self._tr("Debes introducir un usuario y una contraseña.", "You must enter a username and a password."),
+            )
             return
         try:
             authenticated = self._authenticate(username, password)
@@ -893,7 +911,11 @@ class LoginDialog(QDialog):
             self.current_user = username
             self.accept()
         else:
-            show_message(self, "Error", "Usuario o contraseña incorrectos.")
+            show_message(
+                self,
+                self._tr("Error", "Error"),
+                self._tr("Usuario o contraseña incorrectos.", "Incorrect username or password."),
+            )
 
     def _on_register_action(self):
         """Attempt to register a new user with the provided information."""
@@ -902,8 +924,8 @@ class LoginDialog(QDialog):
         if not username or not password:
             show_message(
                 self,
-                "Error",
-                self.mapping.get(
+                self._tr("Error", "Error"),
+                self._tr(
                     "Debes introducir un nombre de usuario y una contraseña.",
                     "You must enter a username and a password.",
                 ),
@@ -916,11 +938,8 @@ class LoginDialog(QDialog):
         if not created:
             show_message(
                 self,
-                "Error",
-                self.mapping.get(
-                    "El nombre de usuario ya existe.",
-                    "The username already exists.",
-                ),
+                self._tr("Error", "Error"),
+                self._tr("El nombre de usuario ya existe.", "The username already exists."),
             )
             return
         if self._log_action is not None:
@@ -930,8 +949,8 @@ class LoginDialog(QDialog):
                 pass
         show_message(
             self,
-            self.mapping.get("Éxito", "Success"),
-            self.mapping.get(
+            self._tr("Éxito", "Success"),
+            self._tr(
                 "Cuenta creada correctamente. Ahora puedes iniciar sesión.",
                 "Account created successfully. You can now log in.",
             ),
