@@ -23,7 +23,6 @@ from PyQt5.QtWidgets import (
     QGraphicsOpacityEffect,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QToolButton,
     QVBoxLayout,
@@ -31,6 +30,7 @@ from PyQt5.QtWidgets import (
 )
 
 from ui_helpers import apply_rounded_mask as _apply_rounded_mask
+from dialogs import show_message as _dialog_message
 
 # ---------------------------------------------------------------------------
 # Tipos de callback para separar la lógica de la interfaz.
@@ -58,9 +58,9 @@ __all__ = [
 
 
 def show_message(parent, title: str, text: str) -> None:
-    """Mostrar un mensaje informativo simple."""
+    """Mostrar un mensaje informativo con el estilo de TechHome."""
 
-    QMessageBox.information(parent, title, text)
+    _dialog_message(parent, title, text)
 
 
 class FloatingLabelInput(QFrame):
