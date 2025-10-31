@@ -69,6 +69,223 @@ CLR_PLACEHOLDER = THEMES["dark"]["CLR_PLACEHOLDER"]
 SHADOW_ALPHA = THEMES["dark"]["SHADOW_ALPHA"]
 CURRENT_THEME = "dark"
 
+
+def _coerce_color(value: str) -> QColor:
+    """Return a ``QColor`` from ``value`` safeguarding invalid inputs."""
+
+    color = QColor(value)
+    if not color.isValid():
+        color = QColor("#000000")
+    return color
+
+
+def tone(color: str, factor: float) -> str:
+    """Lighten (``factor`` > 0) or darken (``factor`` < 0) ``color``."""
+
+    qc = _coerce_color(color)
+    factor = max(-0.95, min(0.95, factor))
+    if factor >= 0:
+        return qc.lighter(int(100 + factor * 100)).name()
+    return qc.darker(int(100 + (-factor) * 100)).name()
+
+
+def with_alpha(color: str, alpha: float) -> str:
+    """Return ``color`` expressed as an ``rgba`` string with ``alpha``."""
+
+    qc = _coerce_color(color)
+    alpha = max(0.0, min(1.0, alpha))
+    return f"rgba({qc.red()}, {qc.green()}, {qc.blue()}, {int(alpha * 255)})"
+
+
+def card_style(radius=None) -> str:
+    """Gradient background used for the main content shell."""
+
+    if radius is None:
+        radius = globals().get("FRAME_RAD", 5)
+    top = tone(CLR_BG, 0.18)
+    mid = tone(CLR_BG, 0.04)
+    bottom = tone(CLR_BG, -0.18)
+    border = with_alpha("#FFFFFF", 0.08)
+    return (
+        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        f" stop:0 {top}, stop:0.55 {mid}, stop:1 {bottom});"
+        f"border-radius:{radius}px;"
+        f"border:1px solid {border};"
+    )
+
+
+def side_panel_style(radius=None) -> str:
+    """Gradient styling for the navigation side panel."""
+
+    if radius is None:
+        radius = globals().get("FRAME_RAD", 5)
+    top = tone(CLR_PANEL, 0.22)
+    mid = tone(CLR_PANEL, 0.08)
+    bottom = tone(CLR_PANEL, -0.12)
+    border = with_alpha("#FFFFFF", 0.05)
+    return (
+        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        f" stop:0 {top}, stop:0.45 {mid}, stop:1 {bottom});"
+        f"border-radius:{radius}px;"
+        f"border:1px solid {border};"
+    )
+
+
+def content_panel_style(radius=None) -> str:
+    """Styling for stacked pages container."""
+
+    if radius is None:
+        radius = globals().get("FRAME_RAD", 5)
+    top = tone(CLR_SURFACE, 0.14)
+    mid = tone(CLR_SURFACE, 0.02)
+    bottom = tone(CLR_SURFACE, -0.08)
+    border = with_alpha("#FFFFFF", 0.06)
+    return (
+        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        f" stop:0 {top}, stop:0.55 {mid}, stop:1 {bottom});"
+        f"border-radius:{radius}px;"
+        f"border:1px solid {border};"
+    )
+
+
+def nav_button_style() -> str:
+    """Shared stylesheet for navigation buttons."""
+
+    hover_bg = with_alpha(CLR_TITLE, 0.18)
+    checked_border = with_alpha(CLR_TITLE, 0.28)
+    gradient_a = with_alpha(CLR_TITLE, 0.28)
+    gradient_b = with_alpha(CLR_TITLE, 0.08)
+    return (
+        "QPushButton {"
+        f" color:{CLR_TEXT_IDLE};"
+        " background:transparent;"
+        " border:none;"
+        " padding:10px 18px;"
+        " border-radius:10px;"
+        f" font:700 18px '{FONT_FAM}';"
+        " text-align:left;"
+        "}"
+        "QPushButton:hover {"
+        f" background:{hover_bg};"
+        f" color:{CLR_TITLE};"
+        "}"
+        "QPushButton:checked {"
+        f" background:qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {gradient_a}, stop:1 {gradient_b});"
+        f" color:{CLR_TITLE};"
+        f" border:1px solid {checked_border};"
+        "}"
+    )
+
+
+def build_global_stylesheet() -> str:
+    """Compose the shared application stylesheet."""
+
+    radius = globals().get("FRAME_RAD", 5)
+    handle = with_alpha(CLR_TITLE, 0.7)
+    handle_hover = with_alpha(CLR_TITLE, 0.9)
+    track = with_alpha(CLR_TRACK, 0.35)
+    panel_glow = tone(CLR_PANEL, 0.25)
+    border = with_alpha(CLR_TITLE, 0.55)
+    field_bg = tone(CLR_SURFACE, 0.05)
+    field_border = with_alpha(CLR_TITLE, 0.25)
+    return f"""
+        QMainWindow {{
+            background: transparent;
+        }}
+        QWidget#card {{
+            background: transparent;
+        }}
+        QScrollArea {{
+            background: transparent;
+            border: none;
+        }}
+        QScrollBar:vertical {{
+            background: transparent;
+            width: 12px;
+            margin: 8px 4px 8px 4px;
+        }}
+        QScrollBar::groove:vertical {{
+            background: {track};
+            border-radius: 6px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {handle};
+            border-radius: 6px;
+            min-height: 36px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {handle_hover};
+        }}
+        QScrollBar:horizontal {{
+            background: transparent;
+            height: 12px;
+            margin: 4px 8px 4px 8px;
+        }}
+        QScrollBar::groove:horizontal {{
+            background: {track};
+            border-radius: 6px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background: {handle};
+            border-radius: 6px;
+            min-width: 36px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background: {handle_hover};
+        }}
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical,
+        QScrollBar::add-line:horizontal,
+        QScrollBar::sub-line:horizontal {{
+            width: 0px;
+            height: 0px;
+        }}
+        QScrollBar::add-page:vertical,
+        QScrollBar::sub-page:vertical,
+        QScrollBar::add-page:horizontal,
+        QScrollBar::sub-page:horizontal {{
+            background: transparent;
+        }}
+        QToolTip {{
+            background: {panel_glow};
+            color: {CLR_TEXT_IDLE};
+            border: 1px solid {border};
+            padding: 6px 10px;
+            border-radius: 6px;
+            font: 600 11px '{FONT_FAM}';
+        }}
+        QComboBox,
+        QSpinBox,
+        QDoubleSpinBox,
+        QDateEdit,
+        QTimeEdit,
+        QDateTimeEdit {{
+            background: {field_bg};
+            border: 1px solid {field_border};
+            border-radius: {radius}px;
+            color: {CLR_TEXT_IDLE};
+            padding: 6px 10px;
+            font: 500 14px '{FONT_FAM}';
+        }}
+        QComboBox::drop-down {{
+            width: 22px;
+            border: none;
+            background: transparent;
+        }}
+        QComboBox QAbstractItemView {{
+            background: {tone(CLR_SURFACE, 0.1)};
+            border-radius: {radius}px;
+            border: 1px solid {field_border};
+            selection-background-color: {with_alpha(CLR_TITLE, 0.35)};
+            selection-color: {CLR_TEXT_IDLE};
+        }}
+        QFrame[variant="surface"] {{
+            background: {tone(CLR_SURFACE, 0.08)};
+            border-radius: {radius}px;
+            border: 1px solid {with_alpha('#FFFFFF', 0.04)};
+        }}
+    """
+
 def set_theme_constants(theme: str):
     """
     Update the module-level colour constants to values from the given theme.
@@ -82,6 +299,7 @@ def set_theme_constants(theme: str):
     palette = THEMES.get(theme, THEMES["dark"])
     globals().update(palette)
     globals()["CURRENT_THEME"] = theme
+    globals()["GLOBAL_STYLESHEET"] = build_global_stylesheet()
 
 # Initialise with dark theme defaults
 set_theme_constants("dark")

@@ -21,7 +21,19 @@ from PyQt5.QtCore import (
     QSequentialAnimationGroup,
     QPauseAnimation,
 )
-from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
+from PyQt5.QtGui import (
+    QPainter,
+    QPen,
+    QBrush,
+    QColor,
+    QFont,
+    QConicalGradient,
+    QPixmap,
+    QIcon,
+    QPainterPath,
+    QLinearGradient,
+    QRadialGradient,
+)
 try:
     from PyQt5.QtSvg import QSvgRenderer
 except Exception:
@@ -998,7 +1010,8 @@ class AnimatedBackground(QWidget):
         lay.setSpacing(0)
         card = QFrame(self)
         card.setObjectName('card')
-        card.setStyleSheet(f'QFrame#card {{ background:{CLR_BG}; border-radius:{FRAME_RAD}px; }}')
+        card.setStyleSheet(card_style())
+        make_shadow(card, 60, 18, 140)
         lay.addWidget(card)
         self.card = card
         self._style_popup_label()
@@ -1102,7 +1115,8 @@ class AnimatedBackground(QWidget):
             self.card.deleteLater()
         card = QFrame(self)
         card.setObjectName('card')
-        card.setStyleSheet(f'QFrame#card {{ background:{CLR_BG}; border-radius:{FRAME_RAD}px; }}')
+        card.setStyleSheet(card_style())
+        make_shadow(card, 60, 18, 140)
         layout.addWidget(card)
         self.card = card
         self._build_ui(card)
@@ -2058,37 +2072,77 @@ class AnimatedBackground(QWidget):
         self.notifications_dialog.show()
 
     def paintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        grad = QConicalGradient(QPointF(self.width() / 2, self.height() / 2), self._angle)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect()
+        base = QLinearGradient(0, 0, 0, rect.height())
         if CURRENT_THEME == 'light':
-            colors = [(0, QColor(255, 255, 255)), (0.25, QColor(224, 224, 224)), (0.5, QColor(255, 255, 255)), (0.75, QColor(224, 224, 224)), (1.0, QColor(255, 255, 255))]
+            base.setColorAt(0.0, QColor(240, 244, 248))
+            base.setColorAt(0.6, QColor(228, 234, 240))
+            base.setColorAt(1.0, QColor(220, 224, 230))
         else:
-            colors = [(0, QColor(7, 16, 27)), (0.25, QColor(20, 30, 60)), (0.5, QColor(7, 16, 27)), (0.75, QColor(20, 30, 60)), (1.0, QColor(7, 16, 27))]
-        for pos, ccol in colors:
-            grad.setColorAt(pos, ccol)
-        p.fillRect(self.rect(), grad)
-        if p.isActive():
-            p.end()
+            base.setColorAt(0.0, QColor.fromRgbF(0.04, 0.12, 0.21))
+            base.setColorAt(0.6, QColor.fromRgbF(0.02, 0.08, 0.16))
+            base.setColorAt(1.0, QColor.fromRgbF(0.02, 0.06, 0.12))
+        painter.fillRect(rect, base)
+
+        radius = max(rect.width(), rect.height()) * 0.9
+        glow_primary = QRadialGradient(QPointF(rect.width() * 0.25, rect.height() * 0.18), radius)
+        glow_primary.setColorAt(0.0, QColor(30, 190, 255, 110))
+        glow_primary.setColorAt(1.0, QColor(30, 190, 255, 0))
+        painter.fillRect(rect, glow_primary)
+
+        glow_secondary = QRadialGradient(QPointF(rect.width() * 0.82, rect.height() * 0.85), radius)
+        glow_secondary.setColorAt(0.0, QColor(20, 70, 140, 90))
+        glow_secondary.setColorAt(1.0, QColor(20, 70, 140, 0))
+        painter.fillRect(rect, glow_secondary)
+
+        orbit = QConicalGradient(QPointF(rect.width() / 2, rect.height() / 2), self._angle)
+        if CURRENT_THEME == 'light':
+            orbit_colors = [
+                (0.0, QColor(255, 255, 255, 160)),
+                (0.25, QColor(220, 232, 242, 90)),
+                (0.5, QColor(255, 255, 255, 120)),
+                (0.75, QColor(220, 232, 242, 90)),
+                (1.0, QColor(255, 255, 255, 160)),
+            ]
+        else:
+            orbit_colors = [
+                (0.0, QColor(7, 16, 27, 220)),
+                (0.25, QColor(20, 40, 80, 140)),
+                (0.5, QColor(7, 16, 27, 220)),
+                (0.75, QColor(20, 40, 80, 140)),
+                (1.0, QColor(7, 16, 27, 220)),
+            ]
+        for pos, color in orbit_colors:
+            orbit.setColorAt(pos, color)
+        painter.save()
+        painter.setOpacity(0.28)
+        painter.fillRect(rect, QBrush(orbit))
+        painter.restore()
+        painter.end()
 
     def _build_ui(self, container):
         root = QHBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         panel = QFrame()
+        panel.setObjectName('side_panel')
         panel.setFixedWidth(PANEL_W)
-        panel.setStyleSheet(f'background:{CLR_PANEL}; border-radius:{FRAME_RAD}px;')
+        panel.setStyleSheet(side_panel_style())
+        make_shadow(panel, 36, 10, 120)
         vp = QVBoxLayout(panel)
         vp.setContentsMargins(20, 16, 20, 16)
-        vp.setSpacing(16)
+        vp.setSpacing(18)
         lbl_title = QLabel('TechHome')
         lbl_title.setStyleSheet(f"color:{CLR_TITLE}; font:700 32px '{FONT_FAM}';")
         vp.addWidget(lbl_title, alignment=Qt.AlignHCenter | Qt.AlignTop)
         menu_w = QWidget()
         menu_l = QVBoxLayout(menu_w)
         menu_l.setContentsMargins(0, 0, 0, 0)
-        menu_l.setSpacing(16)
+        menu_l.setSpacing(12)
         self.buttons = []
+        nav_style = nav_button_style()
         menu_items = [
             ('Inicio', 'Inicio.svg'),
             ('Dispositivos', 'Dispositivos.svg'),
@@ -2105,8 +2159,8 @@ class AnimatedBackground(QWidget):
             btn.setCheckable(True)
             btn.setAutoExclusive(True)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setMinimumHeight(38)
-            btn.setStyleSheet(f"\n                QPushButton {{ color:{CLR_TEXT_IDLE}; background:transparent;\n                  border:none; padding:8px 16px; border-radius:5px;\n                  font:700 18px '{FONT_FAM}'; text-align:left; }}\n                QPushButton:checked {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}\n            ")
+            btn.setMinimumHeight(40)
+            btn.setStyleSheet(nav_style)
             btn.clicked.connect(lambda _, ix=i: self._switch_page(self.stack, ix))
             menu_l.addWidget(btn)
             self.buttons.append(btn)
@@ -2121,10 +2175,8 @@ class AnimatedBackground(QWidget):
         account_btn.setCheckable(True)
         account_btn.setAutoExclusive(True)
         account_btn.setCursor(Qt.PointingHandCursor)
-        account_btn.setMinimumHeight(38)
-        account_btn.setStyleSheet(
-            f"\n                QPushButton {{ color:{CLR_TEXT_IDLE}; background:transparent;\n   border:none; padding:8px 16px; border-radius:5px;\n                  font:700 18px '{FONT_FAM}'; text-align:left; }}\n         QPushButton:checked {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}\n            "
-        )
+        account_btn.setMinimumHeight(40)
+        account_btn.setStyleSheet(nav_style)
         account_index = len(self.buttons)
         account_btn.clicked.connect(lambda _, ix=account_index: self._switch_page(self.stack, ix))
         menu_l.addWidget(account_btn)
@@ -2134,6 +2186,10 @@ class AnimatedBackground(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         vp.addWidget(scroll, 1)
+        divider = QFrame()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background:{with_alpha(CLR_TITLE, 0.25)}; border:none;")
+        vp.addWidget(divider)
         ver_lbl = QLabel('Versión 1.0')
         ver_lbl.setStyleSheet(f"color:{CLR_TITLE}; font:700 18px '{FONT_FAM}';")
         vp.addWidget(ver_lbl, alignment=Qt.AlignHCenter | Qt.AlignBottom)
@@ -2164,14 +2220,16 @@ class AnimatedBackground(QWidget):
         self._running_page_anims: list[dict[str, Any]] = []
         self.stack.currentChanged.connect(self._play_page_animations)
         self._play_page_animations(self.stack.currentIndex())
-        right = QWidget()
-        vr = QVBoxLayout(right)
-        vr.setContentsMargins(30, 0, 30, 20)
-        vr.setSpacing(10)
-        vr.addWidget(self.stack)
-        vr.addStretch(1)
+        content = QFrame()
+        content.setObjectName('content_panel')
+        content.setStyleSheet(content_panel_style())
+        make_shadow(content, 60, 22, 150)
+        vr = QVBoxLayout(content)
+        vr.setContentsMargins(30, 26, 30, 26)
+        vr.setSpacing(20)
+        vr.addWidget(self.stack, 1)
         root.addWidget(panel, 1)
-        root.addWidget(right, 4)
+        root.addWidget(content, 4)
 
     def _on_list_selected(self, name):
         self.list_title.setText(name)
@@ -2833,6 +2891,7 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
     app = QApplication(sys.argv)
+    app.setStyleSheet(build_global_stylesheet())
     splash = SplashScreen()
     splash_specs = create_splash_animations(splash)
     for spec in splash_specs:
