@@ -2095,7 +2095,6 @@ class AnimatedBackground(QWidget):
             ('Más', 'Más.svg'),
             ('Salud', 'Salud.svg'),
             ('Configuración', 'Configuración.svg'),
-            ('Cuenta', 'Cuenta.svg'),
         ]
         for i, (label, icn) in enumerate(menu_items):
             btn = QPushButton()
@@ -2112,6 +2111,24 @@ class AnimatedBackground(QWidget):
             menu_l.addWidget(btn)
             self.buttons.append(btn)
         menu_l.addStretch(1)
+
+        account_label, account_icon = 'Cuenta', 'Cuenta.svg'
+        account_btn = QPushButton()
+        account_btn.base_text = account_label
+        account_btn.setText(f'   {account_label}')
+        account_btn.setIcon(icon(account_icon))
+        account_btn.setIconSize(QSize(24, 24))
+        account_btn.setCheckable(True)
+        account_btn.setAutoExclusive(True)
+        account_btn.setCursor(Qt.PointingHandCursor)
+        account_btn.setMinimumHeight(38)
+        account_btn.setStyleSheet(
+            f"\n                QPushButton {{ color:{CLR_TEXT_IDLE}; background:transparent;\n   border:none; padding:8px 16px; border-radius:5px;\n                  font:700 18px '{FONT_FAM}'; text-align:left; }}\n         QPushButton:checked {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}\n            "
+        )
+        account_index = len(self.buttons)
+        account_btn.clicked.connect(lambda _, ix=account_index: self._switch_page(self.stack, ix))
+        menu_l.addWidget(account_btn)
+        self.buttons.append(account_btn)
         scroll = QScrollArea()
         scroll.setWidget(menu_w)
         scroll.setWidgetResizable(True)
