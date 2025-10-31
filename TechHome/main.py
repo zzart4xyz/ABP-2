@@ -890,6 +890,7 @@ from DiseñoD import build_devices_page, create_devices_animations
 from DiseñoM import build_more_page, create_more_animations
 from DiseñoS import build_health_page, create_health_animations
 from DiseñoC import build_config_page, create_config_animations
+from DiseñoCa import build_account_page, create_account_animations
 import database
 from widgets import NotesManager, DraggableNote, CustomScrollBar, NoFocusDelegate, style_table, CurrentMonthCalendar, CardButton, QuickAccessButton, GroupCard, DeviceRow
 from health import BPMGauge, MetricsPanel
@@ -2088,7 +2089,14 @@ class AnimatedBackground(QWidget):
         menu_l.setContentsMargins(0, 0, 0, 0)
         menu_l.setSpacing(16)
         self.buttons = []
-        menu_items = [('Inicio', 'Inicio.svg'), ('Dispositivos', 'Dispositivos.svg'), ('Más', 'Más.svg'), ('Salud', 'Salud.svg'), ('Configuración', 'Configuración.svg')]
+        menu_items = [
+            ('Inicio', 'Inicio.svg'),
+            ('Dispositivos', 'Dispositivos.svg'),
+            ('Más', 'Más.svg'),
+            ('Salud', 'Salud.svg'),
+            ('Configuración', 'Configuración.svg'),
+            ('Cuenta', 'Cuenta.svg'),
+        ]
         for i, (label, icn) in enumerate(menu_items):
             btn = QPushButton()
             btn.base_text = label
@@ -2118,6 +2126,7 @@ class AnimatedBackground(QWidget):
         self.stack.addWidget(build_more_page(self))
         self.stack.addWidget(build_health_page(self))
         self.stack.addWidget(build_config_page(self))
+        self.stack.addWidget(build_account_page(self))
         self.buttons[0].setChecked(True)
         self.stack.setCurrentIndex(0)
         animation_builders = [
@@ -2126,6 +2135,7 @@ class AnimatedBackground(QWidget):
             create_more_animations,
             create_health_animations,
             create_config_animations,
+            create_account_animations,
         ]
         self._page_animations: dict[int, list[dict[str, object]]] = {}
         for idx, builder in enumerate(animation_builders):
