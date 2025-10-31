@@ -69,23 +69,27 @@ def build_account_page(app) -> QWidget:
 
     username_lbl = QLabel('Usuario')
     username_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}';")
-    username_val = QLabel(app.username or 'Usuario TechHome')
+    username_val = QLabel(getattr(app, 'username', None) or 'Usuario TechHome')
     username_val.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}';")
+    app.account_username_label = username_val
 
     email_lbl = QLabel('Correo')
     email_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}';")
     email_val = QLabel(getattr(app, 'user_email', 'usuario@techhome.app'))
     email_val.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}';")
+    app.account_email_label = email_val
 
     status_lbl = QLabel('Estado')
     status_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}';")
     status_val = QLabel('Activo')
     status_val.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}';")
+    app.account_status_label = status_val
 
     membership_lbl = QLabel('Plan')
     membership_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}';")
     membership_val = QLabel(getattr(app, 'account_plan', 'TechHome Familiar'))
     membership_val.setStyleSheet(f"color:{CLR_TITLE}; font:600 16px '{FONT_FAM}';")
+    app.account_plan_label = membership_val
 
     info_grid.addWidget(username_lbl, 0, 0)
     info_grid.addWidget(username_val, 0, 1)
@@ -113,6 +117,7 @@ def build_account_page(app) -> QWidget:
     devices_lbl = QLabel('Dispositivos conectados: 4')
     devices_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:500 14px '{FONT_FAM}';")
     security_layout.addWidget(devices_lbl)
+    app.account_devices_label = devices_lbl
 
     security_actions = QHBoxLayout()
     security_actions.setSpacing(12)

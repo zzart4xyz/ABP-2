@@ -2716,7 +2716,36 @@ class AnimatedBackground(QWidget):
             return
         total_devices = len(getattr(self, 'device_rows', []))
         active_devices = sum((1 for r in getattr(self, 'device_rows', []) if getattr(r.btn, 'isChecked', lambda: False)()))
+        if hasattr(self, 'account_username_label'):
+            username_text = getattr(self, 'username', None) or 'Usuario TechHome'
+            try:
+                self.account_username_label.setText(username_text)
+            except Exception:
+                pass
+        if hasattr(self, 'account_email_label'):
+            email_text = getattr(self, 'user_email', None) or 'usuario@techhome.app'
+            try:
+                self.account_email_label.setText(email_text)
+            except Exception:
+                pass
+        if hasattr(self, 'account_status_label'):
+            status_text = 'Activa' if getattr(self, 'username', None) else 'Sin sesión'
+            try:
+                self.account_status_label.setText(status_text)
+            except Exception:
+                pass
+        if hasattr(self, 'account_plan_label'):
+            plan_text = getattr(self, 'account_plan', None) or 'TechHome Familiar'
+            try:
+                self.account_plan_label.setText(plan_text)
+            except Exception:
+                pass
         self.acc_dev_label.setText(f'{total_devices} ({active_devices} activos)')
+        if hasattr(self, 'account_devices_label'):
+            try:
+                self.account_devices_label.setText(f'Dispositivos activos: {active_devices} de {total_devices}')
+            except Exception:
+                pass
         list_count = len(getattr(self, 'lists', {}))
         item_count = 0
         try:
