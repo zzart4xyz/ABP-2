@@ -301,20 +301,20 @@ def set_theme_constants(theme: str):
     globals()["CURRENT_THEME"] = theme
     globals()["GLOBAL_STYLESHEET"] = build_global_stylesheet()
 
-# Initialise with dark theme defaults
-set_theme_constants("dark")
-
 # ---------------------------------------------------------------------
 # Application constants
 # ---------------------------------------------------------------------
 
-# Layout constants
+# Layout constants (must be defined before the stylesheet is built)
 PANEL_W              = 260
 FRAME_RAD            = 5
 FONT_FAM             = "Segoe UI, Inter, sans-serif"
 MIN_GAUGE            = 680
 GAUGE_CONTENT_FACTOR = 0.50
 SHIFT_FACTOR         = 0.10
+
+# Initialise with dark theme defaults
+set_theme_constants("dark")
 
 # Paths relative to this file
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
