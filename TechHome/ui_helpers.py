@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import QRectF
+from typing import Iterable, Tuple
+
+from PyQt5.QtCore import QRectF, QSize, Qt
 from PyQt5.QtGui import QPainterPath, QPixmap, QRegion
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+import constants as c
 
 
 def crop_pixmap_to_content(pixmap: QPixmap) -> QPixmap:
@@ -62,3 +73,146 @@ def apply_rounded_mask(widget: QWidget, radius: int) -> None:
     path.addRoundedRect(QRectF(widget.rect()), r_val, r_val)
     region = QRegion(path.toFillPolygon().toPolygon())
     widget.setMask(region)
+
+
+# ---------------------------------------------------------------------------
+# Layout helpers
+# ---------------------------------------------------------------------------
+
+def _normalize_margins(margins: int | Iterable[int]) -> Tuple[int, int, int, int]:
+    if isinstance(margins, int):
+        return (margins, margins, margins, margins)
+    values = tuple(int(v) for v in margins)  # type: ignore[arg-type]
+    if len(values) == 2:
+        return (values[0], values[1], values[0], values[1])
+    if len(values) == 4:
+        return values  # type: ignore[return-value]
+    return (12, 12, 12, 12)
+
+
+def build_page_styles(object_name: str, extra: str = "") -> str:
+    return (
+        f"""
+        QWidget#{object_name} {{
+            background:transparent;
+        }}
+        QFrame[class='card'] {{
+            background:{c.CLR_PANEL};
+            border:1px solid {c.CLR_SURFACE};
+            border-radius:14px;
+        }}
+        QFrame[class='card'][data-role='hero'] {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                        stop:0 {c.with_alpha(c.CLR_TITLE, 0.2)},
+                                        stop:1 {c.with_alpha(c.CLR_TITLE, 0.05)});
+            border:1px solid {c.with_alpha(c.CLR_TITLE, 0.25)};
+        }}
+        QFrame[class='header'] {{
+            background:transparent;
+        }}
+        QFrame[class='row'] {{
+            background:{c.CLR_SURFACE};
+            border-radius:10px;
+        }}
+        QLabel[class='title'] {{
+            color:{c.CLR_TITLE};
+            font:700 22px '{c.FONT_FAM}';
+        }}
+        QLabel[class='subtitle'] {{
+            color:{c.CLR_TEXT_IDLE};
+            font:600 16px '{c.FONT_FAM}';
+        }}
+        QLabel[class='value'] {{
+            color:{c.CLR_TEXT_IDLE};
+            font:600 16px '{c.FONT_FAM}';
+        }}
+        QPushButton[class='icon'] {{
+            background:transparent;
+            border:none;
+            border-radius:8px;
+            padding:4px;
+        }}
+        QPushButton[class='icon']:hover {{
+            background:{c.with_alpha(c.CLR_TITLE, 0.12)};
+        }}
+        """ + extra
+    )
+
+
+def init_page(
+    object_name: str,
+    *,
+    margins: int | Iterable[int] = (0, 24, 0, 24),
+    spacing: int = 20,
+    extra_style: str = "",
+) -> tuple[QWidget, QVBoxLayout]:
+    widget = QWidget()
+    widget.setObjectName(object_name)
+    widget.setStyleSheet(build_page_styles(object_name, extra_style))
+    layout = QVBoxLayout(widget)
+    layout.setContentsMargins(*_normalize_margins(margins))
+    layout.setSpacing(spacing)
+    return widget, layout
+
+
+def create_card(
+    *,
+    role: str | None = None,
+    orientation: str = "v",
+    margins: int | Iterable[int] = 16,
+    spacing: int = 12,
+) -> tuple[QFrame, QVBoxLayout | QHBoxLayout]:
+    frame = QFrame()
+    frame.setProperty("class", "card")
+    if role:
+        frame.setProperty("data-role", role)
+    layout_cls = QHBoxLayout if orientation == "h" else QVBoxLayout
+    layout = layout_cls(frame)
+    layout.setContentsMargins(*_normalize_margins(margins))
+    layout.setSpacing(spacing)
+    return frame, layout
+
+
+def create_header(
+    text: str,
+    *,
+    icon_name: str | None = None,
+    callback = None,
+    icon_size: int = 26,
+) -> tuple[QFrame, QLabel, QPushButton | None]:
+    frame = QFrame()
+    frame.setProperty("class", "header")
+    layout = QHBoxLayout(frame)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+    label = QLabel(text)
+    label.setProperty("class", "title")
+    layout.addWidget(label)
+    layout.addStretch(1)
+    button: QPushButton | None = None
+    if icon_name:
+        button = QPushButton()
+        button.setProperty("class", "icon")
+        button.setCursor(Qt.PointingHandCursor)
+        button.setIcon(c.icon(icon_name))
+        button.setIconSize(QSize(icon_size, icon_size))
+        if callback:
+            button.clicked.connect(callback)
+        layout.addWidget(button)
+    return frame, label, button
+
+
+def create_row(
+    *,
+    role: str = "row",
+    orientation: str = "h",
+    margins: int | Iterable[int] = (12, 10, 12, 10),
+    spacing: int = 10,
+) -> tuple[QFrame, QVBoxLayout | QHBoxLayout]:
+    frame = QFrame()
+    frame.setProperty("class", role)
+    layout_cls = QHBoxLayout if orientation == "h" else QVBoxLayout
+    layout = layout_cls(frame)
+    layout.setContentsMargins(*_normalize_margins(margins))
+    layout.setSpacing(spacing)
+    return frame, layout
