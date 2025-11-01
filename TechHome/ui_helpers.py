@@ -91,28 +91,42 @@ def _normalize_margins(margins: int | Iterable[int]) -> Tuple[int, int, int, int
 
 
 def build_page_styles(object_name: str, extra: str = "") -> str:
+    hero_grad = (
+        "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+        f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.28)},"
+        f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.08)})"
+    )
+    card_grad = (
+        "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+        f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.12)},"
+        f" stop:1 {c.with_alpha(c.CLR_BG, 0.6)})"
+    )
+    row_grad = (
+        "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+        f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.10)},"
+        f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.04)})"
+    )
     return (
         f"""
         QWidget#{object_name} {{
             background:transparent;
         }}
         QFrame[class='card'] {{
-            background:{c.CLR_PANEL};
-            border:1px solid {c.CLR_SURFACE};
-            border-radius:14px;
+            background:{card_grad};
+            border:none;
+            border-radius:18px;
         }}
         QFrame[class='card'][data-role='hero'] {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                        stop:0 {c.with_alpha(c.CLR_TITLE, 0.2)},
-                                        stop:1 {c.with_alpha(c.CLR_TITLE, 0.05)});
-            border:1px solid {c.with_alpha(c.CLR_TITLE, 0.25)};
+            background:{hero_grad};
+            border:none;
         }}
         QFrame[class='header'] {{
             background:transparent;
         }}
         QFrame[class='row'] {{
-            background:{c.CLR_SURFACE};
-            border-radius:10px;
+            background:{row_grad};
+            border:none;
+            border-radius:14px;
         }}
         QLabel[class='title'] {{
             color:{c.CLR_TITLE};
@@ -127,13 +141,13 @@ def build_page_styles(object_name: str, extra: str = "") -> str:
             font:600 16px '{c.FONT_FAM}';
         }}
         QPushButton[class='icon'] {{
-            background:transparent;
+            background:{c.with_alpha(c.CLR_TITLE, 0.12)};
             border:none;
-            border-radius:8px;
-            padding:4px;
+            border-radius:10px;
+            padding:6px;
         }}
         QPushButton[class='icon']:hover {{
-            background:{c.with_alpha(c.CLR_TITLE, 0.12)};
+            background:{c.with_alpha(c.CLR_TITLE, 0.20)};
         }}
         """ + extra
     )
@@ -170,6 +184,8 @@ def create_card(
     layout = layout_cls(frame)
     layout.setContentsMargins(*_normalize_margins(margins))
     layout.setSpacing(spacing)
+    # Apply a gentle drop shadow to separate the card from the background.
+    c.make_shadow(frame, radius=28, offset=12, alpha=120)
     return frame, layout
 
 

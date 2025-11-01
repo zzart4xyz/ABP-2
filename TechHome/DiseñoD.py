@@ -22,6 +22,7 @@ from constants import (
     CLR_TITLE,
     FONT_FAM,
     icon,
+    with_alpha,
 )
 from ui_helpers import create_card, create_header, create_row, init_page
 from widgets import CustomScrollBar, DeviceRow, GroupCard
@@ -132,17 +133,21 @@ def build_devices_page(app):
     search = QLineEdit()
     search.setPlaceholderText("Buscar")
     search.setFixedHeight(42)
+    focus_bg = with_alpha(CLR_TITLE, 0.22)
+    base_bg = with_alpha(CLR_TITLE, 0.12)
     search.setStyleSheet(
         f"""
         QLineEdit {{
-            background:{CLR_HOVER};
-            border:2px solid {CLR_TITLE};
-            border-radius:10px;
-            padding:0 16px;
+            background:{base_bg};
+            border:none;
+            border-radius:16px;
+            padding:0 18px;
             color:{CLR_TEXT_IDLE};
             font:600 16px '{FONT_FAM}';
         }}
-        QLineEdit:focus {{ border-color:{CLR_ITEM_ACT}; }}
+        QLineEdit:focus {{
+            background:{focus_bg};
+        }}
         """
     )
     search.addAction(icon("Buscar.svg"), QLineEdit.LeadingPosition)
@@ -153,19 +158,23 @@ def build_devices_page(app):
     cb_sort.addItems(["De La A A La Z", "De La Z A La A"])
     combo_style = f"""
         QComboBox {{
-            background:{CLR_HOVER};
+            background:{base_bg};
             color:{CLR_TEXT_IDLE};
             font:600 15px '{FONT_FAM}';
-            border:2px solid {CLR_TITLE};
-            border-radius:10px;
-            padding:0 14px;
+            border:none;
+            border-radius:16px;
+            padding:0 18px;
             min-width:140px;
+            min-height:40px;
         }}
-        QComboBox::drop-down {{ border:none; width:18px; }}
+        QComboBox:on {{
+            background:{focus_bg};
+        }}
+        QComboBox::drop-down {{ border:none; width:22px; }}
         QComboBox QAbstractItemView {{
-            background:{CLR_HOVER};
-            border:1px solid {CLR_TITLE};
-            selection-background-color:{CLR_ITEM_ACT};
+            background:{with_alpha(CLR_TITLE, 0.16)};
+            border:none;
+            selection-background-color:{with_alpha(CLR_TITLE, 0.28)};
             color:{CLR_TEXT_IDLE};
         }}
     """

@@ -359,18 +359,28 @@ class CardButton(QFrame):
         super().__init__()
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(300, 140)
-        # Use a gradient background consistent with other cards.
+        # Soft gradient background without heavy borders.
+        base_grad = (
+            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+            f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.22)},"
+            f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.05)})"
+        )
+        hover_grad = (
+            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+            f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.28)},"
+            f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.10)})"
+        )
         self.setStyleSheet(
             f"""
                 QFrame {{
-                    background:qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                              stop:0 {c.CLR_HEADER_BG}, stop:1 {c.CLR_HOVER});
-                    border:2px solid {c.CLR_TITLE};
-                    border-radius:5px;
+                    background:{base_grad};
+                    border:none;
+                    border-radius:18px;
                 }}
-                QFrame:hover {{ background:{c.CLR_HOVER}; }}
+                QFrame:hover {{ background:{hover_grad}; }}
             """
         )
+        c.make_shadow(self, 32, 10, 140)
         # Layout with space for an optional icon and the text.  The
         # contents margins are chosen to align with other widgets.
         lay = QHBoxLayout(self)
@@ -416,10 +426,18 @@ class QuickAccessButton(QFrame):
     def __init__(self, text: str, icon_name: str):
         super().__init__()
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedSize(180, 40)
+        self.setFixedSize(184, 42)
+        base_bg = c.with_alpha(c.CLR_TITLE, 0.12)
+        hover_bg = c.with_alpha(c.CLR_TITLE, 0.20)
         self.setStyleSheet(
-            f"background:{c.CLR_SURFACE};border:2px solid {c.CLR_TITLE};"
-            f"border-radius:5px;"
+            f"""
+            QFrame {{
+                background:{base_bg};
+                border:none;
+                border-radius:14px;
+            }}
+            QFrame:hover {{ background:{hover_bg}; }}
+            """
         )
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 0, 8, 0)
@@ -437,6 +455,7 @@ class QuickAccessButton(QFrame):
         # opacity, we omit the opacity effect and animation.
         self._effect = None
         self._hover_anim = None
+        c.make_shadow(self, 20, 6, 110)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -483,8 +502,8 @@ class GroupCard(QFrame):
         self.edit.setVisible(False)
         self.edit.setStyleSheet(
             f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}';"
-            f"background:{c.CLR_HOVER}; border:2px solid {c.CLR_TITLE};"
-            "border-radius:5px; padding:2px;"
+            f"background:{c.with_alpha(c.CLR_TITLE, 0.12)};"
+            "border:none; border-radius:10px; padding:4px;"
         )
         self.edit.returnPressed.connect(self._finish_edit)
         self.edit.editingFinished.connect(self._finish_edit)
@@ -500,16 +519,26 @@ class GroupCard(QFrame):
         c.make_shadow(self, 30, 6, 180 if add_callback else 200)
 
     def _update_style(self):
-        border = "#00BFFF" if self.selected else "transparent"
-        bg = f"{c.CLR_HOVER}" if self.selected else \
-            f"qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {c.CLR_HEADER_BG}, stop:1 {c.CLR_HOVER})"
-        color = c.CLR_TITLE if self.selected else c.CLR_TEXT_IDLE
+        if self.selected:
+            bg = (
+                "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.32)},"
+                f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.14)})"
+            )
+            color = c.CLR_TITLE
+        else:
+            bg = (
+                "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.12)},"
+                f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.05)})"
+            )
+            color = c.CLR_TEXT_IDLE
         self.setStyleSheet(
             f"""
             QFrame {{
                 background:{bg};
-                border:2px solid {border};
-                border-radius:{self._radius}px;
+                border:none;
+                border-radius:{self._radius + 7}px;
             }}
             """
         )

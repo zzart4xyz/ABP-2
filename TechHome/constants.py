@@ -139,16 +139,15 @@ def content_panel_style(radius=None) -> str:
 def nav_button_style() -> str:
     """Return the simpler navigation styling from the previous UI."""
 
-    hover_bg = with_alpha(CLR_TITLE, 0.15)
-    checked_bg = with_alpha(CLR_TITLE, 0.20)
-    indicator = with_alpha(CLR_TITLE, 0.65)
+    hover_bg = with_alpha(CLR_TITLE, 0.18)
+    checked_bg = with_alpha(CLR_TITLE, 0.28)
     return (
         "QPushButton {"
         f" color:{CLR_TEXT_IDLE};"
-        " background:transparent;"
+        f" background:{with_alpha(CLR_TITLE, 0.08)};"
         " border:none;"
         " padding:8px 16px;"
-        " border-radius:6px;"
+        " border-radius:10px;"
         f" font:600 16px '{FONT_FAM}';"
         " text-align:left;"
         "}"
@@ -157,7 +156,6 @@ def nav_button_style() -> str:
         "}"
         "QPushButton:checked {"
         f" background:{checked_bg};"
-        f" border-left:3px solid {indicator};"
         f" color:{CLR_TITLE};"
         "}"
     )
@@ -563,7 +561,8 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
     :returns: A stylesheet string with appropriate colours.
     """
     if bg is None:
-        bg = CLR_SURFACE
+        bg = with_alpha(CLR_TITLE, 0.12)
+    focus_bg = with_alpha(CLR_TITLE, 0.22)
     return (
         f"""
         {cls} {{
@@ -575,11 +574,11 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
                instead to avoid warnings. */
             font:500 14px '{FONT_FAM}';
             padding:{pad}px;
-            border:1px solid {CLR_TRACK};
-            border-radius:5px;
+            border:none;
+            border-radius:12px;
         }}
         {cls}:focus {{
-            border:2px solid {CLR_TITLE};
+            background:{focus_bg};
         }}
         {cls}::placeholder {{
             color:{CLR_PLACEHOLDER};
@@ -609,18 +608,23 @@ def button_style(color: str = None, padding: str = "0px") -> str:
     """
     if color is None:
         color = CLR_TEXT_IDLE
+    base_bg = with_alpha(CLR_TITLE, 0.18)
+    hover_bg = with_alpha(CLR_TITLE, 0.28)
+    pressed_bg = with_alpha(CLR_TITLE, 0.36)
     return f"""
         QPushButton {{
-            background:transparent;
-            border:2px solid {CLR_TITLE};
-            border-radius:5px;
+            background:{base_bg};
+            border:none;
+            border-radius:14px;
             font:600 14px '{FONT_FAM}';
             color:{color};
             padding:{padding};
         }}
         QPushButton:hover {{
-            background:{CLR_TITLE};
-            color:#07101B;
+            background:{hover_bg};
+        }}
+        QPushButton:pressed {{
+            background:{pressed_bg};
         }}
     """
 
