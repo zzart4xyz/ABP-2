@@ -3,8 +3,8 @@ import random
 import csv
 from datetime import datetime, timedelta
 
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QColor, QIcon, QPixmap
+from PyQt5.QtCore import Qt, QDate, QSize
+from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
 """
@@ -69,6 +69,155 @@ CLR_PLACEHOLDER = THEMES["dark"]["CLR_PLACEHOLDER"]
 SHADOW_ALPHA = THEMES["dark"]["SHADOW_ALPHA"]
 CURRENT_THEME = "dark"
 
+
+def _coerce_color(value: str) -> QColor:
+    """Return a ``QColor`` from ``value`` safeguarding invalid inputs."""
+
+    color = QColor(value)
+    if not color.isValid():
+        color = QColor("#000000")
+    return color
+
+
+def tone(color: str, factor: float) -> str:
+    """Lighten (``factor`` > 0) or darken (``factor`` < 0) ``color``."""
+
+    qc = _coerce_color(color)
+    factor = max(-0.95, min(0.95, factor))
+    if factor >= 0:
+        return qc.lighter(int(100 + factor * 100)).name()
+    return qc.darker(int(100 + (-factor) * 100)).name()
+
+
+def with_alpha(color: str, alpha: float) -> str:
+    """Return ``color`` expressed as an ``rgba`` string with ``alpha``."""
+
+    qc = _coerce_color(color)
+    alpha = max(0.0, min(1.0, alpha))
+    return f"rgba({qc.red()}, {qc.green()}, {qc.blue()}, {int(alpha * 255)})"
+
+
+def card_style(radius=None) -> str:
+    """Return a flat card style similar to the earlier UI."""
+
+    if radius is None:
+        radius = globals().get("FRAME_RAD", 5)
+    border = with_alpha(CLR_TITLE, 0.18)
+    return (
+        f"background:{CLR_SURFACE};"
+        f"border-radius:{radius}px;"
+        f"border:1px solid {border};"
+    )
+
+
+def side_panel_style(radius=None) -> str:
+    """Return a solid navigation style closer to the previous UI."""
+
+    if radius is None:
+        radius = globals().get("FRAME_RAD", 5)
+    border = with_alpha(CLR_TITLE, 0.12)
+    return (
+        f"background:{CLR_PANEL};"
+        f"border-radius:{radius}px;"
+        f"border:1px solid {border};"
+    )
+
+
+def content_panel_style(radius=None) -> str:
+    """Return the simpler stacked-page styling used previously."""
+
+    if radius is None:
+        radius = globals().get("FRAME_RAD", 5)
+    border = with_alpha(CLR_TITLE, 0.08)
+    return (
+        f"background:{CLR_BG};"
+        f"border-radius:{radius}px;"
+        f"border:1px solid {border};"
+    )
+
+
+def nav_button_style() -> str:
+    """Return the simpler navigation styling from the previous UI."""
+
+    hover_bg = with_alpha(CLR_TITLE, 0.18)
+    checked_bg = with_alpha(CLR_TITLE, 0.28)
+    return (
+        "QPushButton {"
+        f" color:{CLR_TEXT_IDLE};"
+        f" background:{with_alpha(CLR_TITLE, 0.08)};"
+        " border:none;"
+        " padding:8px 16px;"
+        " border-radius:10px;"
+        f" font:600 16px '{FONT_FAM}';"
+        " text-align:left;"
+        "}"
+        "QPushButton:hover {"
+        f" background:{hover_bg};"
+        "}"
+        "QPushButton:checked {"
+        f" background:{checked_bg};"
+        f" color:{CLR_TITLE};"
+        "}"
+    )
+
+
+def build_global_stylesheet() -> str:
+    """Return the lightweight stylesheet used before the redesign."""
+
+    radius = globals().get("FRAME_RAD", 5)
+    handle = with_alpha(CLR_TITLE, 0.55)
+    handle_hover = with_alpha(CLR_TITLE, 0.75)
+    track = with_alpha(CLR_TRACK, 0.4)
+    return f"""
+        QMainWindow {{
+            background: {CLR_BG};
+        }}
+        QFrame#card {{
+            background: {CLR_SURFACE};
+            border-radius: {radius}px;
+        }}
+        QScrollArea {{
+            background: transparent;
+            border: none;
+        }}
+        QScrollBar:vertical {{
+            background: {track};
+            width: 10px;
+            margin: 4px;
+            border-radius: 4px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {handle};
+            border-radius: 4px;
+            min-height: 24px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {handle_hover};
+        }}
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            height: 0px;
+        }}
+        QScrollBar:horizontal {{
+            background: {track};
+            height: 10px;
+            margin: 4px;
+            border-radius: 4px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background: {handle};
+            border-radius: 4px;
+            min-width: 24px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background: {handle_hover};
+        }}
+        QScrollBar::add-line:horizontal,
+        QScrollBar::sub-line:horizontal {{
+            width: 0px;
+        }}
+    """
+
 def set_theme_constants(theme: str):
     """
     Update the module-level colour constants to values from the given theme.
@@ -82,21 +231,22 @@ def set_theme_constants(theme: str):
     palette = THEMES.get(theme, THEMES["dark"])
     globals().update(palette)
     globals()["CURRENT_THEME"] = theme
-
-# Initialise with dark theme defaults
-set_theme_constants("dark")
+    globals()["GLOBAL_STYLESHEET"] = build_global_stylesheet()
 
 # ---------------------------------------------------------------------
 # Application constants
 # ---------------------------------------------------------------------
 
-# Layout constants
+# Layout constants (must be defined before the stylesheet is built)
 PANEL_W              = 260
 FRAME_RAD            = 5
 FONT_FAM             = "Segoe UI, Inter, sans-serif"
 MIN_GAUGE            = 680
 GAUGE_CONTENT_FACTOR = 0.50
 SHIFT_FACTOR         = 0.10
+
+# Initialise with dark theme defaults
+set_theme_constants("dark")
 
 # Paths relative to this file
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -109,10 +259,99 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # that path does not exist on the current platform, the code falls
 # back to the local ``Icons N`` directory relative to ``constants.py``.
 _user_icon_path = r"C:/Users/zzart4.xyz/Desktop/TechHome/Icons N"
+_default_icon_dir = os.path.join(ROOT_DIR, "Icons N")
+
+# Search order: prefer the user-provided directory when it contains the
+# renamed (Spanish) icons, otherwise fall back to the packaged assets.
+_icon_search_paths: list[str] = []
 if os.path.isdir(_user_icon_path):
-    ICON_DIR = _user_icon_path
-else:
-    ICON_DIR = os.path.join(ROOT_DIR, "Icons N")
+    _icon_search_paths.append(_user_icon_path)
+_icon_search_paths.append(_default_icon_dir)
+
+def _has_localized_icons(path: str) -> bool:
+    """Return ``True`` if the directory contains the renamed SVG assets."""
+
+    required = ("Inicio.svg", "Dispositivos.svg", "Luz.svg")
+    return all(os.path.isfile(os.path.join(path, name)) for name in required)
+
+
+ICON_DIR = next((path for path in _icon_search_paths if _has_localized_icons(path)), _default_icon_dir)
+ICON_SEARCH_PATHS = tuple(dict.fromkeys(_icon_search_paths))
+
+
+def resolve_icon_path(name: str) -> str | None:
+    """Return the absolute path to an icon, searching known directories."""
+
+    for base in ICON_SEARCH_PATHS:
+        candidate = os.path.join(base, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
+    """Load ``name`` as a pixmap of ``size`` searching known icon folders."""
+
+    try:
+        icon_path = resolve_icon_path(name)
+        if icon_path:
+            ico = QIcon(icon_path)
+            pix = ico.pixmap(size)
+            if not pix.isNull():
+                return pix
+    except Exception:
+        pass
+    base_dir = None
+    try:
+        base_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "node_modules",
+            "@fortawesome",
+            "fontawesome-free",
+            "svgs",
+            "solid",
+        )
+        candidate = os.path.join(base_dir, name)
+        if os.path.isfile(candidate):
+            ico = QIcon(candidate)
+            pix = ico.pixmap(size)
+            if not pix.isNull():
+                return pix
+    except Exception:
+        pass
+    fallback_candidates = []
+    if base_dir is not None:
+        fallback_candidates.append(os.path.join(base_dir, "circle-info.svg"))
+        fallback_candidates.append(os.path.join(base_dir, "info.svg"))
+    info_path = resolve_icon_path("Información.svg")
+    if info_path:
+        fallback_candidates.append(info_path)
+    for fb in fallback_candidates:
+        if fb and os.path.isfile(fb):
+            try:
+                ico = QIcon(fb)
+                pix = ico.pixmap(size)
+                if not pix.isNull():
+                    return pix
+            except Exception:
+                continue
+    return QPixmap(size)
+
+
+def tint_pixmap(pixmap: QPixmap, color: QColor) -> QPixmap:
+    """Return a tinted copy of ``pixmap`` using ``color`` as the overlay."""
+
+    if pixmap.isNull():
+        return pixmap
+    tinted = QPixmap(pixmap.size())
+    tinted.fill(Qt.transparent)
+    painter = QPainter(tinted)
+    painter.setCompositionMode(QPainter.CompositionMode_Source)
+    painter.drawPixmap(0, 0, pixmap)
+    painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+    painter.fillRect(tinted.rect(), color)
+    painter.end()
+    return tinted
 
 # Path to the logo used in the splash screen.  By default this points to
 # ``Logos/Logo.png`` relative to the project root.  Users may provide a
@@ -322,7 +561,8 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
     :returns: A stylesheet string with appropriate colours.
     """
     if bg is None:
-        bg = CLR_SURFACE
+        bg = with_alpha(CLR_TITLE, 0.12)
+    focus_bg = with_alpha(CLR_TITLE, 0.22)
     return (
         f"""
         {cls} {{
@@ -334,11 +574,11 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
                instead to avoid warnings. */
             font:500 14px '{FONT_FAM}';
             padding:{pad}px;
-            border:1px solid {CLR_TRACK};
-            border-radius:5px;
+            border:none;
+            border-radius:12px;
         }}
         {cls}:focus {{
-            border:2px solid {CLR_TITLE};
+            background:{focus_bg};
         }}
         {cls}::placeholder {{
             color:{CLR_PLACEHOLDER};
@@ -349,13 +589,15 @@ def input_style(cls: str = "QLineEdit", bg: str = None, pad: int = 6) -> str:
 def icon(name: str) -> QIcon:
     """
     Load an icon from the ``Icons N`` directory.  The argument should be
-    the filename of the icon (for example ``'Home.svg'``).
+    the filename of the icon (for example ``'Inicio.svg'``).
     """
-    return QIcon(os.path.join(ICON_DIR, name))
+    path = resolve_icon_path(name)
+    return QIcon(path) if path else QIcon()
 
 def pixmap(name: str) -> QPixmap:
     """Convenience wrapper for loading a QPixmap from the icon directory."""
-    return QPixmap(os.path.join(ICON_DIR, name))
+    path = resolve_icon_path(name)
+    return QPixmap(path) if path else QPixmap()
 
 def button_style(color: str = None, padding: str = "0px") -> str:
     """
@@ -366,18 +608,23 @@ def button_style(color: str = None, padding: str = "0px") -> str:
     """
     if color is None:
         color = CLR_TEXT_IDLE
+    base_bg = with_alpha(CLR_TITLE, 0.18)
+    hover_bg = with_alpha(CLR_TITLE, 0.28)
+    pressed_bg = with_alpha(CLR_TITLE, 0.36)
     return f"""
         QPushButton {{
-            background:transparent;
-            border:2px solid {CLR_TITLE};
-            border-radius:5px;
+            background:{base_bg};
+            border:none;
+            border-radius:14px;
             font:600 14px '{FONT_FAM}';
             color:{color};
             padding:{padding};
         }}
         QPushButton:hover {{
-            background:{CLR_TITLE};
-            color:#07101B;
+            background:{hover_bg};
+        }}
+        QPushButton:pressed {{
+            background:{pressed_bg};
         }}
     """
 

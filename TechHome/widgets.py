@@ -1,8 +1,8 @@
-from PyQt5.QtCore import Qt, QRectF, QPoint, QSize, QDate, QTimer, QPointF, pyqtSignal, QPropertyAnimation
+from PyQt5.QtCore import Qt, QRectF, QPoint, QSize, QDate, QTimer, QPointF, pyqtSignal, QPropertyAnimation, QEvent
 from PyQt5.QtGui import (
     QPainter, QPen, QBrush, QColor, QFont, QPixmap,
     QRadialGradient, QConicalGradient, QTextCharFormat, QTransform,
-    QIcon
+    QIcon, QLinearGradient, QPainterPath
 )
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea,
@@ -240,7 +240,7 @@ class CurrentMonthCalendar(QCalendarWidget):
         layout.setContentsMargins(0, 0, 0, 8)
         layout.setSpacing(4)
         self._prev = QToolButton()
-        left_pix = c.pixmap("Arrow.svg")
+        left_pix = c.pixmap("Flecha.svg")
         self._prev.setIcon(QIcon(left_pix))
         self._prev.setIconSize(QSize(16, 16))
         self._prev.setFixedSize(24, 24)
@@ -252,7 +252,7 @@ class CurrentMonthCalendar(QCalendarWidget):
             f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; padding:0 4px;"
         )
         self._next = QToolButton()
-        right_pix = c.pixmap("Arrow.svg").transformed(QTransform().scale(-1, 1))
+        right_pix = c.pixmap("Flecha.svg").transformed(QTransform().scale(-1, 1))
         self._next.setIcon(QIcon(right_pix))
         self._next.setIconSize(QSize(16, 16))
         self._next.setFixedSize(24, 24)
@@ -349,7 +349,7 @@ class CardButton(QFrame):
         a coloured gradient background, optional icon and a label.  An
         icon may be provided via ``icon_name``; if None, the card will
         only display the text.  The ``icon_name`` should refer to a
-        filename within the ``Icons N`` directory (e.g. ``'bell.svg'``).
+        filename within the ``Icons N`` directory (e.g. ``'Notificaciones.svg'``).
 
         :param text: The label to display on the card.
         :param icon_name: Optional SVG filename for the icon.  When
@@ -359,18 +359,28 @@ class CardButton(QFrame):
         super().__init__()
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(300, 140)
-        # Use a gradient background consistent with other cards.
+        # Soft gradient background without heavy borders.
+        base_grad = (
+            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+            f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.22)},"
+            f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.05)})"
+        )
+        hover_grad = (
+            "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+            f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.28)},"
+            f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.10)})"
+        )
         self.setStyleSheet(
             f"""
                 QFrame {{
-                    background:qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                              stop:0 {c.CLR_HEADER_BG}, stop:1 {c.CLR_HOVER});
-                    border:2px solid {c.CLR_TITLE};
-                    border-radius:5px;
+                    background:{base_grad};
+                    border:none;
+                    border-radius:18px;
                 }}
-                QFrame:hover {{ background:{c.CLR_HOVER}; }}
+                QFrame:hover {{ background:{hover_grad}; }}
             """
         )
+        c.make_shadow(self, 32, 10, 140)
         # Layout with space for an optional icon and the text.  The
         # contents margins are chosen to align with other widgets.
         lay = QHBoxLayout(self)
@@ -416,10 +426,18 @@ class QuickAccessButton(QFrame):
     def __init__(self, text: str, icon_name: str):
         super().__init__()
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedSize(180, 40)
+        self.setFixedSize(184, 42)
+        base_bg = c.with_alpha(c.CLR_TITLE, 0.12)
+        hover_bg = c.with_alpha(c.CLR_TITLE, 0.20)
         self.setStyleSheet(
-            f"background:{c.CLR_SURFACE};border:2px solid {c.CLR_TITLE};"
-            f"border-radius:5px;"
+            f"""
+            QFrame {{
+                background:{base_bg};
+                border:none;
+                border-radius:14px;
+            }}
+            QFrame:hover {{ background:{hover_bg}; }}
+            """
         )
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 0, 8, 0)
@@ -437,6 +455,7 @@ class QuickAccessButton(QFrame):
         # opacity, we omit the opacity effect and animation.
         self._effect = None
         self._hover_anim = None
+        c.make_shadow(self, 20, 6, 110)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -459,7 +478,7 @@ class QuickAccessButton(QFrame):
 
 
 class GroupCard(QFrame):
-    def __init__(self, name: str, icon: str = "Home.svg", add_callback=None,
+    def __init__(self, name: str, icon: str = "Inicio.svg", add_callback=None,
                  rename_callback=None, select_callback=None):
         super().__init__()
         self.base_name = name
@@ -483,8 +502,8 @@ class GroupCard(QFrame):
         self.edit.setVisible(False)
         self.edit.setStyleSheet(
             f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}';"
-            f"background:{c.CLR_HOVER}; border:2px solid {c.CLR_TITLE};"
-            "border-radius:5px; padding:2px;"
+            f"background:{c.with_alpha(c.CLR_TITLE, 0.12)};"
+            "border:none; border-radius:10px; padding:4px;"
         )
         self.edit.returnPressed.connect(self._finish_edit)
         self.edit.editingFinished.connect(self._finish_edit)
@@ -500,16 +519,26 @@ class GroupCard(QFrame):
         c.make_shadow(self, 30, 6, 180 if add_callback else 200)
 
     def _update_style(self):
-        border = "#00BFFF" if self.selected else "transparent"
-        bg = f"{c.CLR_HOVER}" if self.selected else \
-            f"qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {c.CLR_HEADER_BG}, stop:1 {c.CLR_HOVER})"
-        color = c.CLR_TITLE if self.selected else c.CLR_TEXT_IDLE
+        if self.selected:
+            bg = (
+                "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.32)},"
+                f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.14)})"
+            )
+            color = c.CLR_TITLE
+        else:
+            bg = (
+                "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                f" stop:0 {c.with_alpha(c.CLR_TITLE, 0.12)},"
+                f" stop:1 {c.with_alpha(c.CLR_TITLE, 0.05)})"
+            )
+            color = c.CLR_TEXT_IDLE
         self.setStyleSheet(
             f"""
             QFrame {{
                 background:{bg};
-                border:2px solid {border};
-                border-radius:{self._radius}px;
+                border:none;
+                border-radius:{self._radius + 7}px;
             }}
             """
         )
@@ -583,35 +612,35 @@ class DeviceRow(QFrame):
         h.setContentsMargins(12, 8, 12, 8)
         ic = QLabel()
         # Mapping of keywords to icon filenames.  If no keyword matches, the
-        # generic Devices.svg icon will be used.  This mapping mirrors the
+        # generic Dispositivos.svg icon will be used.  This mapping mirrors the
         # one used by AnimatedBackground for notifications.
         _icon_map = {
-            "Luz": "lightbulb.svg",
-            "Luces": "lightbulb.svg",
-            "Lámpara": "lamp-desk.svg",
-            "Ventilador": "fan.svg",
-            "Aire Acondicionado": "air-conditioner.svg",
-            "Cortinas": "blinds.svg",
-            "Persianas": "blinds.svg",
-            "Enchufe": "plug.svg",
-            "Extractor": "wind.svg",
-            "Calentador Agua": "temperature-high.svg",
-            "Espejo": "circle-half-stroke.svg",
-            "Ducha": "shower.svg",
-            "Televisor": "tv.svg",
-            "Consola Juegos": "gamepad.svg",
-            "Equipo Sonido": "boombox.svg",
-            "Calefactor": "fire.svg",
-            "Refrigerador": "refrigerator.svg",
-            "Horno": "oven.svg",
-            "Microondas": "microwave.svg",
-            "Lavavajillas": "washing-machine.svg",
-            "Licuadora": "blender.svg",
-            "Cafetera": "mug-saucer.svg",
+            "Luz": "Luz.svg",
+            "Luces": "Luces.svg",
+            "Lámpara": "Lámpara.svg",
+            "Ventilador": "Ventilador.svg",
+            "Aire Acondicionado": "Aire Acondicionado.svg",
+            "Cortinas": "Cortinas.svg",
+            "Persianas": "Persianas.svg",
+            "Enchufe": "Enchufe.svg",
+            "Extractor": "Extractor.svg",
+            "Calentador Agua": "Calentador Agua.svg",
+            "Espejo": "Espejo.svg",
+            "Ducha": "Ducha.svg",
+            "Televisor": "Televisor.svg",
+            "Consola Juegos": "Consola Juegos.svg",
+            "Equipo Sonido": "Equipo Sonido.svg",
+            "Calefactor": "Calefactor.svg",
+            "Refrigerador": "Refrigerador.svg",
+            "Horno": "Horno.svg",
+            "Microondas": "Microondas.svg",
+            "Lavavajillas": "Lavavajillas.svg",
+            "Licuadora": "Licuadora.svg",
+            "Cafetera": "Cafetera.svg",
         }
         # Determine which icon to use.  Use the override if provided,
         # otherwise search for a matching keyword in the device name.
-        icon_name = icon_override if icon_override else "Devices.svg"
+        icon_name = icon_override if icon_override else "Dispositivos.svg"
         if not icon_override:
             for key, fname in _icon_map.items():
                 if key in name:
