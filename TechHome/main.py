@@ -2,8 +2,8 @@ import sys
 import random
 import csv
 import os
-from dataclasses import dataclass
-from typing import Any, Callable
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional
 from datetime import datetime, timedelta
 from PyQt5.QtCore import (
     Qt,
@@ -42,6 +42,28 @@ class MetricSpec:
     progress_fn: Callable[["MetricsDetailsDialog", float], float]
     value_fn: Callable[["MetricsDetailsDialog", float], str]
     graph_color: str = CLR_TITLE
+
+
+@dataclass
+class TimerState:
+    timer_id: int
+    label: str
+    duration: int
+    remaining: int
+    running: bool
+    icon: str
+    last_updated: datetime = field(default_factory=datetime.now)
+    db_id: Optional[int] = None
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "id": self.timer_id,
+            "label": self.label,
+            "duration": self.duration,
+            "remaining": self.remaining,
+            "running": self.running,
+            "icon": self.icon,
+        }
 
 class MetricGauge(QWidget):
 
@@ -882,7 +904,7 @@ class NotificationsDetailsDialog(QDialog):
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from constants import HEALTH_CSV_PATH, CLR_HEADER_BG, CLR_HOVER, CLR_TITLE, CLR_TEXT_IDLE, FONT_FAM, make_shadow, CLR_BG, FRAME_RAD, set_theme_constants, TRANSLATIONS_EN, TRANSLATIONS_ES, MAX_NOTIFICATIONS, HOME_RECENT_COUNT, PANEL_W, CLR_PANEL, CLR_ITEM_ACT, CLR_SURFACE, CLR_TRACK, CLR_HEADER_TEXT, CURRENT_THEME, button_style, icon, input_style, pixmap
-from dialogs import NewNoteDialog, NewListDialog, NewElementDialog
+from dialogs import NewNoteDialog, NewListDialog, NewElementDialog, TimerEditorDialog
 from DiseñoPC import SplashScreen, create_splash_animations
 from DiseñoIR import LoginDialog
 from DiseñoI import build_home_page, create_home_animations
@@ -892,7 +914,7 @@ from DiseñoS import build_health_page, create_health_animations
 from DiseñoC import build_config_page, create_config_animations
 from DiseñoCa import build_account_page, create_account_animations
 import database
-from widgets import NotesManager, DraggableNote, CustomScrollBar, NoFocusDelegate, style_table, CurrentMonthCalendar, CardButton, QuickAccessButton, GroupCard, DeviceRow
+from widgets import NotesManager, DraggableNote, CustomScrollBar, NoFocusDelegate, style_table, CurrentMonthCalendar, CardButton, QuickAccessButton, GroupCard, DeviceRow, TimerCard
 from health import BPMGauge, MetricsPanel
 
 class AnimatedBackground(QWidget):
@@ -907,7 +929,9 @@ class AnimatedBackground(QWidget):
         self.reminder_timer.timeout.connect(self._check_reminders)
         self.reminder_timer.start(60000)
         self.alarms = []
-        self.timers = []
+        self.timers: list[TimerState] = []
+        self.timer_cards: dict[int, TimerCard] = {}
+        self._timer_uid_counter = 0
         self.timer_update = QTimer(self)
         self.timer_update.timeout.connect(self._update_timers)
         self.timer_update.start(1000)
@@ -1456,7 +1480,7 @@ class AnimatedBackground(QWidget):
             prefix = 'Current Group:' if self.lang == 'en' else 'Grupo Actual:'
             name = self._translate_name(self.active_group, mapping)
             self.group_indicator.setText(f'{prefix} {name}')
-        tables = {'table_recordatorios': ['Fecha Y Hora', 'Mensaje'], 'table_alarms': ['Fecha Y Hora', 'Etiqueta'], 'table_timers': ['Etiqueta', 'Restante'], 'notif_table': ['Hora', 'Mensaje'], 'table_health': ['Fecha', 'PA', 'BPM', 'SpO₂', 'Temp', 'FR']}
+        tables = {'table_recordatorios': ['Fecha Y Hora', 'Mensaje'], 'table_alarms': ['Fecha Y Hora', 'Etiqueta'], 'notif_table': ['Hora', 'Mensaje'], 'table_health': ['Fecha', 'PA', 'BPM', 'SpO₂', 'Temp', 'FR']}
         for attr, headers in tables.items():
             tbl = getattr(self, attr, None)
             if tbl:
@@ -1465,8 +1489,6 @@ class AnimatedBackground(QWidget):
             self._populate_record_table()
         if hasattr(self, 'table_alarms'):
             self._populate_alarm_table()
-        if hasattr(self, 'table_timers'):
-            self._populate_timer_table()
         if hasattr(self, 'notif_table'):
             self._populate_notif_table()
         if hasattr(self, 'table_health'):
@@ -1690,33 +1712,242 @@ class AnimatedBackground(QWidget):
 
     def _update_timers(self):
         now = datetime.now()
-        updated = []
-        for end_dt, txt in list(self.timers):
-            if now >= end_dt:
-                if self.notifications_enabled:
-                    mapping = TRANSLATIONS_EN if self.lang == 'en' else {}
-                    self.popup_label.setText('⏰ ' + mapping.get(txt, txt))
-                    self.popup_label.adjustSize()
-                    try:
-                        parent_width = self.parent().width() if self.parent() else self.width()
-                    except Exception:
-                        parent_width = self.width()
-                    x = parent_width - self.popup_label.width() - 40
-                    if x < 0:
-                        x = 0
-                    self.popup_label.move(x, 20)
-                    self.hide_anim.stop()
-                    self.popup_label.show()
-                    self.show_anim.setStartValue(0.0)
-                    self.show_anim.setEndValue(1.0)
-                    self.show_anim.start()
-                    QTimer.singleShot(3000, lambda: (self.hide_anim.setStartValue(1.0), self.hide_anim.setEndValue(0.0), self.hide_anim.start()))
-                    self._add_notification(f'Timer {txt} Completado')
-            else:
-                updated.append((end_dt, txt))
-        self.timers = updated
-        if self.stack.currentIndex() == 2 and self.more_stack.currentIndex() == 3:
-            self._populate_timer_table()
+        completed: list[TimerState] = []
+        for timer in self.timers:
+            if timer.running:
+                elapsed = int((now - timer.last_updated).total_seconds())
+                if elapsed > 0:
+                    timer.remaining = max(0, timer.remaining - elapsed)
+                    timer.last_updated = now
+                    self._persist_timer_state(timer)
+                    if timer.remaining == 0:
+                        timer.running = False
+                        completed.append(timer)
+                        self._notify_timer_completed(timer)
+                        self._persist_timer_state(timer)
+            self._update_timer_card_widget(timer)
+        if completed:
+            try:
+                self._refresh_account_info()
+            except Exception:
+                pass
+        self._sync_timer_empty_state()
+
+    def _next_timer_id(self) -> int:
+        self._timer_uid_counter += 1
+        return -self._timer_uid_counter
+
+    def _get_timer(self, timer_id: int) -> Optional[TimerState]:
+        for timer in self.timers:
+            if timer.timer_id == timer_id:
+                return timer
+        return None
+
+    def _register_timer_card(self, timer: TimerState) -> None:
+        layout = getattr(self, 'timer_cards_layout', None)
+        if layout is None:
+            return
+        card = TimerCard(timer.timer_id)
+        card.update_state(timer.snapshot())
+        card.playRequested.connect(self._on_timer_play)
+        card.pauseRequested.connect(self._on_timer_pause)
+        card.resetRequested.connect(self._on_timer_reset)
+        card.fullscreenRequested.connect(self._on_timer_fullscreen)
+        card.editRequested.connect(self._on_timer_edit)
+        card.deleteRequested.connect(self._on_timer_delete)
+        index = max(0, layout.count() - 1)
+        layout.insertWidget(index, card)
+        self.timer_cards[timer.timer_id] = card
+        self._sync_timer_empty_state()
+
+    def _refresh_timer_cards(self) -> None:
+        for timer_id, card in list(self.timer_cards.items()):
+            layout = getattr(self, 'timer_cards_layout', None)
+            if layout is not None:
+                layout.removeWidget(card)
+            card.setParent(None)
+            card.deleteLater()
+            del self.timer_cards[timer_id]
+        for timer in self.timers:
+            self._register_timer_card(timer)
+        self._sync_timer_empty_state()
+
+    def _remove_timer_card_widget(self, timer_id: int) -> None:
+        card = self.timer_cards.pop(timer_id, None)
+        if card is None:
+            return
+        layout = getattr(self, 'timer_cards_layout', None)
+        if layout is not None:
+            layout.removeWidget(card)
+        card.setParent(None)
+        card.deleteLater()
+        self._sync_timer_empty_state()
+
+    def _update_timer_card_widget(self, timer: TimerState) -> None:
+        card = self.timer_cards.get(timer.timer_id)
+        if card is not None:
+            card.update_state(timer.snapshot())
+
+    def _sync_timer_empty_state(self) -> None:
+        label = getattr(self, 'timer_empty_label', None)
+        if label is not None:
+            label.setVisible(len(self.timers) == 0)
+
+    def _persist_timer_state(self, timer: TimerState) -> None:
+        if getattr(self, 'username', None) and timer.db_id is not None:
+            try:
+                database.update_timer(
+                    self.username,
+                    timer.db_id,
+                    label=timer.label,
+                    duration=timer.duration,
+                    remaining=timer.remaining,
+                    running=timer.running,
+                    icon=timer.icon,
+                )
+            except Exception:
+                pass
+
+    def _notify_timer_completed(self, timer: TimerState) -> None:
+        if self.notifications_enabled:
+            mapping = TRANSLATIONS_EN if self.lang == 'en' else {}
+            display = mapping.get(timer.label, timer.label)
+            self.popup_label.setText('⏰ ' + display)
+            self.popup_label.adjustSize()
+            try:
+                parent_width = self.parent().width() if self.parent() else self.width()
+            except Exception:
+                parent_width = self.width()
+            x = parent_width - self.popup_label.width() - 40
+            if x < 0:
+                x = 0
+            self.popup_label.move(x, 20)
+            self.hide_anim.stop()
+            self.popup_label.show()
+            self.show_anim.setStartValue(0.0)
+            self.show_anim.setEndValue(1.0)
+            self.show_anim.start()
+            QTimer.singleShot(
+                3000,
+                lambda: (
+                    self.hide_anim.setStartValue(1.0),
+                    self.hide_anim.setEndValue(0.0),
+                    self.hide_anim.start(),
+                ),
+            )
+        self._add_notification(f'Timer {timer.label} Completado')
+
+    def _on_timer_play(self, timer_id: int) -> None:
+        timer = self._get_timer(timer_id)
+        if timer is None:
+            return
+        if timer.remaining <= 0:
+            timer.remaining = timer.duration
+        timer.running = True
+        timer.last_updated = datetime.now()
+        self._persist_timer_state(timer)
+        self._update_timer_card_widget(timer)
+
+    def _on_timer_pause(self, timer_id: int) -> None:
+        timer = self._get_timer(timer_id)
+        if timer is None:
+            return
+        if timer.running:
+            timer.running = False
+            timer.last_updated = datetime.now()
+            self._persist_timer_state(timer)
+            self._update_timer_card_widget(timer)
+
+    def _on_timer_reset(self, timer_id: int) -> None:
+        timer = self._get_timer(timer_id)
+        if timer is None:
+            return
+        timer.running = False
+        timer.remaining = timer.duration
+        timer.last_updated = datetime.now()
+        self._persist_timer_state(timer)
+        self._update_timer_card_widget(timer)
+        self._add_notification('Timer Reiniciado')
+
+    def _on_timer_edit(self, timer_id: int) -> None:
+        timer = self._get_timer(timer_id)
+        if timer is None:
+            return
+        dlg = TimerEditorDialog(label=timer.label, duration=timer.duration, icon_name=timer.icon, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            data = dlg.get_data()
+            timer.label = data['label']
+            timer.duration = max(1, int(data['duration']))
+            timer.remaining = min(timer.remaining, timer.duration)
+            if timer.remaining == 0:
+                timer.running = False
+            icon_name = data.get('icon') or timer.icon
+            timer.icon = icon_name
+            timer.last_updated = datetime.now()
+            self._persist_timer_state(timer)
+            self._update_timer_card_widget(timer)
+            self._add_notification('Timer Actualizado')
+            if getattr(self, 'username', None):
+                try:
+                    database.log_action(self.username, f'Timer editado: {timer.label}')
+                except Exception:
+                    pass
+            try:
+                self._refresh_account_info()
+            except Exception:
+                pass
+
+    def _on_timer_delete(self, timer_id: int) -> None:
+        timer = self._get_timer(timer_id)
+        if timer is None:
+            return
+        self.timers = [t for t in self.timers if t.timer_id != timer_id]
+        if getattr(self, 'username', None) and timer.db_id is not None:
+            try:
+                database.delete_timer(self.username, timer.db_id)
+            except Exception:
+                pass
+        self._remove_timer_card_widget(timer_id)
+        self._add_notification('Timer Eliminado')
+        if getattr(self, 'username', None):
+            try:
+                database.log_action(self.username, f'Timer eliminado: {timer.label}')
+            except Exception:
+                pass
+        try:
+            self._refresh_account_info()
+        except Exception:
+            pass
+
+    def _on_timer_fullscreen(self, timer_id: int) -> None:
+        timer = self._get_timer(timer_id)
+        if timer is None:
+            return
+        self._add_notification(f'Timer {timer.label} listo para pantalla completa')
+        if self.notifications_enabled:
+            self.popup_label.setText(f'🖥️ {timer.label}')
+            self.popup_label.adjustSize()
+            try:
+                parent_width = self.parent().width() if self.parent() else self.width()
+            except Exception:
+                parent_width = self.width()
+            x = parent_width - self.popup_label.width() - 40
+            if x < 0:
+                x = 0
+            self.popup_label.move(x, 20)
+            self.hide_anim.stop()
+            self.popup_label.show()
+            self.show_anim.setStartValue(0.0)
+            self.show_anim.setEndValue(1.0)
+            self.show_anim.start()
+            QTimer.singleShot(
+                2000,
+                lambda: (
+                    self.hide_anim.setStartValue(1.0),
+                    self.hide_anim.setEndValue(0.0),
+                    self.hide_anim.start(),
+                ),
+            )
 
     def _add_alarm(self):
         text = self.input_alarm_text.text().strip()
@@ -1777,60 +2008,40 @@ class AnimatedBackground(QWidget):
 
     def _add_timer(self):
         seconds = self.input_timer_seconds.value()
-        txt = self.input_timer_text.text().strip() or 'Timer'
-        if seconds > 0:
-            end = datetime.now() + timedelta(seconds=seconds)
-            self.timers.append((end, txt))
-            self._populate_timer_table()
-            self.input_timer_seconds.setValue(0)
-            self.input_timer_text.clear()
-            self._add_notification('Timer Añadido')
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.save_timer(self.username, end.isoformat(), txt)
-                except Exception:
-                    pass
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.log_action(self.username, f'Timer añadido: {txt} ({seconds} s)')
-                except Exception:
-                    pass
+        label = self.input_timer_text.text().strip() or 'Timer'
+        if seconds <= 0:
+            return
+        icon_name = 'Alarmas Y Timers.svg'
+        timer = TimerState(
+            timer_id=self._next_timer_id(),
+            label=label,
+            duration=seconds,
+            remaining=seconds,
+            running=False,
+            icon=icon_name,
+        )
+        timer.last_updated = datetime.now()
+        if getattr(self, 'username', None):
             try:
-                self._refresh_account_info()
+                db_id = database.save_timer(self.username, label, seconds, seconds, False, icon_name)
+                timer.db_id = db_id
+                timer.timer_id = db_id
+            except Exception:
+                timer.db_id = None
+        self.timers.append(timer)
+        self._register_timer_card(timer)
+        self.input_timer_seconds.setValue(0)
+        self.input_timer_text.clear()
+        self._add_notification('Timer Añadido')
+        if getattr(self, 'username', None):
+            try:
+                database.log_action(self.username, f'Timer añadido: {label} ({seconds} s)')
             except Exception:
                 pass
-
-    def _populate_timer_table(self):
-        data = list(self.timers)
-        tbl = self.table_timers
-        tbl.setRowCount(len(data))
-        for i, (end_dt, txt) in enumerate(data):
-            remain = max(0, int((end_dt - datetime.now()).total_seconds()))
-            tbl.setItem(i, 0, QTableWidgetItem(f'{txt}'))
-            tbl.setItem(i, 1, QTableWidgetItem(f'{remain} s'))
-
-    def _delete_selected_timer(self):
-        row = self.table_timers.currentRow()
-        if 0 <= row < len(self.timers):
-            timer_desc = self.timers[row][1] if row < len(self.timers) else 'Timer'
-            end_dt, txt = self.timers[row]
-            del self.timers[row]
-            self._populate_timer_table()
-            self._add_notification('Timer Eliminado')
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.delete_timer(self.username, end_dt.isoformat(), txt)
-                except Exception:
-                    pass
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.log_action(self.username, f'Timer eliminado: {txt}')
-                except Exception:
-                    pass
-            try:
-                self._refresh_account_info()
-            except Exception:
-                pass
+        try:
+            self._refresh_account_info()
+        except Exception:
+            pass
 
     def _populate_notif_table(self):
         data = self.notifications
@@ -2490,20 +2701,32 @@ class AnimatedBackground(QWidget):
             user_timers = database.get_timers(user)
         except Exception:
             user_timers = []
+        for tid in list(getattr(self, 'timer_cards', {}).keys()):
+            self._remove_timer_card_widget(tid)
+        self.timer_cards = {}
         self.timers = []
-        now = datetime.now()
-        for end_str, txt in user_timers:
+        for data in user_timers:
             try:
-                end_dt = datetime.fromisoformat(end_str)
+                timer_id = int(data.get('id', 0))
+                duration = max(0, int(data.get('duration', 0)))
+                remaining = max(0, int(data.get('remaining', duration)))
+                running = bool(data.get('running', False)) and remaining > 0
+                icon = str(data.get('icon', 'Alarmas Y Timers.svg'))
+                label = str(data.get('label', 'Timer'))
             except Exception:
                 continue
-            if end_dt > now:
-                self.timers.append((end_dt, txt))
-        if hasattr(self, 'table_timers'):
-            try:
-                self._populate_timer_table()
-            except Exception:
-                pass
+            timer = TimerState(
+                timer_id=timer_id,
+                label=label,
+                duration=duration,
+                remaining=remaining,
+                running=running,
+                icon=icon,
+                db_id=timer_id,
+            )
+            timer.last_updated = datetime.now()
+            self.timers.append(timer)
+        self._refresh_timer_cards()
         try:
             if hasattr(self, '_refresh_calendar_events'):
                 self._refresh_calendar_events()

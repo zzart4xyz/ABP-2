@@ -31,6 +31,7 @@ import os
 import hashlib
 import importlib
 import importlib.util
+from datetime import datetime
 from types import SimpleNamespace
 from typing import Optional, TYPE_CHECKING
 
@@ -219,6 +220,7 @@ def init_user_db(username: str) -> None:
         "text TEXT"
         ")"
     )
+    _ensure_timer_columns(cur)
 
     # Notifications
     # This table stores timestamp/message pairs representing the
@@ -669,24 +671,127 @@ def get_alarms(username: str) -> list[tuple[str, str]]:
     return [(dt, txt) for dt, txt in rows]
 
 
-def save_timer(username: str, end_time: str, text: str) -> None:
+def _ensure_timer_columns(cur: sqlite3.Cursor) -> None:
+    """Ensure the timers table contains the extended schema.
+
+    Older installations stored only ``end_time`` and ``text`` columns.
+    Newer versions persist label, duration, remaining seconds, running
+    status and an optional icon.  This helper adds the missing columns
+    when required and migrates legacy rows so the application can
+    continue operating without manual database intervention.
     """
-    Persist a timer for a user.  The end_time should be an ISO
-    formatted string.
+
+    cur.execute("PRAGMA table_info(timers)")
+    info = cur.fetchall()
+    existing = {row[1] for row in info}
+
+    additions: list[tuple[str, str]] = []
+    if "label" not in existing:
+        additions.append(("label", "TEXT"))
+    if "duration" not in existing:
+        additions.append(("duration", "INTEGER"))
+    if "remaining" not in existing:
+        additions.append(("remaining", "INTEGER"))
+    if "running" not in existing:
+        additions.append(("running", "INTEGER"))
+    if "icon" not in existing:
+        additions.append(("icon", "TEXT"))
+
+    for column, col_type in additions:
+        cur.execute(f"ALTER TABLE timers ADD COLUMN {column} {col_type}")
+
+    if additions:
+        # Refresh the cached metadata after altering the table
+        cur.execute("PRAGMA table_info(timers)")
+        existing = {row[1] for row in cur.fetchall()}
+
+    if "label" in existing:
+        cur.execute("UPDATE timers SET label=COALESCE(label, text, 'Timer')")
+    if "duration" in existing:
+        cur.execute("UPDATE timers SET duration=COALESCE(duration, remaining, 0)")
+    if "remaining" in existing:
+        cur.execute("UPDATE timers SET remaining=COALESCE(remaining, duration, 0)")
+    if "running" in existing:
+        cur.execute("UPDATE timers SET running=COALESCE(running, 0)")
+    if "icon" in existing:
+        cur.execute("UPDATE timers SET icon=COALESCE(icon, 'Alarmas Y Timers.svg')")
+
+    if "end_time" in existing:
+        cur.execute("SELECT id, end_time, text FROM timers WHERE end_time IS NOT NULL")
+        rows = cur.fetchall()
+        now = datetime.now()
+        for timer_id, end_time, text in rows:
+            try:
+                end_dt = datetime.fromisoformat(end_time)
+                remaining = max(0, int((end_dt - now).total_seconds()))
+            except Exception:
+                remaining = 0
+            running = 1 if remaining > 0 else 0
+            duration = remaining if remaining > 0 else max(0, remaining)
+            cur.execute(
+                "UPDATE timers SET label=?, duration=?, remaining=?, running=? WHERE id=?",
+                (text or "Timer", duration, remaining, running, timer_id),
+            )
+
+
+def save_timer(username: str, label: str, duration: int, remaining: int, running: bool, icon: str | None) -> int:
+    """
+    Persist a timer for a user with the extended timer model.
     """
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
+    _ensure_timer_columns(cur)
     cur.execute(
-        "INSERT INTO timers (end_time, text) VALUES (?, ?)",
-        (end_time, text)
+        """
+        INSERT INTO timers (label, duration, remaining, running, icon)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (label, duration, remaining, 1 if running else 0, icon),
     )
     conn.commit()
+    row_id = cur.lastrowid
+    conn.close()
+    return int(row_id)
+
+
+def update_timer(username: str, timer_id: int, *, label: Optional[str] = None,
+                 duration: Optional[int] = None, remaining: Optional[int] = None,
+                 running: Optional[bool] = None, icon: Optional[str] = None) -> None:
+    """Update fields for an existing timer."""
+
+    init_user_db(username)
+    path = get_user_db_path(username)
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    _ensure_timer_columns(cur)
+    assignments = []
+    values: list[object] = []
+    if label is not None:
+        assignments.append("label=?")
+        values.append(label)
+    if duration is not None:
+        assignments.append("duration=?")
+        values.append(duration)
+    if remaining is not None:
+        assignments.append("remaining=?")
+        values.append(remaining)
+    if running is not None:
+        assignments.append("running=?")
+        values.append(1 if running else 0)
+    if icon is not None:
+        assignments.append("icon=?")
+        values.append(icon)
+    if assignments:
+        values.append(timer_id)
+        stmt = f"UPDATE timers SET {', '.join(assignments)} WHERE id=?"
+        cur.execute(stmt, values)
+        conn.commit()
     conn.close()
 
 
-def delete_timer(username: str, end_time: str, text: str) -> None:
+def delete_timer(username: str, timer_id: int) -> None:
     """
     Delete a timer for a user.
     """
@@ -694,26 +799,51 @@ def delete_timer(username: str, end_time: str, text: str) -> None:
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM timers WHERE end_time=? AND text=?",
-        (end_time, text)
-    )
+    _ensure_timer_columns(cur)
+    cur.execute("DELETE FROM timers WHERE id=?", (timer_id,))
     conn.commit()
     conn.close()
 
 
-def get_timers(username: str) -> list[tuple[str, str]]:
+def get_timers(username: str) -> list[dict[str, object]]:
     """
-    Retrieve all timers for a user.  Returns a list of (end_time, text).
+    Retrieve all timers for a user.
     """
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
-    cur.execute("SELECT end_time, text FROM timers ORDER BY end_time")
+    _ensure_timer_columns(cur)
+    cur.execute(
+        "SELECT id, label, duration, remaining, running, icon FROM timers ORDER BY id"
+    )
     rows = cur.fetchall()
     conn.close()
-    return [(et, txt) for et, txt in rows]
+    timers: list[dict[str, object]] = []
+    now = datetime.now()
+    for timer_id, label, duration, remaining, running, icon in rows:
+        # Defensive defaults in case older databases lacked values
+        try:
+            duration_val = int(duration) if duration is not None else 0
+        except Exception:
+            duration_val = 0
+        try:
+            remaining_val = int(remaining) if remaining is not None else duration_val
+        except Exception:
+            remaining_val = duration_val
+        is_running = bool(running) if running is not None else remaining_val > 0
+        timers.append(
+            {
+                "id": int(timer_id),
+                "label": label or "Timer",
+                "duration": max(0, duration_val),
+                "remaining": max(0, remaining_val),
+                "running": is_running and remaining_val > 0,
+                "icon": icon or "Alarmas Y Timers.svg",
+                "loaded_at": now.isoformat(),
+            }
+        )
+    return timers
 
 # -----------------------------------------------------------------------------
 # Notifications and renamed devices persistence

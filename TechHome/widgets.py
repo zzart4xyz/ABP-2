@@ -193,6 +193,224 @@ class NoFocusDelegate(QStyledItemDelegate):
         super().paint(painter, option, index)
 
 
+class _TimerProgress(QWidget):
+    """Circular progress indicator used inside :class:`TimerCard`."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._progress = 0.0
+        self._time_text = "00:00"
+        self._icon: QPixmap | None = None
+        self.setMinimumSize(140, 140)
+        try:
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        except Exception:
+            pass
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+    def setProgress(self, value: float) -> None:
+        self._progress = max(0.0, min(1.0, value))
+        self.update()
+
+    def setTimeText(self, text: str) -> None:
+        self._time_text = text
+        self.update()
+
+    def setIcon(self, pixmap: QPixmap | None) -> None:
+        self._icon = pixmap if pixmap and not pixmap.isNull() else None
+        self.update()
+
+    def paintEvent(self, event) -> None:  # type: ignore[override]
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect().adjusted(8, 8, -8, -8)
+        size = min(rect.width(), rect.height())
+        rect = QRectF(
+            rect.center().x() - size / 2.0,
+            rect.center().y() - size / 2.0,
+            size,
+            size,
+        )
+        track_pen = QPen(QColor(c.CLR_SURFACE))
+        track_pen.setWidthF(size * 0.08)
+        track_pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(track_pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawArc(rect, 0, 360 * 16)
+
+        if self._progress > 0.0:
+            prog_pen = QPen(QColor(c.CLR_TITLE))
+            prog_pen.setWidthF(size * 0.08)
+            prog_pen.setCapStyle(Qt.RoundCap)
+            painter.setPen(prog_pen)
+            span = int(-self._progress * 360 * 16)
+            painter.drawArc(rect, 90 * 16, span)
+
+        inner_radius = size * 0.68
+        inner_rect = QRectF(
+            rect.center().x() - inner_radius / 2.0,
+            rect.center().y() - inner_radius / 2.0,
+            inner_radius,
+            inner_radius,
+        )
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(c.CLR_PANEL))
+        painter.drawEllipse(inner_rect)
+
+        if self._icon is not None:
+            icon_size = int(inner_radius * 0.28)
+            if icon_size > 0:
+                pm = self._icon.scaled(icon_size, icon_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                ix = int(inner_rect.center().x() - pm.width() / 2)
+                iy = int(inner_rect.top() + pm.height() * 0.2)
+                painter.drawPixmap(ix, iy, pm)
+
+        font = QFont(c.FONT_FAM, max(12, int(inner_radius * 0.16)))
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor(c.CLR_TITLE))
+        painter.drawText(inner_rect, Qt.AlignCenter, self._time_text)
+        painter.end()
+
+
+class TimerCard(QFrame):
+    """Card widget representing a single timer."""
+
+    playRequested = pyqtSignal(int)
+    pauseRequested = pyqtSignal(int)
+    resetRequested = pyqtSignal(int)
+    fullscreenRequested = pyqtSignal(int)
+    editRequested = pyqtSignal(int)
+    deleteRequested = pyqtSignal(int)
+
+    def __init__(self, timer_id: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.timer_id = timer_id
+        self._state: dict[str, object] = {}
+        self.setObjectName("timerCard")
+        self.setStyleSheet(
+            f"""
+            QFrame#timerCard {{
+                background:{c.CLR_PANEL};
+                border:2px solid {c.CLR_TITLE};
+                border-radius:12px;
+            }}
+            QPushButton {{
+                background:{c.CLR_TITLE};
+                border:none;
+                border-radius:16px;
+                color:#07101B;
+                font:600 14px '{c.FONT_FAM}';
+                padding:6px 14px;
+            }}
+            QPushButton#resetBtn {{
+                background:transparent;
+                color:{c.CLR_TITLE};
+                border:2px solid {c.CLR_TITLE};
+            }}
+            QPushButton#resetBtn:hover {{
+                background:{c.CLR_TITLE};
+                color:#07101B;
+            }}
+            QToolButton {
+                background:transparent;
+                border:none;
+                color:{c.CLR_TITLE};
+            }
+            QToolButton:hover {
+                color:{c.CLR_TEXT_IDLE};
+            }
+            QLabel#timerTitle {
+                color:{c.CLR_TEXT_IDLE};
+                font:600 18px '{c.FONT_FAM}';
+            }
+            """
+        )
+
+        c.make_shadow(self, 18, 6, 120)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(12)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
+        self.title_label = QLabel("Timer")
+        self.title_label.setObjectName("timerTitle")
+        header.addWidget(self.title_label, 1)
+
+        self.edit_btn = QToolButton()
+        self.edit_btn.setText("✎")
+        self.edit_btn.setToolTip("Editar timer")
+        self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self.timer_id))
+        header.addWidget(self.edit_btn)
+
+        self.fullscreen_btn = QToolButton()
+        self.fullscreen_btn.setText("⤢")
+        self.fullscreen_btn.setToolTip("Pantalla completa")
+        self.fullscreen_btn.clicked.connect(lambda: self.fullscreenRequested.emit(self.timer_id))
+        header.addWidget(self.fullscreen_btn)
+
+        self.delete_btn = QToolButton()
+        self.delete_btn.setToolTip("Eliminar timer")
+        self.delete_btn.setIcon(c.icon("Papelera.svg"))
+        self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self.timer_id))
+        header.addWidget(self.delete_btn)
+
+        main_layout.addLayout(header)
+
+        self.progress = _TimerProgress(self)
+        main_layout.addWidget(self.progress, 1, Qt.AlignCenter)
+
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(12)
+        controls.addStretch(1)
+        self.play_pause_btn = QPushButton("▶")
+        self.play_pause_btn.setFixedHeight(36)
+        self.play_pause_btn.clicked.connect(self._toggle_play)
+        controls.addWidget(self.play_pause_btn)
+
+        self.reset_btn = QPushButton("↺")
+        self.reset_btn.setObjectName("resetBtn")
+        self.reset_btn.setFixedHeight(36)
+        self.reset_btn.clicked.connect(lambda: self.resetRequested.emit(self.timer_id))
+        controls.addWidget(self.reset_btn)
+        controls.addStretch(1)
+        main_layout.addLayout(controls)
+
+    def _toggle_play(self) -> None:
+        running = bool(self._state.get("running", False))
+        if running:
+            self.pauseRequested.emit(self.timer_id)
+        else:
+            self.playRequested.emit(self.timer_id)
+
+    def update_state(self, state: dict[str, object]) -> None:
+        self._state = dict(state)
+        label = str(state.get("label", "Timer"))
+        self.title_label.setText(label)
+        duration = max(1, int(state.get("duration", 1)))
+        remaining = max(0, int(state.get("remaining", duration)))
+        running = bool(state.get("running", False))
+        icon_name = str(state.get("icon", "Alarmas Y Timers.svg"))
+        progress = 1.0 - (remaining / float(duration)) if duration else 0.0
+        mins, secs = divmod(remaining, 60)
+        hours, mins = divmod(mins, 60)
+        if hours:
+            time_text = f"{hours:02d}:{mins:02d}:{secs:02d}"
+        else:
+            time_text = f"{mins:02d}:{secs:02d}"
+        self.progress.setProgress(progress)
+        self.progress.setTimeText(time_text)
+        try:
+            pix = c.load_icon_pixmap(icon_name, QSize(64, 64))
+        except Exception:
+            pix = QPixmap()
+        self.progress.setIcon(pix)
+        self.play_pause_btn.setText("⏸" if running else "▶")
+        self.play_pause_btn.setToolTip("Pausar" if running else "Iniciar")
 def style_table(tbl):
     """Apply uniform style and no-focus behaviour to tables."""
     tbl.setAlternatingRowColors(False)

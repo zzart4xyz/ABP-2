@@ -7,7 +7,8 @@ from PyQt5.QtGui import QIcon, QPixmap, QColor, QFont, QPainter, QPen, QLinearGr
 from PyQt5.QtWidgets import (
     QDialog, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QCheckBox, QDateTimeEdit, QSpinBox, QProgressBar,
-    QAbstractSpinBox, QMessageBox, QToolButton, QGraphicsDropShadowEffect
+    QAbstractSpinBox, QMessageBox, QToolButton, QGraphicsDropShadowEffect,
+    QComboBox, QFormLayout
 )
 
 import constants as c
@@ -280,6 +281,94 @@ class NewElementDialog(BaseFormDialog):
     def getText(self):
         return self.get_value(lambda: self.input.text())
 
+
+class TimerEditorDialog(BaseFormDialog):
+    """Dialog to edit timer properties (label, duration, icon)."""
+
+    def __init__(self, *, label: str, duration: int, icon_name: str, parent=None):
+        form = QFrame()
+        form.setStyleSheet("background:transparent;")
+        layout = QVBoxLayout(form)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
+        fields = QFrame()
+        fields.setStyleSheet("background:transparent;")
+        form_layout = QFormLayout(fields)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(10)
+
+        self.label_edit = QLineEdit(label)
+        self.label_edit.setPlaceholderText('Nombre del timer')
+        self.label_edit.setStyleSheet(c.input_style(pad=8))
+        form_layout.addRow('Etiqueta', self.label_edit)
+
+        self.duration_spin = QSpinBox()
+        self.duration_spin.setRange(1, 86400)
+        self.duration_spin.setSuffix(' s')
+        self.duration_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.duration_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        self.duration_spin.setValue(max(1, duration))
+        form_layout.addRow('Duración', self.duration_spin)
+
+        icon_row = QHBoxLayout()
+        icon_row.setContentsMargins(0, 0, 0, 0)
+        icon_row.setSpacing(8)
+        self.icon_combo = QComboBox()
+        self.icon_combo.setEditable(False)
+        self.icon_combo.setStyleSheet(c.input_style('QComboBox', c.CLR_SURFACE))
+        self._populate_icons(icon_name)
+        icon_row.addWidget(self.icon_combo, 1)
+        self.icon_preview = QLabel()
+        self.icon_preview.setFixedSize(48, 48)
+        self.icon_preview.setAlignment(Qt.AlignCenter)
+        self.icon_preview.setStyleSheet(
+            f"background:{c.CLR_SURFACE}; border:2px solid {c.CLR_TITLE}; border-radius:8px;"
+        )
+        icon_row.addWidget(self.icon_preview)
+        form_layout.addRow('Icono', icon_row)
+
+        layout.addWidget(fields)
+
+        self.icon_combo.currentTextChanged.connect(self._update_preview)
+        self._update_preview(self.icon_combo.currentText())
+
+        super().__init__('Editar Timer', form, 'Guardar', cancel_text='Cancelar', parent=parent)
+
+    def _populate_icons(self, current: str) -> None:
+        icons = set()
+        for base in c.ICON_SEARCH_PATHS:
+            try:
+                for name in os.listdir(base):
+                    if name.lower().endswith('.svg'):
+                        icons.add(name)
+            except Exception:
+                continue
+        icons.update({'Alarmas Y Timers.svg', 'Timers.svg'})
+        choices = sorted(icons)
+        current_index = 0
+        for idx, name in enumerate(choices):
+            self.icon_combo.addItem(name, name)
+            if name == current:
+                current_index = idx
+        self.icon_combo.setCurrentIndex(current_index)
+
+    def _update_preview(self, icon_name: str) -> None:
+        pix = c.load_icon_pixmap(icon_name, QSize(42, 42))
+        if pix.isNull():
+            self.icon_preview.clear()
+        else:
+            self.icon_preview.setPixmap(pix)
+
+    def get_data(self) -> dict[str, object]:
+        label = self.label_edit.text().strip() or 'Timer'
+        duration = self.duration_spin.value()
+        icon_name = self.icon_combo.currentData()
+        return {
+            'label': label,
+            'duration': duration,
+            'icon': icon_name,
+        }
 
 
 
