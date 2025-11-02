@@ -31,6 +31,8 @@ import os
 import hashlib
 import importlib
 import importlib.util
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional, TYPE_CHECKING
 
@@ -1162,3 +1164,140 @@ def authenticate(username: str, password: str) -> bool:
     else:
         # Unknown algorithm
         return False
+
+
+def run_sanity_checks() -> list[tuple[str, bool, str]]:
+    """Run lightweight self-checks for the database module.
+
+    The project previously shipped PyTest-based regression tests that
+    exercised the credential validation logic as well as the
+    sanitisation of per-user database paths.  Distributing the tests as
+    part of the runtime environment is unnecessary, but the underlying
+    expectations remain valuable for manual verification and future
+    troubleshooting.  This helper executes the most critical scenarios
+    against temporary on-disk databases and reports whether each check
+    passed.
+
+    Returns
+    -------
+    list[tuple[str, bool, str]]
+        A list of ``(description, passed, details)`` tuples.  The
+        ``details`` entry provides additional context for failed
+        checks.  Callers can iterate through the list and print the
+        results to obtain a quick health report, for example::
+
+            for name, passed, detail in run_sanity_checks():
+                icon = "✅" if passed else "❌"
+                print(f"{icon} {name}" + (f": {detail}" if detail else ""))
+    """
+
+    results: list[tuple[str, bool, str]] = []
+
+    def record(name: str, passed: bool, detail: str = "") -> None:
+        results.append((name, bool(passed), detail))
+
+    # Use a temporary directory so the self-check never touches the
+    # user's real data.  The module-level globals are swapped out for
+    # the duration of the checks and then restored.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        original_users_db = USERS_DB_PATH
+        original_data_dir = DATA_DB_DIR
+        try:
+            globals()["USERS_DB_PATH"] = str(tmp_path / USERS_DB_FILENAME)
+            globals()["DATA_DB_DIR"] = str(tmp_path)
+
+            # Credential validation helpers should reject empty or
+            # whitespace-only values before touching the filesystem.
+            record(
+                "create_user rejects blank username",
+                not create_user("   ", "password"),
+            )
+            record(
+                "create_user rejects blank password",
+                not create_user("alice", "   "),
+            )
+            record(
+                "authenticate rejects blank username",
+                not authenticate("", "password"),
+            )
+            record(
+                "authenticate rejects blank password",
+                not authenticate("alice", ""),
+            )
+            record(
+                "no data files created for invalid credentials",
+                not any(tmp_path.glob("techhome_data_*.sql")),
+            )
+
+            # Happy-path credential lifecycle.
+            record("create_user stores valid user", create_user("alice", "secret-pass"))
+            record(
+                "authenticate accepts stored credentials",
+                authenticate("alice", "secret-pass"),
+            )
+            record(
+                "authenticate rejects wrong password",
+                not authenticate("alice", "wrong"),
+            )
+
+            alice_db_path = Path(get_user_db_path("alice"))
+            record("per-user database created", alice_db_path.exists())
+
+            actions_table_exists = False
+            if alice_db_path.exists():
+                with sqlite3.connect(alice_db_path) as conn:
+                    cursor = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='actions'"
+                    )
+                    actions_table_exists = cursor.fetchone() is not None
+            record("actions table initialised", actions_table_exists)
+
+            # Sanitised per-user database paths should stay inside the
+            # configured data directory and use hashed filenames.
+            tricky_username = "../malicious user"
+            tricky_path = Path(get_user_db_path(tricky_username))
+            record("sanitised path stays within data dir", tricky_path.parent == tmp_path)
+            record(
+                "sanitised path uses .sql suffix",
+                tricky_path.suffix == ".sql" and tricky_path.name.startswith("techhome_data_"),
+            )
+            hashed_suffix = tricky_path.stem.replace("techhome_data_", "")
+            detail = f"suffix length={len(hashed_suffix)}"
+            record("sanitised filename is 64 hex chars", len(hashed_suffix) == 64, detail)
+            try:
+                int(hashed_suffix, 16)
+                valid_hex = True
+            except ValueError:
+                valid_hex = False
+            record("sanitised filename contains hex", valid_hex)
+
+            # Legacy usernames should reuse existing files if present.
+            legacy_username = "legacy user"
+            legacy_path = tmp_path / f"techhome_data_{legacy_username}.sql"
+            legacy_path.write_text("")
+            record(
+                "legacy filename reused",
+                Path(get_user_db_path(legacy_username)) == legacy_path,
+            )
+
+            # When creating a user with a path-traversal attempt, the
+            # resulting database name should be derived from the hash.
+            hashed_username = "../bob"
+            record(
+                "create_user succeeds for tricky username",
+                create_user(hashed_username, "secret"),
+            )
+            hashed_path = Path(get_user_db_path(hashed_username))
+            expected_suffix = hashlib.sha256(hashed_username.encode("utf-8")).hexdigest()
+            record("hashed database created", hashed_path.exists())
+            record(
+                "hashed filename matches sha256",
+                hashed_path.stem == f"techhome_data_{expected_suffix}",
+                f"stem={hashed_path.stem}",
+            )
+        finally:
+            globals()["USERS_DB_PATH"] = original_users_db
+            globals()["DATA_DB_DIR"] = original_data_dir
+
+    return results
