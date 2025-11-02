@@ -68,9 +68,11 @@ except Exception:
 # database file (``techhome_users.sql``) located in the same directory as
 # this module.  Each user's personal data (device states, lists, notes,
 # reminders, alarms, timers and action logs) are stored in a separate
-# database file named ``techhome_data_<username>.sql`` in the same directory.
-# This separation ensures that no user's data is mixed with another's and
-# allows per‑user data to be easily managed.
+# database file named ``techhome_data_<hash>.sql`` in the same directory.
+# Prior to November 2025 the plain username was embedded directly in the
+# filename; the helper below still recognises those legacy files.  This
+# separation ensures that no user's data is mixed with another's and allows
+# per‑user data to be easily managed.
 
 # Central database for user credentials
 USERS_DB_FILENAME = "techhome_users.sql"
@@ -81,14 +83,29 @@ USERS_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), USERS_D
 # path to a specific user's database file.
 DATA_DB_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def _legacy_user_db_path(username: str) -> str:
+    """Return the historical per-user database path for *username*."""
+
+    return os.path.join(DATA_DB_DIR, f"techhome_data_{username}.sql")
+
+
+def _safe_user_db_filename(username: str) -> str:
+    """Return a filesystem-safe database filename for *username*."""
+
+    username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
+    return f"techhome_data_{username_hash}.sql"
+
+
 def get_user_db_path(username: str) -> str:
     """
     Return the file path for a given user's data database.
 
-    The username is incorporated directly into the filename.  Special
-    characters are not escaped because usernames are expected to be simple
-    alphanumeric strings.  In a production environment you should
-    sanitise or hash usernames to avoid conflicts or path traversal.
+    Historically, usernames were interpolated directly into filenames.
+    This allowed crafted usernames (e.g. ``"../alice"``) to escape the
+    intended directory structure.  New databases now use a SHA-256 hash of
+    the username to derive a filesystem-safe filename.  If an older file
+    already exists for the requested username, it is returned unchanged for
+    backwards compatibility.
 
     Parameters
     ----------
@@ -100,7 +117,12 @@ def get_user_db_path(username: str) -> str:
     str
         The absolute path to the user's data database file.
     """
-    return os.path.join(DATA_DB_DIR, f"techhome_data_{username}.sql")
+
+    legacy_path = _legacy_user_db_path(username)
+    if os.path.exists(legacy_path):
+        return legacy_path
+    safe_filename = _safe_user_db_filename(username)
+    return os.path.join(DATA_DB_DIR, safe_filename)
 
 
 def init_db() -> None:
@@ -999,6 +1021,12 @@ def get_setting(username: str, key: str, default: str | None = None) -> Optional
     return row[0]
 
 
+def _is_valid_credential(value: object) -> bool:
+    """Return ``True`` if *value* is a non-empty string."""
+
+    return isinstance(value, str) and value.strip() != ""
+
+
 def create_user(username: str, password: str) -> bool:
     """
     Create a new user with hashed credentials.
@@ -1021,6 +1049,12 @@ def create_user(username: str, password: str) -> bool:
         ``True`` if the user was created successfully; ``False`` if
         the username already exists or an error occurred.
     """
+    # Validate credentials before touching the filesystem.  Rejecting
+    # empty or whitespace-only usernames/passwords prevents creation of
+    # unusable records such as ``techhome_data_.sql``.
+    if not (_is_valid_credential(username) and _is_valid_credential(password)):
+        return False
+
     # Compute the hash of the username.  We use SHA-256 for
     # uniqueness and to avoid storing the plain username.
     username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
@@ -1082,6 +1116,9 @@ def authenticate(username: str, password: str) -> bool:
     bool
         ``True`` if the credentials are valid; ``False`` otherwise.
     """
+    if not (_is_valid_credential(username) and _is_valid_credential(password)):
+        return False
+
     username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
     # Ensure the central users database exists before authentication
     init_db()

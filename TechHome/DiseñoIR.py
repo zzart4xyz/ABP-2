@@ -467,6 +467,12 @@ class LoginDialog(QDialog):
         self.root.setStyleSheet(
             f"QFrame#login_root {{ background:{c.CLR_PANEL}; border:none; border-radius:{c.FRAME_RAD}px; }}"
         )
+        self._entry_offset = 40
+        self._entry_effect = QGraphicsOpacityEffect(self.root)
+        self.root.setGraphicsEffect(self._entry_effect)
+        self._entry_effect.setOpacity(0.0)
+        self._entry_anim: QParallelAnimationGroup | None = None
+        self._entry_played = False
 
         # Create two pages that will slide horizontally.
         w = self.width()
@@ -508,6 +514,41 @@ class LoginDialog(QDialog):
 
         # Ensure the top-level window is clipped to rounded corners (no transparent edges)
         _apply_rounded_mask(self, c.FRAME_RAD)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._entry_played:
+            return
+        self._entry_played = True
+        final_pos = self.root.pos()
+        start_pos = final_pos + QPoint(0, self._entry_offset)
+        self.root.move(start_pos)
+        self._entry_effect.setOpacity(0.0)
+
+        opacity_anim = QPropertyAnimation(self._entry_effect, b"opacity", self)
+        opacity_anim.setDuration(420)
+        opacity_anim.setStartValue(0.0)
+        opacity_anim.setEndValue(1.0)
+        opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        pos_anim = QPropertyAnimation(self.root, b"pos", self)
+        pos_anim.setDuration(420)
+        pos_anim.setStartValue(start_pos)
+        pos_anim.setEndValue(final_pos)
+        pos_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(opacity_anim)
+        group.addAnimation(pos_anim)
+
+        def _cleanup():
+            self.root.move(final_pos)
+            self._entry_effect.setOpacity(1.0)
+            self._entry_anim = None
+
+        group.finished.connect(_cleanup)
+        self._entry_anim = group
+        group.start()
 
     # ------------------------------------------------------------------
     # Utilidades de traducción

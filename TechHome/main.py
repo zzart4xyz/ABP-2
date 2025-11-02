@@ -2818,7 +2818,28 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(1100, 700)
         self._drag = None
+        self.setWindowOpacity(0.0)
+        self._show_anim: QPropertyAnimation | None = None
+        self._show_anim_played = False
         self.setCentralWidget(AnimatedBackground(self, username=username, login_time=login_time))
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._show_anim_played:
+            return
+        self._show_anim_played = True
+        anim = QPropertyAnimation(self, b"windowOpacity", self)
+        anim.setDuration(420)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        def _cleanup():
+            self._show_anim = None
+
+        anim.finished.connect(_cleanup)
+        self._show_anim = anim
+        anim.start()
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:

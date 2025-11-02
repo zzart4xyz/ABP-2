@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from PyQt5.QtCore import Qt, QTimer, QRectF, QEasingCurve, QPropertyAnimation
+from PyQt5.QtCore import Qt, QTimer, QRectF, QEasingCurve, QPropertyAnimation, QPoint, QParallelAnimationGroup
 from PyQt5.QtGui import QColor, QConicalGradient, QIcon, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QDialog,
@@ -119,6 +119,13 @@ class SplashScreen(QDialog):
         frame.setGeometry(0, 0, self.width(), self.height())
         apply_rounded_mask(self, c.FRAME_RAD)
         apply_rounded_mask(self, 20)
+        self._frame = frame
+        self._entry_offset = 36
+        self._entry_effect = QGraphicsOpacityEffect(self._frame)
+        self._frame.setGraphicsEffect(self._entry_effect)
+        self._entry_effect.setOpacity(0.0)
+        self._entry_anim: QParallelAnimationGroup | None = None
+        self._entry_played = False
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
@@ -284,6 +291,41 @@ class SplashScreen(QDialog):
             self._paused = False
             self._timer.start(30)
             self.pause_btn.setText("Pausar")
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._entry_played:
+            return
+        self._entry_played = True
+        final_pos = QPoint(0, 0)
+        start_pos = final_pos + QPoint(0, self._entry_offset)
+        self._frame.move(start_pos)
+        self._entry_effect.setOpacity(0.0)
+
+        opacity_anim = QPropertyAnimation(self._entry_effect, b"opacity", self)
+        opacity_anim.setDuration(420)
+        opacity_anim.setStartValue(0.0)
+        opacity_anim.setEndValue(1.0)
+        opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        pos_anim = QPropertyAnimation(self._frame, b"pos", self)
+        pos_anim.setDuration(420)
+        pos_anim.setStartValue(start_pos)
+        pos_anim.setEndValue(final_pos)
+        pos_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(opacity_anim)
+        group.addAnimation(pos_anim)
+
+        def _cleanup():
+            self._frame.move(final_pos)
+            self._entry_effect.setOpacity(1.0)
+            self._entry_anim = None
+
+        group.finished.connect(_cleanup)
+        self._entry_anim = group
+        group.start()
 
 
 # ------------------------------------------------------------------
