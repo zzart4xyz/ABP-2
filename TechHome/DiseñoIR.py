@@ -11,6 +11,7 @@ from PyQt5.QtCore import (
     QEasingCurve,
     QEvent,
     QParallelAnimationGroup,
+    QAbstractAnimation,
     QPoint,
     QPropertyAnimation,
     QSize,
@@ -473,6 +474,8 @@ class LoginDialog(QDialog):
         self._entry_effect.setOpacity(0.0)
         self._entry_anim: QParallelAnimationGroup | None = None
         self._entry_played = False
+        self._exit_anim: QParallelAnimationGroup | None = None
+        self._closing = False
 
         # Create two pages that will slide horizontally.
         w = self.width()
@@ -549,6 +552,85 @@ class LoginDialog(QDialog):
         group.finished.connect(_cleanup)
         self._entry_anim = group
         group.start()
+
+    def _disable_interactions(self) -> None:
+        """Disable interactive controls while exit animations run."""
+
+        widgets = [
+            getattr(self, "btn_login", None),
+            getattr(self, "btn_register", None),
+            getattr(self, "link_to_register", None),
+            getattr(self, "link_to_login", None),
+        ]
+        for widget in widgets:
+            if widget is None:
+                continue
+            try:
+                widget.setEnabled(False)
+            except Exception:
+                pass
+
+    def _play_exit_animation(self) -> bool:
+        """Animate the dialog out of view before closing.
+
+        Returns ``True`` if an animation was started, ``False`` if we fell back
+        to the default ``QDialog.accept`` behaviour because the required
+        graphics effect or frame is unavailable.
+        """
+
+        if getattr(self, "_closing", False):
+            return True
+        effect = getattr(self, "_entry_effect", None)
+        frame = getattr(self, "root", None)
+        if not isinstance(effect, QGraphicsOpacityEffect) or frame is None:
+            return False
+
+        if self._exit_anim is not None and self._exit_anim.state() == self._exit_anim.Running:
+            return True
+
+        self._closing = True
+        self._disable_interactions()
+
+        try:
+            if self._entry_anim is not None:
+                self._entry_anim.stop()
+        except Exception:
+            pass
+
+        fade = QPropertyAnimation(effect, b"opacity", self)
+        fade.setDuration(320)
+        try:
+            start_opacity = effect.opacity()
+        except Exception:
+            start_opacity = 1.0
+        fade.setStartValue(start_opacity)
+        fade.setEndValue(0.0)
+        fade.setEasingCurve(QEasingCurve.InOutCubic)
+
+        start_pos = frame.pos()
+        end_pos = start_pos - QPoint(0, max(12, self._entry_offset // 2))
+        slide = QPropertyAnimation(frame, b"pos", self)
+        slide.setDuration(320)
+        slide.setStartValue(start_pos)
+        slide.setEndValue(end_pos)
+        slide.setEasingCurve(QEasingCurve.InOutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(fade)
+        group.addAnimation(slide)
+
+        def _finish() -> None:
+            try:
+                effect.setOpacity(0.0)
+            except Exception:
+                pass
+            self._exit_anim = None
+            super(LoginDialog, self).accept()
+
+        group.finished.connect(_finish)
+        self._exit_anim = group
+        group.start()
+        return True
 
     # ------------------------------------------------------------------
     # Utilidades de traducción
@@ -1001,3 +1083,10 @@ class LoginDialog(QDialog):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         _apply_rounded_mask(self, c.FRAME_RAD)
+
+    def accept(self) -> None:  # type: ignore[override]
+        """Fade and slide the dialog away before accepting."""
+
+        if self._play_exit_animation():
+            return
+        super().accept()
