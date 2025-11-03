@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
     QStackedWidget,
     QTabWidget,
     QTableWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
     QSizePolicy,
