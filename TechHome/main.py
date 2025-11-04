@@ -28,6 +28,7 @@ except Exception:
     QSvgRenderer = None
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QStackedWidget, QLineEdit, QComboBox, QScrollBar, QTableWidget, QTableWidgetItem, QTabWidget, QListWidget, QListWidgetItem, QDialog, QTextEdit, QDateTimeEdit, QSpinBox, QCalendarWidget, QCheckBox, QStyledItemDelegate, QStyle, QToolButton, QTableView, QHeaderView, QAbstractSpinBox, QSizePolicy, QProgressBar, QGraphicsOpacityEffect
 from constants import *
+from models import AlarmState, TimerState, WEEKDAY_ORDER
 
 
 def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
@@ -882,7 +883,7 @@ class NotificationsDetailsDialog(QDialog):
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from constants import HEALTH_CSV_PATH, CLR_HEADER_BG, CLR_HOVER, CLR_TITLE, CLR_TEXT_IDLE, FONT_FAM, make_shadow, CLR_BG, FRAME_RAD, set_theme_constants, TRANSLATIONS_EN, TRANSLATIONS_ES, MAX_NOTIFICATIONS, HOME_RECENT_COUNT, PANEL_W, CLR_PANEL, CLR_ITEM_ACT, CLR_SURFACE, CLR_TRACK, CLR_HEADER_TEXT, CURRENT_THEME, button_style, icon, input_style, pixmap
-from dialogs import NewNoteDialog, NewListDialog, NewElementDialog
+from dialogs import NewNoteDialog, NewListDialog, NewElementDialog, TimerEditorDialog, AlarmEditorDialog
 from DiseñoPC import SplashScreen, create_splash_animations
 from DiseñoIR import LoginDialog
 from DiseñoI import build_home_page, create_home_animations
@@ -892,7 +893,20 @@ from DiseñoS import build_health_page, create_health_animations
 from DiseñoC import build_config_page, create_config_animations
 from DiseñoCa import build_account_page, create_account_animations
 import database
-from widgets import NotesManager, DraggableNote, CustomScrollBar, NoFocusDelegate, style_table, CurrentMonthCalendar, CardButton, QuickAccessButton, GroupCard, DeviceRow
+from widgets import (
+    NotesManager,
+    DraggableNote,
+    CustomScrollBar,
+    NoFocusDelegate,
+    style_table,
+    CurrentMonthCalendar,
+    CardButton,
+    QuickAccessButton,
+    GroupCard,
+    DeviceRow,
+    TimerCard,
+    AlarmCard,
+)
 from health import BPMGauge, MetricsPanel
 
 class AnimatedBackground(QWidget):
@@ -906,8 +920,14 @@ class AnimatedBackground(QWidget):
         self.reminder_timer = QTimer(self)
         self.reminder_timer.timeout.connect(self._check_reminders)
         self.reminder_timer.start(60000)
-        self.alarms = []
-        self.timers = []
+        self.alarms: list[AlarmState] = []
+        self.timers: list[TimerState] = []
+        self._alarm_card_widgets: dict[int, AlarmCard] = {}
+        self._timer_card_widgets: dict[int, TimerCard] = {}
+        self._alarm_edit_mode = False
+        self._timer_edit_mode = False
+        self._last_selected_timer: TimerState | None = None
+        self._last_selected_alarm: AlarmState | None = None
         self.timer_update = QTimer(self)
         self.timer_update.timeout.connect(self._update_timers)
         self.timer_update.start(1000)
@@ -1456,17 +1476,13 @@ class AnimatedBackground(QWidget):
             prefix = 'Current Group:' if self.lang == 'en' else 'Grupo Actual:'
             name = self._translate_name(self.active_group, mapping)
             self.group_indicator.setText(f'{prefix} {name}')
-        tables = {'table_recordatorios': ['Fecha Y Hora', 'Mensaje'], 'table_alarms': ['Fecha Y Hora', 'Etiqueta'], 'table_timers': ['Etiqueta', 'Restante'], 'notif_table': ['Hora', 'Mensaje'], 'table_health': ['Fecha', 'PA', 'BPM', 'SpO₂', 'Temp', 'FR']}
+        tables = {'table_recordatorios': ['Fecha Y Hora', 'Mensaje'], 'notif_table': ['Hora', 'Mensaje'], 'table_health': ['Fecha', 'PA', 'BPM', 'SpO₂', 'Temp', 'FR']}
         for attr, headers in tables.items():
             tbl = getattr(self, attr, None)
             if tbl:
                 tbl.setHorizontalHeaderLabels([mapping.get(h, h) for h in headers])
         if hasattr(self, 'table_recordatorios'):
             self._populate_record_table()
-        if hasattr(self, 'table_alarms'):
-            self._populate_alarm_table()
-        if hasattr(self, 'table_timers'):
-            self._populate_timer_table()
         if hasattr(self, 'notif_table'):
             self._populate_notif_table()
         if hasattr(self, 'table_health'):
@@ -1688,86 +1704,128 @@ class AnimatedBackground(QWidget):
             except Exception:
                 pass
 
-    def _update_timers(self):
+    def _show_popup_message(self, message: str) -> None:
+        self.popup_label.setText(message)
+        self.popup_label.adjustSize()
+        try:
+            parent_width = self.parent().width() if self.parent() else self.width()
+        except Exception:
+            parent_width = self.width()
+        x = max(0, parent_width - self.popup_label.width() - 40)
+        self.popup_label.move(x, 20)
+        self.hide_anim.stop()
+        self.popup_label.show()
+        self.show_anim.setStartValue(0.0)
+        self.show_anim.setEndValue(1.0)
+        self.show_anim.start()
+        QTimer.singleShot(
+            3000,
+            lambda: (
+                self.hide_anim.setStartValue(1.0),
+                self.hide_anim.setEndValue(0.0),
+                self.hide_anim.start(),
+            ),
+        )
+
+    def _notify_timer_finished(self, timer: TimerState) -> None:
+        mapping = TRANSLATIONS_EN if self.lang == 'en' else {}
+        label = mapping.get(timer.label, timer.label)
+        if self.notifications_enabled:
+            self._show_popup_message('⏰ ' + label)
+        self._add_notification(f'Timer {label} completado')
+
+    def _update_timers(self) -> None:
         now = datetime.now()
-        updated = []
-        for end_dt, txt in list(self.timers):
-            if now >= end_dt:
-                if self.notifications_enabled:
-                    mapping = TRANSLATIONS_EN if self.lang == 'en' else {}
-                    self.popup_label.setText('⏰ ' + mapping.get(txt, txt))
-                    self.popup_label.adjustSize()
-                    try:
-                        parent_width = self.parent().width() if self.parent() else self.width()
-                    except Exception:
-                        parent_width = self.width()
-                    x = parent_width - self.popup_label.width() - 40
-                    if x < 0:
-                        x = 0
-                    self.popup_label.move(x, 20)
-                    self.hide_anim.stop()
-                    self.popup_label.show()
-                    self.show_anim.setStartValue(0.0)
-                    self.show_anim.setEndValue(1.0)
-                    self.show_anim.start()
-                    QTimer.singleShot(3000, lambda: (self.hide_anim.setStartValue(1.0), self.hide_anim.setEndValue(0.0), self.hide_anim.start()))
-                    self._add_notification(f'Timer {txt} Completado')
-            else:
-                updated.append((end_dt, txt))
-        self.timers = updated
-        if self.stack.currentIndex() == 2 and self.more_stack.currentIndex() == 3:
-            self._populate_timer_table()
+        changed = False
+        for timer in self.timers:
+            if timer.running:
+                if timer.runtime_anchor is None:
+                    timer.runtime_anchor = now
+                elapsed = int((now - timer.runtime_anchor).total_seconds())
+                if elapsed > 0:
+                    timer.remaining = max(0, timer.remaining - elapsed)
+                    timer.runtime_anchor = now
+                    changed = True
+                    if timer.remaining == 0:
+                        if timer.loop and timer.duration > 0:
+                            timer.remaining = timer.duration
+                            timer.last_started = now
+                            timer.runtime_anchor = now
+                            if hasattr(self, 'username') and self.username:
+                                try:
+                                    database.save_timer(self.username, timer)
+                                except Exception:
+                                    pass
+                        else:
+                            timer.running = False
+                            timer.last_started = None
+                            timer.runtime_anchor = None
+                            self._notify_timer_finished(timer)
+                            if hasattr(self, 'username') and self.username:
+                                try:
+                                    database.save_timer(self.username, timer)
+                                except Exception:
+                                    pass
+        if changed:
+            self._refresh_timer_cards()
 
-    def _add_alarm(self):
-        text = self.input_alarm_text.text().strip()
-        dt = self.input_alarm_datetime.dateTime().toPyDateTime()
-        if text and dt:
-            self.alarms.append((dt, text))
-            self._populate_alarm_table()
-            self.input_alarm_text.clear()
-            self.input_alarm_datetime.setDateTime(datetime.now())
+    def _open_new_alarm_dialog(self):
+        dlg = AlarmEditorDialog(parent=self)
+        if dlg.exec_() == QDialog.Accepted and not dlg.was_deleted:
+            alarm = dlg.result_state()
+            self.alarms.append(alarm)
             self._add_notification('Alarma Añadida')
+            if hasattr(self, 'username') and self.username:
+                try:
+                    database.save_alarm(self.username, alarm)
+                except Exception:
+                    pass
+            if hasattr(self, 'username') and self.username:
+                try:
+                    database.log_action(self.username, f'Alarma añadida: {alarm.label}')
+                except Exception:
+                    pass
+            self._refresh_alarm_cards()
             self._refresh_calendar_events()
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.save_alarm(self.username, dt.isoformat(), text)
-                except Exception:
-                    pass
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.log_action(self.username, f'Alarma añadida: {text} @ {dt.isoformat()}')
-                except Exception:
-                    pass
             try:
                 self._refresh_account_info()
             except Exception:
                 pass
 
-    def _populate_alarm_table(self):
-        data = sorted(self.alarms, key=lambda x: x[0])
-        tbl = self.table_alarms
-        tbl.setRowCount(len(data))
-        for i, (dt, txt) in enumerate(data):
-            tbl.setItem(i, 0, QTableWidgetItem(dt.strftime('%Y-%m-%d %H:%M')))
-            tbl.setItem(i, 1, QTableWidgetItem(txt))
+    def _edit_alarm(self, alarm: AlarmState):
+        dlg = AlarmEditorDialog(alarm, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            if dlg.was_deleted:
+                self._delete_alarm(alarm)
+                return
+            updated = dlg.result_state()
+            alarm.label = updated.label
+            alarm.trigger = updated.trigger
+            alarm.repeat_days = updated.repeat_days
+            alarm.sound = updated.sound
+            alarm.snooze_minutes = updated.snooze_minutes
+            if hasattr(self, 'username') and self.username:
+                try:
+                    database.save_alarm(self.username, alarm)
+                except Exception:
+                    pass
+            self._refresh_alarm_cards()
+            self._refresh_calendar_events()
 
-    def _delete_selected_alarm(self):
-        row = self.table_alarms.currentRow()
-        if 0 <= row < len(self.alarms):
-            data = sorted(self.alarms, key=lambda x: x[0])
-            dt, txt = data[row]
-            self.alarms.remove((dt, txt))
-            self._populate_alarm_table()
+    def _delete_alarm(self, alarm: AlarmState):
+        if alarm in self.alarms:
+            self.alarms.remove(alarm)
             self._add_notification('Alarma Eliminada')
+            self._refresh_alarm_cards()
             self._refresh_calendar_events()
-            if hasattr(self, 'username') and self.username:
+            if hasattr(self, 'username') and self.username and alarm.alarm_id is not None:
                 try:
-                    database.delete_alarm(self.username, dt.isoformat(), txt)
+                    database.delete_alarm(self.username, alarm.alarm_id)
                 except Exception:
                     pass
             if hasattr(self, 'username') and self.username:
                 try:
-                    database.log_action(self.username, f'Alarma eliminada: {txt}')
+                    database.log_action(self.username, f'Alarma eliminada: {alarm.label}')
                 except Exception:
                     pass
             try:
@@ -1775,62 +1833,262 @@ class AnimatedBackground(QWidget):
             except Exception:
                 pass
 
-    def _add_timer(self):
-        seconds = self.input_timer_seconds.value()
-        txt = self.input_timer_text.text().strip() or 'Timer'
-        if seconds > 0:
-            end = datetime.now() + timedelta(seconds=seconds)
-            self.timers.append((end, txt))
-            self._populate_timer_table()
-            self.input_timer_seconds.setValue(0)
-            self.input_timer_text.clear()
+    def _toggle_alarm_enabled(self, alarm: AlarmState, enabled: bool):
+        alarm.enabled = enabled
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.save_alarm(self.username, alarm)
+            except Exception:
+                pass
+        self._refresh_alarm_cards()
+        self._refresh_calendar_events()
+
+    def _open_new_timer_dialog(self):
+        dlg = TimerEditorDialog(parent=self)
+        if dlg.exec_() == QDialog.Accepted and not dlg.was_deleted:
+            timer = dlg.result_state()
+            if timer.duration <= 0:
+                return
+            timer.remaining = timer.duration
+            timer.running = False
+            timer.runtime_anchor = None
+            self.timers.append(timer)
             self._add_notification('Timer Añadido')
             if hasattr(self, 'username') and self.username:
                 try:
-                    database.save_timer(self.username, end.isoformat(), txt)
+                    database.save_timer(self.username, timer)
                 except Exception:
                     pass
             if hasattr(self, 'username') and self.username:
                 try:
-                    database.log_action(self.username, f'Timer añadido: {txt} ({seconds} s)')
+                    database.log_action(self.username, f'Timer añadido: {timer.label}')
                 except Exception:
                     pass
+            self._refresh_timer_cards()
             try:
                 self._refresh_account_info()
             except Exception:
                 pass
 
-    def _populate_timer_table(self):
-        data = list(self.timers)
-        tbl = self.table_timers
-        tbl.setRowCount(len(data))
-        for i, (end_dt, txt) in enumerate(data):
-            remain = max(0, int((end_dt - datetime.now()).total_seconds()))
-            tbl.setItem(i, 0, QTableWidgetItem(f'{txt}'))
-            tbl.setItem(i, 1, QTableWidgetItem(f'{remain} s'))
+    def _edit_timer(self, timer: TimerState):
+        dlg = TimerEditorDialog(timer, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            if dlg.was_deleted:
+                self._delete_timer(timer)
+                return
+            updated = dlg.result_state()
+            timer.label = updated.label
+            timer.duration = updated.duration
+            timer.remaining = min(updated.remaining, updated.duration)
+            timer.loop = updated.loop
+            timer.running = updated.running
+            timer.last_started = updated.last_started
+            timer.runtime_anchor = None
+            if hasattr(self, 'username') and self.username:
+                try:
+                    database.save_timer(self.username, timer)
+                except Exception:
+                    pass
+            self._refresh_timer_cards()
 
-    def _delete_selected_timer(self):
-        row = self.table_timers.currentRow()
-        if 0 <= row < len(self.timers):
-            timer_desc = self.timers[row][1] if row < len(self.timers) else 'Timer'
-            end_dt, txt = self.timers[row]
-            del self.timers[row]
-            self._populate_timer_table()
+    def _delete_timer(self, timer: TimerState):
+        if timer in self.timers:
+            self.timers.remove(timer)
             self._add_notification('Timer Eliminado')
-            if hasattr(self, 'username') and self.username:
+            self._refresh_timer_cards()
+            if hasattr(self, 'username') and self.username and timer.timer_id is not None:
                 try:
-                    database.delete_timer(self.username, end_dt.isoformat(), txt)
+                    database.delete_timer(self.username, timer.timer_id)
                 except Exception:
                     pass
             if hasattr(self, 'username') and self.username:
                 try:
-                    database.log_action(self.username, f'Timer eliminado: {txt}')
+                    database.log_action(self.username, f'Timer eliminado: {timer.label}')
                 except Exception:
                     pass
             try:
                 self._refresh_account_info()
             except Exception:
                 pass
+
+    def _toggle_timer_loop(self, timer: TimerState, enabled: bool):
+        timer.loop = enabled
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.save_timer(self.username, timer)
+            except Exception:
+                pass
+        self._refresh_timer_cards()
+
+    def _play_timer(self, timer: TimerState):
+        if timer.duration <= 0:
+            return
+        timer.running = True
+        timer.last_started = datetime.now()
+        timer.runtime_anchor = timer.last_started
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.save_timer(self.username, timer)
+            except Exception:
+                pass
+        self._refresh_timer_cards()
+
+    def _pause_timer(self, timer: TimerState):
+        timer.running = False
+        timer.runtime_anchor = None
+        timer.last_started = None
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.save_timer(self.username, timer)
+            except Exception:
+                pass
+        self._refresh_timer_cards()
+
+    def _reset_timer(self, timer: TimerState):
+        timer.running = False
+        timer.remaining = timer.duration
+        timer.runtime_anchor = None
+        timer.last_started = None
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.save_timer(self.username, timer)
+            except Exception:
+                pass
+        self._refresh_timer_cards()
+
+    def _style_mode_button(self, button: QToolButton, active: bool) -> None:
+        if active:
+            button.setStyleSheet(
+                f"QToolButton {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; border-radius:10px; padding:8px 12px; font:600 14px '{FONT_FAM}'; }}"
+            )
+        else:
+            button.setStyleSheet(
+                f"QToolButton {{ background:{CLR_PANEL}; color:{CLR_TEXT_IDLE}; border-radius:10px; padding:8px 12px; font:600 14px '{FONT_FAM}'; }}"
+                f"QToolButton:hover {{ color:{CLR_TITLE}; }}"
+            )
+
+    def _set_timer_edit_mode(self, active: bool) -> None:
+        self._timer_edit_mode = active
+        if hasattr(self, 'edit_timer_mode_btn'):
+            self._style_mode_button(self.edit_timer_mode_btn, active)
+        for card in self._timer_card_widgets.values():
+            card.set_edit_mode(active)
+
+    def _set_alarm_edit_mode(self, active: bool) -> None:
+        self._alarm_edit_mode = active
+        if hasattr(self, 'edit_alarm_mode_btn'):
+            self._style_mode_button(self.edit_alarm_mode_btn, active)
+        for card in self._alarm_card_widgets.values():
+            card.set_edit_mode(active)
+
+    def _format_timer_finish(self, timer: TimerState) -> str:
+        if timer.running and timer.remaining > 0:
+            finish = datetime.now() + timedelta(seconds=timer.remaining)
+            return finish.strftime('Termina a las %H:%M')
+        if timer.remaining == 0:
+            return 'Completado'
+        return 'Listo para iniciar'
+
+    def _refresh_timer_cards(self):
+        if not hasattr(self, 'timer_cards_layout'):
+            return
+        layout = self.timer_cards_layout
+        now = datetime.now()
+        keep: set[int] = set()
+        for timer in self.timers:
+            key = id(timer)
+            keep.add(key)
+            card = self._timer_card_widgets.get(key)
+            if card is None:
+                card = TimerCard()
+                self._timer_card_widgets[key] = card
+                card.playRequested.connect(lambda c, t=timer: self._play_timer(t))
+                card.pauseRequested.connect(lambda c, t=timer: self._pause_timer(t))
+                card.resetRequested.connect(lambda c, t=timer: self._reset_timer(t))
+                card.loopToggled.connect(lambda c, state, t=timer: self._toggle_timer_loop(t, state))
+                card.editRequested.connect(lambda c, t=timer: self._edit_timer(t))
+                card.deleteRequested.connect(lambda c, t=timer: self._delete_timer(t))
+                card.fullscreenRequested.connect(lambda c, t=timer: self._show_popup_message(f"⏱ {t.label}"))
+                card.clicked.connect(lambda c, t=timer: setattr(self, '_last_selected_timer', t))
+                insert_pos = max(0, layout.count() - 1)
+                layout.insertWidget(insert_pos, card)
+            progress = timer.progress if timer.duration else 0.0
+            finish_text = self._format_timer_finish(timer)
+            card.set_state(timer, progress, finish_text, timer.running)
+            card.set_edit_mode(self._timer_edit_mode)
+        for key, card in list(self._timer_card_widgets.items()):
+            if key not in keep:
+                card.setParent(None)
+                card.deleteLater()
+                del self._timer_card_widgets[key]
+        has_timers = bool(self.timers)
+        if hasattr(self, 'timer_empty_label'):
+            self.timer_empty_label.setVisible(not has_timers)
+
+    def _format_alarm_countdown(self, alarm: AlarmState, now: datetime) -> str:
+        next_trigger = alarm.next_trigger_after(now)
+        if next_trigger is None:
+            return 'Desactivada'
+        delta = next_trigger - now
+        total_seconds = int(delta.total_seconds())
+        if total_seconds <= 0:
+            return 'ahora'
+        hours, rem = divmod(total_seconds, 3600)
+        minutes, _ = divmod(rem, 60)
+        parts = []
+        if hours:
+            parts.append(f"{hours} hora{'s' if hours != 1 else ''}")
+        if minutes:
+            parts.append(f"{minutes} minuto{'s' if minutes != 1 else ''}")
+        if not parts:
+            parts.append('menos de un minuto')
+        return 'en ' + ', '.join(parts)
+
+    def _refresh_alarm_cards(self):
+        if not hasattr(self, 'alarm_cards_layout'):
+            return
+        layout = self.alarm_cards_layout
+        now = datetime.now()
+        keep: set[int] = set()
+        for alarm in self.alarms:
+            key = id(alarm)
+            keep.add(key)
+            card = self._alarm_card_widgets.get(key)
+            if card is None:
+                card = AlarmCard()
+                self._alarm_card_widgets[key] = card
+                card.toggleRequested.connect(lambda c, state, a=alarm: self._toggle_alarm_enabled(a, state))
+                card.editRequested.connect(lambda c, a=alarm: self._edit_alarm(a))
+                card.deleteRequested.connect(lambda c, a=alarm: self._delete_alarm(a))
+                card.clicked.connect(lambda c, a=alarm: setattr(self, '_last_selected_alarm', a))
+                insert_pos = max(0, layout.count() - 1)
+                layout.insertWidget(insert_pos, card)
+            countdown = self._format_alarm_countdown(alarm, now)
+            repeat_mask = [(i in alarm.repeat_days) for i in range(7)]
+            card.set_state(alarm, alarm.trigger.strftime('%H:%M'), countdown, repeat_mask)
+            card.set_edit_mode(self._alarm_edit_mode)
+        for key, card in list(self._alarm_card_widgets.items()):
+            if key not in keep:
+                card.setParent(None)
+                card.deleteLater()
+                del self._alarm_card_widgets[key]
+        has_alarms = bool(self.alarms)
+        if hasattr(self, 'alarm_empty_label'):
+            self.alarm_empty_label.setVisible(not has_alarms)
+
+    def _setup_alarm_timer_controls(self):
+        if hasattr(self, 'add_timer_btn'):
+            self.add_timer_btn.clicked.connect(self._open_new_timer_dialog)
+        if hasattr(self, 'edit_timer_mode_btn'):
+            self.edit_timer_mode_btn.setCheckable(True)
+            self.edit_timer_mode_btn.toggled.connect(self._set_timer_edit_mode)
+            self._style_mode_button(self.edit_timer_mode_btn, False)
+        if hasattr(self, 'add_alarm_btn'):
+            self.add_alarm_btn.clicked.connect(self._open_new_alarm_dialog)
+        if hasattr(self, 'edit_alarm_mode_btn'):
+            self.edit_alarm_mode_btn.setCheckable(True)
+            self.edit_alarm_mode_btn.toggled.connect(self._set_alarm_edit_mode)
+            self._style_mode_button(self.edit_alarm_mode_btn, False)
 
     def _populate_notif_table(self):
         data = self.notifications
@@ -2141,6 +2399,7 @@ class AnimatedBackground(QWidget):
         self.stack.addWidget(build_home_page(self, MetricGauge, load_icon_pixmap, tint_pixmap))
         self.stack.addWidget(build_devices_page(self))
         self.stack.addWidget(build_more_page(self))
+        self._setup_alarm_timer_controls()
         self.stack.addWidget(build_health_page(self))
         self.stack.addWidget(build_config_page(self))
         self.stack.addWidget(build_account_page(self))
@@ -2471,39 +2730,19 @@ class AnimatedBackground(QWidget):
             except Exception:
                 pass
         try:
-            user_alarms = database.get_alarms(user)
+            self.alarms = database.get_alarms(user)
         except Exception:
-            user_alarms = []
-        self.alarms = []
-        for dt_str, txt in user_alarms:
-            try:
-                dt_obj = datetime.fromisoformat(dt_str)
-            except Exception:
-                continue
-            self.alarms.append((dt_obj, txt))
-        if hasattr(self, 'table_alarms'):
-            try:
-                self._populate_alarm_table()
-            except Exception:
-                pass
+            self.alarms = []
+        self._set_alarm_edit_mode(self._alarm_edit_mode)
+        self._refresh_alarm_cards()
         try:
-            user_timers = database.get_timers(user)
+            self.timers = database.get_timers(user)
         except Exception:
-            user_timers = []
-        self.timers = []
-        now = datetime.now()
-        for end_str, txt in user_timers:
-            try:
-                end_dt = datetime.fromisoformat(end_str)
-            except Exception:
-                continue
-            if end_dt > now:
-                self.timers.append((end_dt, txt))
-        if hasattr(self, 'table_timers'):
-            try:
-                self._populate_timer_table()
-            except Exception:
-                pass
+            self.timers = []
+        for timer in self.timers:
+            timer.runtime_anchor = None
+        self._set_timer_edit_mode(self._timer_edit_mode)
+        self._refresh_timer_cards()
         try:
             if hasattr(self, '_refresh_calendar_events'):
                 self._refresh_calendar_events()
@@ -2704,12 +2943,14 @@ class AnimatedBackground(QWidget):
 
     def _on_calendar_date_selected(self):
         date = self.calendar_widget.selectedDate().toPyDate()
-        self.selected_day_events = [(dt, txt) for dt, txt in self.recordatorios + self.alarms if dt.date() == date]
+        alarm_events = [(alarm.trigger, alarm.label) for alarm in self.alarms]
+        self.selected_day_events = [(dt, txt) for dt, txt in self.recordatorios + alarm_events if dt.date() == date]
 
     def _refresh_calendar_events(self):
         if self.calendar_widget:
-            dates = [dt.date() for dt, _ in self.recordatorios + self.alarms]
-            self.calendar_widget.update_events(dates)
+            alarm_dates = [alarm.trigger.date() for alarm in self.alarms]
+            rec_dates = [dt.date() for dt, _ in self.recordatorios]
+            self.calendar_widget.update_events(rec_dates + alarm_dates)
 
     def _refresh_account_info(self) -> None:
         if not hasattr(self, 'account_page'):
@@ -2818,7 +3059,28 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(1100, 700)
         self._drag = None
+        self.setWindowOpacity(0.0)
+        self._show_anim: QPropertyAnimation | None = None
+        self._show_anim_played = False
         self.setCentralWidget(AnimatedBackground(self, username=username, login_time=login_time))
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._show_anim_played:
+            return
+        self._show_anim_played = True
+        anim = QPropertyAnimation(self, b"windowOpacity", self)
+        anim.setDuration(420)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        def _cleanup():
+            self._show_anim = None
+
+        anim.finished.connect(_cleanup)
+        self._show_anim = anim
+        anim.start()
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:

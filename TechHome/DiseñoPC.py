@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import os
 
-from PyQt5.QtCore import Qt, QTimer, QRectF, QEasingCurve, QPropertyAnimation
+from PyQt5.QtCore import (
+    Qt,
+    QTimer,
+    QRectF,
+    QEasingCurve,
+    QPropertyAnimation,
+    QPoint,
+    QParallelAnimationGroup,
+    QAbstractAnimation,
+)
 from PyQt5.QtGui import QColor, QConicalGradient, QIcon, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import (
     QDialog,
@@ -119,6 +128,13 @@ class SplashScreen(QDialog):
         frame.setGeometry(0, 0, self.width(), self.height())
         apply_rounded_mask(self, c.FRAME_RAD)
         apply_rounded_mask(self, 20)
+        self._frame = frame
+        self._entry_offset = 36
+        self._entry_effect = QGraphicsOpacityEffect(self._frame)
+        self._frame.setGraphicsEffect(self._entry_effect)
+        self._entry_effect.setOpacity(0.0)
+        self._entry_anim: QParallelAnimationGroup | None = None
+        self._entry_played = False
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
@@ -231,7 +247,7 @@ class SplashScreen(QDialog):
             """
         )
         self.continue_btn.setEnabled(False)
-        self.continue_btn.clicked.connect(self.accept)
+        self.continue_btn.clicked.connect(self._handle_continue)
         btn_layout.addWidget(self.continue_btn)
         layout.addLayout(btn_layout)
         self._progress_value = 0
@@ -247,6 +263,8 @@ class SplashScreen(QDialog):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._advance)
         self._timer.start(30)
+        self._exit_anim: QParallelAnimationGroup | None = None
+        self._closing = False
 
     def _advance(self):
         if getattr(self, '_paused', False):
@@ -284,6 +302,111 @@ class SplashScreen(QDialog):
             self._paused = False
             self._timer.start(30)
             self.pause_btn.setText("Pausar")
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._entry_played:
+            return
+        self._entry_played = True
+        final_pos = QPoint(0, 0)
+        start_pos = final_pos + QPoint(0, self._entry_offset)
+        self._frame.move(start_pos)
+        self._entry_effect.setOpacity(0.0)
+
+        opacity_anim = QPropertyAnimation(self._entry_effect, b"opacity", self)
+        opacity_anim.setDuration(420)
+        opacity_anim.setStartValue(0.0)
+        opacity_anim.setEndValue(1.0)
+        opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        pos_anim = QPropertyAnimation(self._frame, b"pos", self)
+        pos_anim.setDuration(420)
+        pos_anim.setStartValue(start_pos)
+        pos_anim.setEndValue(final_pos)
+        pos_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(opacity_anim)
+        group.addAnimation(pos_anim)
+
+        def _cleanup():
+            self._frame.move(final_pos)
+            self._entry_effect.setOpacity(1.0)
+            self._entry_anim = None
+
+        group.finished.connect(_cleanup)
+        self._entry_anim = group
+        group.start()
+
+    def _handle_continue(self) -> None:
+        if self._closing:
+            return
+        self._closing = True
+        effect = getattr(self, "_entry_effect", None)
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = None
+        try:
+            self.pause_btn.setEnabled(False)
+        except Exception:
+            pass
+        try:
+            self.continue_btn.setEnabled(False)
+        except Exception:
+            pass
+        try:
+            self._timer.stop()
+        except Exception:
+            pass
+
+        if effect is None:
+            self._exit_anim = None
+            super().accept()
+            return
+
+        fade = QPropertyAnimation(effect, b"opacity", self)
+        fade.setDuration(320)
+        fade.setStartValue(effect.opacity())
+        fade.setEndValue(0.0)
+        fade.setEasingCurve(QEasingCurve.InOutCubic)
+
+        final_pos = QPoint(0, 0)
+        current_pos = self._frame.pos()
+        if current_pos != final_pos:
+            start_pos = current_pos
+        else:
+            start_pos = final_pos
+        end_pos = start_pos - QPoint(0, max(10, self._entry_offset // 2))
+
+        pos_anim = QPropertyAnimation(self._frame, b"pos", self)
+        pos_anim.setDuration(320)
+        pos_anim.setStartValue(start_pos)
+        pos_anim.setEndValue(end_pos)
+        pos_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(fade)
+        group.addAnimation(pos_anim)
+
+        def _finish():
+            try:
+                effect.setOpacity(0.0)
+            except Exception:
+                pass
+            self._exit_anim = None
+            super(SplashScreen, self).accept()
+
+        group.finished.connect(_finish)
+        self._exit_anim = group
+        group.start()
+
+    def accept(self) -> None:  # type: ignore[override]
+        try:
+            self._timer.stop()
+        except Exception:
+            pass
+        if self._exit_anim is not None and self._exit_anim.state() == QAbstractAnimation.Running:
+            return
+        super().accept()
 
 
 # ------------------------------------------------------------------

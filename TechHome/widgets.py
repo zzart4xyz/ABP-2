@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea,
     QGraphicsOpacityEffect, QStackedWidget, QLineEdit, QComboBox, QScrollBar, QListWidget,
     QListWidgetItem, QTabWidget, QListView, QStyledItemDelegate, QStyle, QToolButton, QTableView,
-    QHeaderView, QSizePolicy, QCalendarWidget, QTableWidget, QSpinBox
+    QHeaderView, QSizePolicy, QCalendarWidget, QTableWidget, QSpinBox, QCheckBox, QAbstractButton
 )
 
 import constants as c
@@ -198,6 +198,20 @@ def style_table(tbl):
     tbl.setAlternatingRowColors(False)
     tbl.setShowGrid(True)
     tbl.setFrameShape(QFrame.NoFrame)
+
+
+def _set_button_icon(button: QAbstractButton, icon_name: str, size: QSize, fallback: str | None = None) -> QIcon:
+    """Apply ``icon_name`` to ``button`` returning the loaded :class:`QIcon`."""
+
+    icon = c.icon(icon_name)
+    if not icon.isNull():
+        button.setIcon(icon)
+        button.setIconSize(size)
+        if fallback is not None:
+            button.setText("")
+    elif fallback is not None:
+        button.setText(fallback)
+    return icon
     tbl.setFocusPolicy(Qt.NoFocus)
     tbl.setItemDelegate(NoFocusDelegate(tbl))
     tbl.setStyleSheet(
@@ -210,6 +224,428 @@ def style_table(tbl):
     sb.setStyleSheet("margin:2px; background:transparent;")
     tbl.setVerticalScrollBar(sb)
     tbl.setViewportMargins(0, 0, 4, 0)
+
+
+class CircularCountdown(QWidget):
+    """Circular dial showing timer progress."""
+
+    def __init__(self, diameter: int = 180, thickness: int = 12, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._progress = 0.0
+        self._time_text = "00:00:00"
+        self._subtitle = ""
+        self._diameter = diameter
+        self._thickness = thickness
+        self.setMinimumSize(diameter, diameter)
+        self.setMaximumSize(diameter, diameter)
+
+    def update_state(self, progress: float, time_text: str, subtitle: str) -> None:
+        self._progress = max(0.0, min(1.0, progress))
+        self._time_text = time_text
+        self._subtitle = subtitle
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = QRectF(self.rect()).adjusted(6, 6, -6, -6)
+
+        track_pen = QPen(QColor(c.CLR_SURFACE))
+        track_pen.setWidth(self._thickness)
+        track_pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(track_pen)
+        painter.drawArc(rect, 90 * 16, -360 * 16)
+
+        if self._progress > 0:
+            grad = QLinearGradient(rect.center(), QPointF(rect.center().x(), rect.top()))
+            grad.setColorAt(0.0, QColor(0, 191, 255))
+            grad.setColorAt(1.0, QColor(0, 128, 255))
+            progress_pen = QPen()
+            progress_pen.setWidth(self._thickness)
+            progress_pen.setCapStyle(Qt.RoundCap)
+            progress_pen.setBrush(grad)
+            painter.setPen(progress_pen)
+            span = -int(self._progress * 360 * 16)
+            painter.drawArc(rect, 90 * 16, span)
+
+        painter.setPen(QPen(QColor(c.CLR_TITLE)))
+        font = painter.font()
+        font.setFamily(c.FONT_FAM)
+        font.setPointSize(22)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(self.rect(), Qt.AlignCenter, self._time_text)
+
+        if self._subtitle:
+            subtitle_font = painter.font()
+            subtitle_font.setPointSize(12)
+            subtitle_font.setBold(False)
+            painter.setFont(subtitle_font)
+            subtitle_rect = self.rect().adjusted(16, self.height() // 2 + 16, -16, -12)
+            painter.setPen(QPen(QColor(c.CLR_TEXT_IDLE)))
+            painter.drawText(subtitle_rect, Qt.AlignCenter, self._subtitle)
+        painter.end()
+
+
+def _format_seconds(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
+class TimerCard(QFrame):
+    """Visual representation of a timer with controls."""
+
+    playRequested = pyqtSignal(object)
+    pauseRequested = pyqtSignal(object)
+    resetRequested = pyqtSignal(object)
+    editRequested = pyqtSignal(object)
+    deleteRequested = pyqtSignal(object)
+    fullscreenRequested = pyqtSignal(object)
+    loopToggled = pyqtSignal(object, bool)
+    clicked = pyqtSignal(object)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.state = None
+        self.setObjectName("timerCard")
+        self.setStyleSheet(
+            f"QFrame#timerCard {{ background:{c.CLR_PANEL}; border-radius:12px; border:1px solid rgba(255,255,255,20%); }}"
+        )
+        c.make_shadow(self, 18, 6, 120)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
+        self.title_lbl = QLabel("Timer")
+        self.title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 16px '{c.FONT_FAM}';")
+        header.addWidget(self.title_lbl)
+        header.addStretch(1)
+
+        self.edit_btn = QToolButton()
+        self.edit_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_btn.setToolTip("Editar timer")
+        self.edit_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
+        )
+        _set_button_icon(self.edit_btn, "pencil.svg", QSize(20, 20), fallback="✏")
+        self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
+        header.addWidget(self.edit_btn)
+
+        self.fullscreen_btn = QToolButton()
+        self.fullscreen_btn.setCursor(Qt.PointingHandCursor)
+        self.fullscreen_btn.setToolTip("Mostrar temporizador")
+        self.fullscreen_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
+        )
+        _set_button_icon(
+            self.fullscreen_btn,
+            "arrow-up-right-and-arrow-down-left-from-center.svg",
+            QSize(20, 20),
+            fallback="⤢",
+        )
+        self.fullscreen_btn.clicked.connect(lambda: self.fullscreenRequested.emit(self))
+        header.addWidget(self.fullscreen_btn)
+
+        self.loop_btn = QToolButton()
+        self.loop_btn.setCursor(Qt.PointingHandCursor)
+        self.loop_btn.setToolTip("Notificar al finalizar")
+        self.loop_btn.setCheckable(True)
+        self.loop_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+        )
+        self._loop_icon_active = self._make_tinted_icon("bell.svg", c.CLR_TITLE)
+        self._loop_icon_inactive = self._make_tinted_icon("bell.svg", c.CLR_TEXT_IDLE)
+        self.loop_btn.toggled.connect(self._on_loop_toggled)
+        header.addWidget(self.loop_btn)
+        self._apply_loop_style(False)
+        layout.addLayout(header)
+
+        self.dial = CircularCountdown()
+        layout.addWidget(self.dial, alignment=Qt.AlignCenter)
+
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(12)
+        controls.addStretch(1)
+
+        button_css = (
+            f"QPushButton {{ background:{c.CLR_TITLE}; color:#07101B; border:none; border-radius:20px;"
+            f" padding:8px 20px; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QPushButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+        )
+        self.play_btn = QPushButton("Iniciar")
+        self.play_btn.setCursor(Qt.PointingHandCursor)
+        self.play_btn.setStyleSheet(button_css)
+        self._play_icon = c.icon("play.svg")
+        self._pause_icon = c.icon("pause.svg")
+        self._set_play_icon(False)
+        self.play_btn.clicked.connect(self._on_play_clicked)
+        controls.addWidget(self.play_btn)
+
+        self.reset_btn = QPushButton("Reiniciar")
+        self.reset_btn.setCursor(Qt.PointingHandCursor)
+        self.reset_btn.setStyleSheet(button_css)
+        reset_icon = c.icon("rotate-left.svg")
+        if not reset_icon.isNull():
+            self.reset_btn.setIcon(reset_icon)
+            self.reset_btn.setIconSize(QSize(20, 20))
+        self.reset_btn.clicked.connect(lambda: self.resetRequested.emit(self))
+        controls.addWidget(self.reset_btn)
+
+        self.delete_btn = QToolButton()
+        self.delete_btn.setCursor(Qt.PointingHandCursor)
+        self.delete_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
+        )
+        self.delete_btn.setToolTip("Eliminar timer")
+        _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
+        self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
+        controls.addWidget(self.delete_btn)
+        self.delete_btn.hide()
+
+        controls.addStretch(1)
+        layout.addLayout(controls)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self)
+        super().mousePressEvent(event)
+
+    def _on_play_clicked(self) -> None:
+        running = bool(getattr(self.state, "running", False))
+        remaining = int(getattr(self.state, "remaining", 0))
+        if running and remaining > 0:
+            self.pauseRequested.emit(self)
+        else:
+            self.playRequested.emit(self)
+
+    def _on_loop_toggled(self, checked: bool) -> None:
+        self.loopToggled.emit(self, checked)
+        self._apply_loop_style(checked)
+
+    def _apply_loop_style(self, checked: bool) -> None:
+        if checked:
+            self.loop_btn.setStyleSheet(
+                f"QToolButton {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; border-radius:6px; padding:4px; font:600 14px '{c.FONT_FAM}'; }}"
+            )
+        else:
+            self.loop_btn.setStyleSheet(
+                f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            )
+        icon = self._loop_icon_active if checked else self._loop_icon_inactive
+        if icon.isNull():
+            self.loop_btn.setText("⟳")
+        else:
+            self.loop_btn.setIcon(icon)
+            self.loop_btn.setIconSize(QSize(20, 20))
+            self.loop_btn.setText("")
+
+    def set_state(self, state, progress: float, subtitle: str, running: bool) -> None:
+        self.state = state
+        label = getattr(state, "label", "Timer") or "Timer"
+        remaining = int(getattr(state, "remaining", 0))
+        self.title_lbl.setText(label)
+        self.dial.update_state(progress, _format_seconds(remaining), subtitle)
+        is_running = running and remaining > 0
+        self.play_btn.setText("Pausa" if is_running else "Iniciar")
+        self._set_play_icon(is_running)
+        self.loop_btn.blockSignals(True)
+        self.loop_btn.setChecked(bool(getattr(state, "loop", False)))
+        self.loop_btn.blockSignals(False)
+        self._apply_loop_style(self.loop_btn.isChecked())
+
+    def set_edit_mode(self, enabled: bool) -> None:
+        self.delete_btn.setVisible(enabled)
+
+    @staticmethod
+    def _make_tinted_icon(name: str, color: str, size: QSize = QSize(20, 20)) -> QIcon:
+        pix = c.pixmap(name)
+        if pix.isNull():
+            return QIcon()
+        scaled = pix.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        tinted = c.tint_pixmap(scaled, QColor(color))
+        return QIcon(tinted)
+
+    def _set_play_icon(self, running: bool) -> None:
+        icon = self._pause_icon if running else self._play_icon
+        if icon.isNull():
+            return
+        self.play_btn.setIcon(icon)
+        self.play_btn.setIconSize(QSize(22, 22))
+
+
+class AlarmCard(QFrame):
+    """Card representation of an alarm."""
+
+    toggleRequested = pyqtSignal(object, bool)
+    editRequested = pyqtSignal(object)
+    deleteRequested = pyqtSignal(object)
+    clicked = pyqtSignal(object)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.state = None
+        self.setObjectName("alarmCard")
+        self.setStyleSheet(
+            f"QFrame#alarmCard {{ background:{c.CLR_PANEL}; border-radius:12px; border:1px solid rgba(255,255,255,20%); }}"
+        )
+        c.make_shadow(self, 18, 6, 120)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
+        self.status_icon = QLabel()
+        self.status_icon.setFixedSize(26, 26)
+        self.status_icon.setAlignment(Qt.AlignCenter)
+        header.addWidget(self.status_icon)
+
+        self.time_lbl = QLabel("07:00")
+        self.time_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 32px '{c.FONT_FAM}';")
+        header.addWidget(self.time_lbl)
+        header.addStretch(1)
+
+        self.toggle = QCheckBox()
+        self.toggle.setCursor(Qt.PointingHandCursor)
+        self.toggle.setToolTip("Activar o desactivar alarma")
+        self.toggle.setStyleSheet(
+            f"""
+            QCheckBox::indicator {{
+                width:46px; height:24px;
+                border-radius:12px;
+                background:{c.CLR_SURFACE};
+                border:1px solid rgba(255,255,255,35%);
+            }}
+            QCheckBox::indicator:checked {{
+                background:{c.CLR_ITEM_ACT};
+                border:1px solid {c.CLR_TITLE};
+            }}
+            """
+        )
+        self.toggle.stateChanged.connect(self._on_toggle)
+        header.addWidget(self.toggle)
+        layout.addLayout(header)
+
+        self.remaining_lbl = QLabel("en 14 horas")
+        self.remaining_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:500 14px '{c.FONT_FAM}';")
+        layout.addWidget(self.remaining_lbl)
+
+        self.label_lbl = QLabel("Alarma")
+        self.label_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 16px '{c.FONT_FAM}';")
+        layout.addWidget(self.label_lbl)
+
+        chips = QHBoxLayout()
+        chips.setContentsMargins(0, 0, 0, 0)
+        chips.setSpacing(6)
+        self.day_labels: list[QLabel] = []
+        day_symbols = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"]
+        for day in day_symbols:
+            chip = QLabel(day)
+            chip.setAlignment(Qt.AlignCenter)
+            chip.setFixedSize(36, 24)
+            chip.setStyleSheet(
+                f"QLabel {{ background:{c.CLR_SURFACE}; color:{c.CLR_TEXT_IDLE}; border-radius:12px; font:600 12px '{c.FONT_FAM}'; }}"
+            )
+            self.day_labels.append(chip)
+            chips.addWidget(chip)
+        chips.addStretch(1)
+        layout.addLayout(chips)
+
+        footer = QHBoxLayout()
+        footer.setContentsMargins(0, 0, 0, 0)
+        footer.setSpacing(8)
+        footer.addStretch(1)
+
+        self.edit_btn = QToolButton()
+        self.edit_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_btn.setToolTip("Editar alarma")
+        self.edit_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
+        )
+        _set_button_icon(self.edit_btn, "pencil.svg", QSize(18, 18), fallback="✏")
+        self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
+        footer.addWidget(self.edit_btn)
+
+        self.delete_btn = QToolButton()
+        self.delete_btn.setCursor(Qt.PointingHandCursor)
+        self.delete_btn.setToolTip("Eliminar alarma")
+        self.delete_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
+        )
+        _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
+        self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
+        footer.addWidget(self.delete_btn)
+        self.delete_btn.hide()
+        layout.addLayout(footer)
+
+        self._bell_enabled = self._load_status_pixmap("bell.svg", c.CLR_TITLE)
+        self._bell_disabled = self._load_status_pixmap("bell-slash.svg", c.CLR_TEXT_IDLE)
+        self._update_status_icon(True)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self)
+        super().mousePressEvent(event)
+
+    def _on_toggle(self, state: int) -> None:
+        self.toggleRequested.emit(self, bool(state))
+        self._update_status_icon(bool(state))
+
+    def set_state(self, state, time_text: str, countdown: str, repeat_mask: list[bool]) -> None:
+        self.state = state
+        self.time_lbl.setText(time_text)
+        self.remaining_lbl.setText(countdown)
+        self.label_lbl.setText(getattr(state, "label", "Alarma") or "Alarma")
+        self.toggle.blockSignals(True)
+        self.toggle.setChecked(bool(getattr(state, "enabled", True)))
+        self.toggle.blockSignals(False)
+        self._update_status_icon(self.toggle.isChecked())
+        for idx, chip in enumerate(self.day_labels):
+            active = repeat_mask[idx] if idx < len(repeat_mask) else False
+            if active:
+                chip.setStyleSheet(
+                    f"QLabel {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; border-radius:12px; font:600 12px '{c.FONT_FAM}'; }}"
+                )
+            else:
+                chip.setStyleSheet(
+                    f"QLabel {{ background:{c.CLR_SURFACE}; color:{c.CLR_TEXT_IDLE}; border-radius:12px; font:600 12px '{c.FONT_FAM}'; }}"
+                )
+
+    def set_edit_mode(self, enabled: bool) -> None:
+        self.delete_btn.setVisible(enabled)
+
+    @staticmethod
+    def _load_status_pixmap(name: str, color: str, size: QSize = QSize(22, 22)) -> QPixmap:
+        pix = c.pixmap(name)
+        if pix.isNull():
+            return QPixmap()
+        scaled = pix.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        return c.tint_pixmap(scaled, QColor(color))
+
+    def _update_status_icon(self, enabled: bool) -> None:
+        pix = self._bell_enabled if enabled else self._bell_disabled
+        if pix.isNull():
+            self.status_icon.setPixmap(QPixmap())
+            self.status_icon.setText("🔔" if enabled else "🔕")
+        else:
+            self.status_icon.setText("")
+            self.status_icon.setPixmap(pix)
 
 
 class CurrentMonthCalendar(QCalendarWidget):
