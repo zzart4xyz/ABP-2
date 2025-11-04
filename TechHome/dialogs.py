@@ -3,7 +3,7 @@ from datetime import datetime, date, time
 from PyQt5.QtCore import (
     Qt, QPoint, QTimer, QPropertyAnimation, QParallelAnimationGroup,
     QSequentialAnimationGroup, QSize, QEvent, QEasingCurve, pyqtProperty,
-    QRectF, QRect
+    QRectF, QRect, pyqtSignal
 )
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QFont, QPainter, QPen, QLinearGradient, QPainterPath, QConicalGradient, QTransform, QRegion
 from PyQt5.QtWidgets import (
@@ -17,6 +17,7 @@ import constants as c
 import os
 from PyQt5.QtWidgets import QWidget
 from models import AlarmState, TimerState, WEEKDAY_ORDER
+from widgets import CircularCountdown, _format_seconds
 from ui_helpers import (
     apply_rounded_mask as _apply_rounded_mask,
     crop_pixmap_to_content as _crop_pixmap_to_content,
@@ -61,6 +62,12 @@ of maintenance.
 """
 
 
+def _with_alpha(color: str, alpha: float) -> str:
+    qcol = QColor(color)
+    qcol.setAlphaF(max(0.0, min(1.0, alpha)))
+    return qcol.name(QColor.HexArgb)
+
+
 def _combo_arrow_style() -> str:
     """Return stylesheet rules that swap the combo box arrow icons."""
 
@@ -78,6 +85,38 @@ def _combo_arrow_style() -> str:
             f"QComboBox::down-arrow:on {{ image: url(\"{up_url}\"); }}"
         )
     return "".join(parts)
+
+
+def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
+    font_sz = 28 if large else 16
+    height = 64 if large else 48
+    text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
+    up_path = c.resolve_icon_path("chevron-up.svg")
+    down_path = c.resolve_icon_path("chevron-down.svg")
+    arrow_rules: list[str] = []
+    if up_path:
+        up_url = up_path.replace("\\", "/")
+        arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
+        arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+    else:
+        arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
+    if down_path:
+        down_url = down_path.replace("\\", "/")
+        arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
+        arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
+    else:
+        arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
+    style = (
+        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px; padding-right:38px; font:600 {font_sz}px '{c.FONT_FAM}'; }}"
+        f"QSpinBox::up-button {{ subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }}"
+        f"QSpinBox::down-button {{ subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }}"
+        f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
+        f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
+        + "".join(arrow_rules)
+    )
+    spin.setStyleSheet(style)
+    spin.setFixedHeight(height)
+    spin.setAlignment(Qt.AlignCenter)
 
 
 class BaseFormDialog(QDialog):
@@ -266,44 +305,54 @@ class TimerEditorDialog(BaseFormDialog):
         layout.addLayout(toolbar)
 
         time_row = QHBoxLayout()
-        time_row.setSpacing(8)
+        time_row.setSpacing(10)
         self.hours_spin = QSpinBox()
         self.hours_spin.setRange(0, 23)
-        self.hours_spin.setAlignment(Qt.AlignCenter)
-        self.hours_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.hours_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        _style_spinbox(self.hours_spin, large=True)
         time_row.addWidget(self.hours_spin)
 
         colon1 = QLabel(":")
-        colon1.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 20px '{c.FONT_FAM}';")
+        colon1.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 28px '{c.FONT_FAM}';")
         time_row.addWidget(colon1)
 
         self.minutes_spin = QSpinBox()
         self.minutes_spin.setRange(0, 59)
-        self.minutes_spin.setAlignment(Qt.AlignCenter)
-        self.minutes_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.minutes_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        _style_spinbox(self.minutes_spin, large=True)
         time_row.addWidget(self.minutes_spin)
 
         colon2 = QLabel(":")
-        colon2.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 20px '{c.FONT_FAM}';")
+        colon2.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 28px '{c.FONT_FAM}';")
         time_row.addWidget(colon2)
 
         self.seconds_spin = QSpinBox()
         self.seconds_spin.setRange(0, 59)
-        self.seconds_spin.setAlignment(Qt.AlignCenter)
-        self.seconds_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.seconds_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        _style_spinbox(self.seconds_spin, large=True)
         time_row.addWidget(self.seconds_spin)
         layout.addLayout(time_row)
+
+        label_row = QHBoxLayout()
+        label_row.setSpacing(8)
+        label_icon = QLabel()
+        pen_pix = c.pixmap("pen-to-square.svg")
+        if not pen_pix.isNull():
+            label_icon.setPixmap(c.tint_pixmap(pen_pix.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation), QColor(c.CLR_TITLE)))
+        else:
+            label_icon.setText("✎")
+            label_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 16px '{c.FONT_FAM}';")
+        label_row.addWidget(label_icon)
 
         self.label_edit = QLineEdit()
         self.label_edit.setPlaceholderText("Etiqueta del timer")
         self.label_edit.setStyleSheet(c.input_style())
-        layout.addWidget(self.label_edit)
+        label_row.addWidget(self.label_edit)
+        layout.addLayout(label_row)
 
         self.loop_check = QCheckBox("Repetir automáticamente")
-        self.loop_check.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:500 14px '{c.FONT_FAM}';")
+        self.loop_check.setStyleSheet(
+            f"QCheckBox {{ color:{c.CLR_TEXT_IDLE}; font:500 14px '{c.FONT_FAM}'; spacing:8px; }}"
+            f"QCheckBox::indicator {{ width:22px; height:22px; border-radius:11px; border:2px solid {c.CLR_ITEM_ACT}; background:{c.CLR_SURFACE}; }}"
+            f"QCheckBox::indicator:checked {{ background:{c.CLR_TITLE}; border-color:{c.CLR_TITLE}; }}"
+        )
         layout.addWidget(self.loop_check)
 
         title = "Editar timer" if timer else "Nuevo timer"
@@ -354,6 +403,176 @@ class TimerEditorDialog(BaseFormDialog):
         )
 
 
+class TimerDisplayDialog(QDialog):
+    """Floating dialog that mirrors the timer card in a dedicated window."""
+
+    playRequested = pyqtSignal()
+    pauseRequested = pyqtSignal()
+    resetRequested = pyqtSignal()
+    closed = pyqtSignal(object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setModal(False)
+        self._state = None
+        self._expanded = False
+        self._default_size = QSize(320, 360)
+        self._expanded_size = QSize(420, 460)
+        self.resize(self._default_size)
+
+        self.panel = QFrame(self)
+        self.panel.setObjectName("timerDisplayPanel")
+        self.panel.setStyleSheet(
+            f"QFrame#timerDisplayPanel {{ background:{c.CLR_PANEL}; border-radius:20px; border:1px solid {_with_alpha('#FFFFFF', 0.08)}; }}"
+        )
+        c.make_shadow(self.panel, 30, 12, 160)
+
+        layout = QVBoxLayout(self.panel)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(18)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
+        self.title_lbl = QLabel("Timer")
+        self.title_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 18px '{c.FONT_FAM}';")
+        header.addWidget(self.title_lbl)
+        header.addStretch(1)
+
+        self.expand_btn = QToolButton()
+        self.expand_btn.setCursor(Qt.PointingHandCursor)
+        self.expand_btn.setToolTip("Ampliar")
+        self.expand_btn.setStyleSheet(
+            f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+        )
+        expand_icon = c.icon("square-arrow-up-right.svg")
+        if not expand_icon.isNull():
+            self.expand_btn.setIcon(expand_icon)
+            self.expand_btn.setIconSize(QSize(20, 20))
+        else:
+            self.expand_btn.setText("⤢")
+        self.expand_btn.clicked.connect(self._toggle_expand)
+        header.addWidget(self.expand_btn)
+
+        self.close_btn = QToolButton()
+        self.close_btn.setCursor(Qt.PointingHandCursor)
+        self.close_btn.setToolTip("Cerrar")
+        self.close_btn.setText("✕")
+        self.close_btn.setStyleSheet(
+            f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; font:700 16px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+        )
+        self.close_btn.clicked.connect(self.close)
+        header.addWidget(self.close_btn)
+        layout.addLayout(header)
+
+        self.dial = CircularCountdown(220, 14)
+        layout.addWidget(self.dial, alignment=Qt.AlignCenter)
+
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(18)
+        controls.addStretch(1)
+
+        play_disabled_bg = _with_alpha(c.CLR_SURFACE, 0.35)
+        play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
+        self.play_btn = QToolButton()
+        self.play_btn.setCursor(Qt.PointingHandCursor)
+        self.play_btn.setFixedSize(68, 68)
+        self.play_btn.setStyleSheet(
+            f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:34px; padding:16px; color:#07101B; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{play_disabled_bg}; color:{play_disabled_fg}; }}"
+        )
+        self._play_icon = c.icon("play.svg")
+        self._pause_icon = c.icon("pause.svg")
+        self._set_play_icon(False)
+        self.play_btn.clicked.connect(self._on_play_clicked)
+        controls.addWidget(self.play_btn)
+
+        reset_disabled_bg = _with_alpha(c.CLR_SURFACE, 0.4)
+        reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
+        self.reset_btn = QToolButton()
+        self.reset_btn.setCursor(Qt.PointingHandCursor)
+        self.reset_btn.setFixedSize(56, 56)
+        self.reset_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:28px; padding:14px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{reset_disabled_bg}; color:{reset_disabled_fg}; }}"
+        )
+        reset_icon = c.icon("rotate-left.svg")
+        if not reset_icon.isNull():
+            self.reset_btn.setIcon(reset_icon)
+            self.reset_btn.setIconSize(QSize(24, 24))
+        self.reset_btn.clicked.connect(lambda: self.resetRequested.emit())
+        self.reset_btn.setEnabled(False)
+        controls.addWidget(self.reset_btn)
+        controls.addStretch(1)
+        layout.addLayout(controls)
+
+        self._set_panel_geometry()
+
+    def _set_panel_geometry(self) -> None:
+        self.panel.setGeometry(self.rect())
+        _apply_rounded_mask(self, 20)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._set_panel_geometry()
+
+    def _on_play_clicked(self) -> None:
+        if self._state is None:
+            self.playRequested.emit()
+            return
+        running = bool(getattr(self._state, "running", False))
+        remaining = int(getattr(self._state, "remaining", 0))
+        if running and remaining > 0:
+            self.pauseRequested.emit()
+        else:
+            self.playRequested.emit()
+
+    def _toggle_expand(self) -> None:
+        self._expanded = not self._expanded
+        target = self._expanded_size if self._expanded else self._default_size
+        self.resize(target)
+        icon = c.icon("square-arrow-down-left.svg") if self._expanded else c.icon("square-arrow-up-right.svg")
+        if not icon.isNull():
+            self.expand_btn.setIcon(icon)
+            self.expand_btn.setIconSize(QSize(20, 20))
+            self.expand_btn.setText("")
+        else:
+            self.expand_btn.setText("⤡" if self._expanded else "⤢")
+        self.expand_btn.setToolTip("Restaurar" if self._expanded else "Ampliar")
+
+    def set_state(self, state: TimerState, progress: float, subtitle: str, running: bool) -> None:
+        self._state = state
+        label = getattr(state, "label", "Timer") or "Timer"
+        self.title_lbl.setText(label)
+        remaining = int(getattr(state, "remaining", 0))
+        duration = max(0, int(getattr(state, "duration", 0)))
+        self.dial.update_state(progress, _format_seconds(remaining), subtitle)
+        is_running = running and remaining > 0
+        can_reset = duration > 0 and remaining != duration
+        self.play_btn.setEnabled(duration > 0)
+        self._set_play_icon(is_running)
+        self.reset_btn.setEnabled(can_reset)
+
+    def _set_play_icon(self, running: bool) -> None:
+        icon = self._pause_icon if running else self._play_icon
+        if icon.isNull():
+            self.play_btn.setText("⏸" if running else "▶")
+            self.play_btn.setIcon(QIcon())
+        else:
+            self.play_btn.setText("")
+            self.play_btn.setIcon(icon)
+            self.play_btn.setIconSize(QSize(30, 30))
+
+    def closeEvent(self, event) -> None:
+        super().closeEvent(event)
+        self.closed.emit(self)
 class AlarmEditorDialog(BaseFormDialog):
     """Dialog used to create or edit alarms."""
 
@@ -388,9 +607,7 @@ class AlarmEditorDialog(BaseFormDialog):
         time_row.setSpacing(8)
         self.hour_spin = QSpinBox()
         self.hour_spin.setRange(1, 12)
-        self.hour_spin.setAlignment(Qt.AlignCenter)
-        self.hour_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.hour_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        _style_spinbox(self.hour_spin, large=True)
         time_row.addWidget(self.hour_spin)
 
         colon = QLabel(":")
@@ -399,9 +616,7 @@ class AlarmEditorDialog(BaseFormDialog):
 
         self.minute_spin = QSpinBox()
         self.minute_spin.setRange(0, 59)
-        self.minute_spin.setAlignment(Qt.AlignCenter)
-        self.minute_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.minute_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        _style_spinbox(self.minute_spin, large=True)
         time_row.addWidget(self.minute_spin)
 
         self.ampm_combo = QComboBox()
@@ -414,10 +629,22 @@ class AlarmEditorDialog(BaseFormDialog):
         time_row.addWidget(self.ampm_combo)
         layout.addLayout(time_row)
 
+        label_row = QHBoxLayout()
+        label_row.setSpacing(8)
+        alarm_label_icon = QLabel()
+        pen_pix = c.pixmap("pen-to-square.svg")
+        if not pen_pix.isNull():
+            alarm_label_icon.setPixmap(c.tint_pixmap(pen_pix.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation), QColor(c.CLR_TITLE)))
+        else:
+            alarm_label_icon.setText("✎")
+            alarm_label_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 16px '{c.FONT_FAM}';")
+        label_row.addWidget(alarm_label_icon)
+
         self.label_edit = QLineEdit()
         self.label_edit.setPlaceholderText("Nombre de la alarma")
         self.label_edit.setStyleSheet(c.input_style())
-        layout.addWidget(self.label_edit)
+        label_row.addWidget(self.label_edit)
+        layout.addLayout(label_row)
 
         repeat_lbl = QLabel("Repetir alarma")
         repeat_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
@@ -472,9 +699,7 @@ class AlarmEditorDialog(BaseFormDialog):
         self.snooze_spin.setRange(1, 30)
         self.snooze_spin.setValue(5)
         self.snooze_spin.setSuffix(" min")
-        self.snooze_spin.setAlignment(Qt.AlignCenter)
-        self.snooze_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.snooze_spin.setStyleSheet(c.input_style('QSpinBox', c.CLR_SURFACE))
+        _style_spinbox(self.snooze_spin)
         snooze_row.addWidget(self.snooze_spin)
         layout.addLayout(snooze_row)
 

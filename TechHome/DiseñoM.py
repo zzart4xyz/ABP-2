@@ -288,18 +288,18 @@ def build_more_page(app):
     at_l.setContentsMargins(0, 0, 0, 0)
     at_l.setSpacing(8)
     alarm_toolbar = QFrame()
-    alarm_toolbar.setStyleSheet(f'background:{CLR_SURFACE}; border-radius:12px;')
-    alarm_toolbar.setFixedHeight(60)
+    alarm_toolbar.setObjectName("alarmToolbar")
+    alarm_toolbar.setStyleSheet(f"QFrame#alarmToolbar {{ background:{CLR_PANEL}; border-radius:16px; padding:6px; }}")
     alarm_tb = QHBoxLayout(alarm_toolbar)
-    alarm_tb.setContentsMargins(16, 12, 16, 12)
-    alarm_tb.setSpacing(8)
-    alarm_tb.addStretch(1)
+    alarm_tb.setContentsMargins(6, 6, 6, 6)
+    alarm_tb.setSpacing(6)
     app.edit_alarm_mode_btn = QToolButton()
     app.edit_alarm_mode_btn.setCursor(Qt.PointingHandCursor)
     app.edit_alarm_mode_btn.setToolTip('Modo edición de alarmas')
+    app.edit_alarm_mode_btn.setFixedSize(46, 38)
     app.edit_alarm_mode_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_PANEL}; color:{CLR_TEXT_IDLE}; border-radius:10px; padding:8px 12px; font:600 14px '{FONT_FAM}'; }}"
-        f"QToolButton:hover {{ color:{CLR_TITLE}; }}"
+        f"QToolButton {{ background:{CLR_SURFACE}; color:{CLR_TEXT_IDLE}; border:none; border-radius:12px; padding:6px; }}"
+        f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
     )
     edit_alarm_icon = icon('pen-to-square.svg')
     if not edit_alarm_icon.isNull():
@@ -311,8 +311,9 @@ def build_more_page(app):
     app.add_alarm_btn = QToolButton()
     app.add_alarm_btn.setCursor(Qt.PointingHandCursor)
     app.add_alarm_btn.setToolTip('Añadir alarma')
+    app.add_alarm_btn.setFixedSize(46, 38)
     app.add_alarm_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_PANEL}; color:{CLR_TITLE}; border-radius:10px; padding:8px 16px; font:700 16px '{FONT_FAM}'; }}"
+        f"QToolButton {{ background:{CLR_TITLE}; color:#07101B; border:none; border-radius:12px; padding:6px; font:700 16px '{FONT_FAM}'; }}"
         f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
     )
     add_alarm_icon = icon('plus.svg')
@@ -322,7 +323,11 @@ def build_more_page(app):
     else:
         app.add_alarm_btn.setText('+')
     alarm_tb.addWidget(app.add_alarm_btn)
-    at_l.addWidget(alarm_toolbar, alignment=Qt.AlignRight)
+    alarm_controls = QHBoxLayout()
+    alarm_controls.setContentsMargins(0, 0, 0, 0)
+    alarm_controls.addStretch(1)
+    alarm_controls.addWidget(alarm_toolbar)
+    at_l.addLayout(alarm_controls)
 
     alarm_scroll = QScrollArea()
     alarm_scroll.setWidgetResizable(True)
@@ -346,18 +351,18 @@ def build_more_page(app):
     ti_l.setContentsMargins(0, 0, 0, 0)
     ti_l.setSpacing(12)
     timer_toolbar = QFrame()
-    timer_toolbar.setStyleSheet(f'background:{CLR_SURFACE}; border-radius:12px;')
-    timer_toolbar.setFixedHeight(60)
+    timer_toolbar.setObjectName("timerToolbar")
+    timer_toolbar.setStyleSheet(f"QFrame#timerToolbar {{ background:{CLR_PANEL}; border-radius:16px; padding:6px; }}")
     timer_tb = QHBoxLayout(timer_toolbar)
-    timer_tb.setContentsMargins(16, 12, 16, 12)
-    timer_tb.setSpacing(8)
-    timer_tb.addStretch(1)
+    timer_tb.setContentsMargins(6, 6, 6, 6)
+    timer_tb.setSpacing(6)
     app.edit_timer_mode_btn = QToolButton()
     app.edit_timer_mode_btn.setCursor(Qt.PointingHandCursor)
     app.edit_timer_mode_btn.setToolTip('Modo edición de timers')
+    app.edit_timer_mode_btn.setFixedSize(46, 38)
     app.edit_timer_mode_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_PANEL}; color:{CLR_TEXT_IDLE}; border-radius:10px; padding:8px 12px; font:600 14px '{FONT_FAM}'; }}"
-        f"QToolButton:hover {{ color:{CLR_TITLE}; }}"
+        f"QToolButton {{ background:{CLR_SURFACE}; color:{CLR_TEXT_IDLE}; border:none; border-radius:12px; padding:6px; }}"
+        f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
     )
     edit_timer_icon = icon('square-arrow-down-left.svg')
     if not edit_timer_icon.isNull():
@@ -369,8 +374,9 @@ def build_more_page(app):
     app.add_timer_btn = QToolButton()
     app.add_timer_btn.setCursor(Qt.PointingHandCursor)
     app.add_timer_btn.setToolTip('Añadir timer')
+    app.add_timer_btn.setFixedSize(46, 38)
     app.add_timer_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_PANEL}; color:{CLR_TITLE}; border-radius:10px; padding:8px 16px; font:700 16px '{FONT_FAM}'; }}"
+        f"QToolButton {{ background:{CLR_TITLE}; color:#07101B; border:none; border-radius:12px; padding:6px; font:700 16px '{FONT_FAM}'; }}"
         f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
     )
     add_timer_icon = icon('square-arrow-up-right.svg')
@@ -380,7 +386,11 @@ def build_more_page(app):
     else:
         app.add_timer_btn.setText('+')
     timer_tb.addWidget(app.add_timer_btn)
-    ti_l.addWidget(timer_toolbar, alignment=Qt.AlignRight)
+    timer_controls = QHBoxLayout()
+    timer_controls.setContentsMargins(0, 0, 0, 0)
+    timer_controls.addStretch(1)
+    timer_controls.addWidget(timer_toolbar)
+    ti_l.addLayout(timer_controls)
 
     timer_scroll = QScrollArea()
     timer_scroll.setWidgetResizable(True)

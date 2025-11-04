@@ -883,7 +883,14 @@ class NotificationsDetailsDialog(QDialog):
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from constants import HEALTH_CSV_PATH, CLR_HEADER_BG, CLR_HOVER, CLR_TITLE, CLR_TEXT_IDLE, FONT_FAM, make_shadow, CLR_BG, FRAME_RAD, set_theme_constants, TRANSLATIONS_EN, TRANSLATIONS_ES, MAX_NOTIFICATIONS, HOME_RECENT_COUNT, PANEL_W, CLR_PANEL, CLR_ITEM_ACT, CLR_SURFACE, CLR_TRACK, CLR_HEADER_TEXT, CURRENT_THEME, button_style, icon, input_style, pixmap
-from dialogs import NewNoteDialog, NewListDialog, NewElementDialog, TimerEditorDialog, AlarmEditorDialog
+from dialogs import (
+    NewNoteDialog,
+    NewListDialog,
+    NewElementDialog,
+    TimerEditorDialog,
+    AlarmEditorDialog,
+    TimerDisplayDialog,
+)
 from DiseñoPC import SplashScreen, create_splash_animations
 from DiseñoIR import LoginDialog
 from DiseñoI import build_home_page, create_home_animations
@@ -924,6 +931,7 @@ class AnimatedBackground(QWidget):
         self.timers: list[TimerState] = []
         self._alarm_card_widgets: dict[int, AlarmCard] = {}
         self._timer_card_widgets: dict[int, TimerCard] = {}
+        self._timer_viewers: dict[int, TimerDisplayDialog] = {}
         self._alarm_edit_mode = False
         self._timer_edit_mode = False
         self._last_selected_timer: TimerState | None = None
@@ -1959,12 +1967,13 @@ class AnimatedBackground(QWidget):
     def _style_mode_button(self, button: QToolButton, active: bool) -> None:
         if active:
             button.setStyleSheet(
-                f"QToolButton {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; border-radius:10px; padding:8px 12px; font:600 14px '{FONT_FAM}'; }}"
+                f"QToolButton {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; border:none; border-radius:12px; padding:6px; }}"
+                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
             )
         else:
             button.setStyleSheet(
-                f"QToolButton {{ background:{CLR_PANEL}; color:{CLR_TEXT_IDLE}; border-radius:10px; padding:8px 12px; font:600 14px '{FONT_FAM}'; }}"
-                f"QToolButton:hover {{ color:{CLR_TITLE}; }}"
+                f"QToolButton {{ background:{CLR_SURFACE}; color:{CLR_TEXT_IDLE}; border:none; border-radius:12px; padding:6px; }}"
+                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
             )
 
     def _set_timer_edit_mode(self, active: bool) -> None:
@@ -2008,7 +2017,7 @@ class AnimatedBackground(QWidget):
                 card.loopToggled.connect(lambda c, state, t=timer: self._toggle_timer_loop(t, state))
                 card.editRequested.connect(lambda c, t=timer: self._edit_timer(t))
                 card.deleteRequested.connect(lambda c, t=timer: self._delete_timer(t))
-                card.fullscreenRequested.connect(lambda c, t=timer: self._show_popup_message(f"⏱ {t.label}"))
+                card.fullscreenRequested.connect(lambda c, t=timer: self._open_timer_view(t))
                 card.clicked.connect(lambda c, t=timer: setattr(self, '_last_selected_timer', t))
                 insert_pos = max(0, layout.count() - 1)
                 layout.insertWidget(insert_pos, card)
@@ -2016,14 +2025,50 @@ class AnimatedBackground(QWidget):
             finish_text = self._format_timer_finish(timer)
             card.set_state(timer, progress, finish_text, timer.running)
             card.set_edit_mode(self._timer_edit_mode)
+            viewer = self._timer_viewers.get(key)
+            if viewer is not None:
+                viewer.set_state(timer, progress, finish_text, timer.running)
         for key, card in list(self._timer_card_widgets.items()):
             if key not in keep:
                 card.setParent(None)
                 card.deleteLater()
                 del self._timer_card_widgets[key]
+        for key, viewer in list(self._timer_viewers.items()):
+            if key not in keep:
+                try:
+                    viewer.close()
+                except Exception:
+                    pass
+                self._timer_viewers.pop(key, None)
         has_timers = bool(self.timers)
         if hasattr(self, 'timer_empty_label'):
             self.timer_empty_label.setVisible(not has_timers)
+
+    def _open_timer_view(self, timer: TimerState) -> None:
+        key = id(timer)
+        viewer = self._timer_viewers.get(key)
+        if viewer is None:
+            viewer = TimerDisplayDialog(self)
+            self._timer_viewers[key] = viewer
+            viewer.playRequested.connect(lambda t=timer: self._play_timer(t))
+            viewer.pauseRequested.connect(lambda t=timer: self._pause_timer(t))
+            viewer.resetRequested.connect(lambda t=timer: self._reset_timer(t))
+            viewer.closed.connect(lambda dlg, k=key: self._timer_viewers.pop(k, None))
+        progress = timer.progress if timer.duration else 0.0
+        finish_text = self._format_timer_finish(timer)
+        viewer.set_state(timer, progress, finish_text, timer.running)
+        self._position_timer_view(viewer)
+        viewer.show()
+        viewer.raise_()
+        viewer.activateWindow()
+
+    def _position_timer_view(self, viewer: TimerDisplayDialog) -> None:
+        try:
+            x = self.x() + (self.width() - viewer.width()) // 2
+            y = self.y() + (self.height() - viewer.height()) // 2
+            viewer.move(x, y)
+        except Exception:
+            pass
 
     def _format_alarm_countdown(self, alarm: AlarmState, now: datetime) -> str:
         next_trigger = alarm.next_trigger_after(now)
