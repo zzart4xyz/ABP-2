@@ -103,7 +103,7 @@ def _style_spinbox(spin: QSpinBox, *, large: bool = False, show_buttons: bool = 
     height = 88 if large else 52
     radius = 24 if large else 14
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
-    padding = "0 28px" if large else "0 18px"
+    padding = "0 22px" if large else "0 18px"
     style = [
         "QSpinBox {",
         f"    background:{base_bg};",
@@ -704,38 +704,40 @@ class AlarmEditorDialog(BaseFormDialog):
             f"QFrame#timeCard {{ background:{surface}; border:1px solid {accent_border}; border-radius:28px; }}"
         )
         time_layout = QHBoxLayout(time_card)
-        time_layout.setContentsMargins(28, 28, 28, 28)
-        time_layout.setSpacing(20)
+        time_layout.setContentsMargins(24, 28, 24, 28)
+        time_layout.setSpacing(14)
         time_layout.setAlignment(Qt.AlignCenter)
 
         self.hour_spin = _TwoDigitSpinBox()
         self.hour_spin.setRange(1, 12)
         _style_spinbox(self.hour_spin, large=True, show_buttons=False)
-        self.hour_spin.setMinimumWidth(112)
+        self.hour_spin.setMinimumWidth(100)
         time_layout.addWidget(self.hour_spin)
 
         colon = QLabel(":")
         colon.setAlignment(Qt.AlignCenter)
-        colon.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:700 44px '{c.FONT_FAM}'; margin-bottom:6px;")
+        colon.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:700 44px '{c.FONT_FAM}'; margin-bottom:4px;")
         time_layout.addWidget(colon)
 
         self.minute_spin = _TwoDigitSpinBox()
         self.minute_spin.setRange(0, 59)
         _style_spinbox(self.minute_spin, large=True, show_buttons=False)
-        self.minute_spin.setMinimumWidth(112)
+        self.minute_spin.setMinimumWidth(100)
         time_layout.addWidget(self.minute_spin)
 
         self.ampm_combo = QComboBox()
         self.ampm_combo.addItems(["a. m.", "p. m."])
         ampm_style = (
-            f"QComboBox {{ background:{surface}; color:{c.CLR_TEXT_IDLE}; border:1px solid {accent_border}; border-radius:20px; font:600 18px '{c.FONT_FAM}'; padding:12px 18px; min-width:110px; }}"
+            f"QComboBox {{ background:{surface}; color:{c.CLR_TEXT_IDLE}; border:1px solid {accent_border}; border-radius:20px; font:600 18px '{c.FONT_FAM}'; padding:14px 18px; min-width:96px; }}"
             f"QComboBox:hover {{ border-color:{hover_border}; }}"
             f"QComboBox:focus {{ border:2px solid {c.CLR_TITLE}; }}"
             f"QComboBox::drop-down {{ border:none; width:36px; background:transparent; }}"
             f"QComboBox QAbstractItemView {{ background:{c.CLR_PANEL}; color:{c.CLR_TEXT_IDLE}; border-radius:10px; padding:8px; selection-background-color:{c.CLR_ITEM_ACT}; }}"
         )
         self.ampm_combo.setStyleSheet(ampm_style + _combo_arrow_style())
+        self.ampm_combo.setMinimumWidth(96)
         self.ampm_combo.setFixedHeight(88)
+        self.ampm_combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         time_layout.addWidget(self.ampm_combo)
 
         c.make_shadow(time_card, radius=30, offset=8, alpha=120)
@@ -823,7 +825,7 @@ class AlarmEditorDialog(BaseFormDialog):
         layout.addStretch(1)
 
         title = "Editar alarma" if alarm else "Nueva alarma"
-        super().__init__(title, form, "Guardar", parent=parent, size=(420, 520))
+        super().__init__(title, form, "Guardar", parent=parent, size=(480, 560))
         self._deleted = False
 
         if alarm:
