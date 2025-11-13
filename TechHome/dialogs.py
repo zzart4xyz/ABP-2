@@ -580,10 +580,11 @@ class AlarmEditorDialog(BaseFormDialog):
         self._source = alarm
         form = QFrame()
         layout = QVBoxLayout(form)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(18)
 
         toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.addStretch(1)
         self.delete_btn = QToolButton()
         self.delete_btn.setCursor(Qt.PointingHandCursor)
@@ -595,7 +596,7 @@ class AlarmEditorDialog(BaseFormDialog):
         alarm_delete_icon = c.icon("trash-can.svg")
         if not alarm_delete_icon.isNull():
             self.delete_btn.setIcon(alarm_delete_icon)
-            self.delete_btn.setIconSize(QSize(18, 18))
+            self.delete_btn.setIconSize(QSize(20, 20))
         else:
             self.delete_btn.setText("🗑")
         self.delete_btn.clicked.connect(self._on_delete)
@@ -603,108 +604,152 @@ class AlarmEditorDialog(BaseFormDialog):
         toolbar.addWidget(self.delete_btn)
         layout.addLayout(toolbar)
 
-        time_row = QHBoxLayout()
-        time_row.setSpacing(8)
+        accent_border = _with_alpha(c.CLR_TITLE, 0.45)
+        surface = _with_alpha(c.CLR_SURFACE, 0.85)
+
+        time_card = QFrame()
+        time_card.setObjectName("timeCard")
+        time_card.setStyleSheet(
+            f"QFrame#timeCard {{ background:{surface}; border:2px solid {accent_border}; border-radius:18px; }}"
+        )
+        time_layout = QHBoxLayout(time_card)
+        time_layout.setContentsMargins(20, 18, 20, 18)
+        time_layout.setSpacing(14)
+
         self.hour_spin = QSpinBox()
         self.hour_spin.setRange(1, 12)
         _style_spinbox(self.hour_spin, large=True)
-        time_row.addWidget(self.hour_spin)
+        self.hour_spin.setFixedWidth(100)
+        time_layout.addWidget(self.hour_spin)
 
         colon = QLabel(":")
-        colon.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 20px '{c.FONT_FAM}';")
-        time_row.addWidget(colon)
+        colon.setAlignment(Qt.AlignCenter)
+        colon.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 28px '{c.FONT_FAM}'; margin-bottom:6px;")
+        time_layout.addWidget(colon)
 
         self.minute_spin = QSpinBox()
         self.minute_spin.setRange(0, 59)
         _style_spinbox(self.minute_spin, large=True)
-        time_row.addWidget(self.minute_spin)
+        self.minute_spin.setFixedWidth(100)
+        time_layout.addWidget(self.minute_spin)
 
         self.ampm_combo = QComboBox()
         self.ampm_combo.addItems(["a. m.", "p. m."])
         combo_style = (
-            f"QComboBox {{ background:{c.CLR_SURFACE}; color:{c.CLR_TEXT_IDLE}; padding:6px 12px; font:600 14px '{c.FONT_FAM}'; border:2px solid {c.CLR_TITLE}; border-radius:5px; }}"
-            f"QComboBox QAbstractItemView {{ background:{c.CLR_PANEL}; color:{c.CLR_TEXT_IDLE}; selection-background-color:{c.CLR_ITEM_ACT}; }}"
+            f"QComboBox {{ background:{c.CLR_PANEL}; color:{c.CLR_TITLE}; padding:12px 16px; font:600 16px '{c.FONT_FAM}'; border:2px solid {accent_border}; border-radius:12px; min-width:90px; }}"
+            f"QComboBox QAbstractItemView {{ background:{c.CLR_PANEL}; color:{c.CLR_TEXT_IDLE}; selection-background-color:{c.CLR_ITEM_ACT}; border-radius:8px; padding:6px; }}"
         )
         self.ampm_combo.setStyleSheet(combo_style + _combo_arrow_style())
-        time_row.addWidget(self.ampm_combo)
-        layout.addLayout(time_row)
+        self.ampm_combo.setMinimumHeight(64)
+        time_layout.addWidget(self.ampm_combo)
+
+        layout.addWidget(time_card)
+
+        details_card = QFrame()
+        details_card.setObjectName("alarmDetails")
+        details_card.setStyleSheet(
+            f"QFrame#alarmDetails {{ background:{surface}; border:1px solid {accent_border}; border-radius:16px; }}"
+        )
+        details_layout = QVBoxLayout(details_card)
+        details_layout.setContentsMargins(18, 18, 18, 18)
+        details_layout.setSpacing(16)
 
         label_row = QHBoxLayout()
-        label_row.setSpacing(8)
+        label_row.setSpacing(12)
         alarm_label_icon = QLabel()
         pen_pix = c.pixmap("pen-to-square.svg")
         if not pen_pix.isNull():
-            alarm_label_icon.setPixmap(c.tint_pixmap(pen_pix.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation), QColor(c.CLR_TITLE)))
+            alarm_label_icon.setPixmap(
+                c.tint_pixmap(
+                    pen_pix.scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation),
+                    QColor(c.CLR_TITLE),
+                )
+            )
         else:
             alarm_label_icon.setText("✎")
-            alarm_label_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 16px '{c.FONT_FAM}';")
+            alarm_label_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}';")
         label_row.addWidget(alarm_label_icon)
 
         self.label_edit = QLineEdit()
         self.label_edit.setPlaceholderText("Nombre de la alarma")
-        self.label_edit.setStyleSheet(c.input_style())
+        self.label_edit.setMinimumHeight(44)
+        self.label_edit.setStyleSheet(c.input_style(pad=10))
         label_row.addWidget(self.label_edit)
-        layout.addLayout(label_row)
+        details_layout.addLayout(label_row)
 
         repeat_lbl = QLabel("Repetir alarma")
         repeat_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
-        layout.addWidget(repeat_lbl)
+        details_layout.addWidget(repeat_lbl)
 
         self.day_buttons: list[QToolButton] = []
         day_row = QHBoxLayout()
-        day_row.setSpacing(6)
+        day_row.setSpacing(10)
         for symbol in WEEKDAY_ORDER:
             btn = QToolButton()
             btn.setText(symbol)
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
+            btn.setFixedSize(40, 40)
             btn.setStyleSheet(
-                f"QToolButton {{ background:{c.CLR_SURFACE}; color:{c.CLR_TEXT_IDLE}; border-radius:12px; padding:6px 12px; font:600 12px '{c.FONT_FAM}'; border:none; }}"
-                f"QToolButton:checked {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+                f"QToolButton {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.15)}; color:{c.CLR_TEXT_IDLE}; border-radius:20px; font:600 13px '{c.FONT_FAM}'; border:1px solid transparent; }}"
+                f"QToolButton:hover {{ border:1px solid {accent_border}; }}"
+                f"QToolButton:checked {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; border:1px solid {accent_border}; }}"
             )
             self.day_buttons.append(btn)
             day_row.addWidget(btn)
         day_row.addStretch(1)
-        layout.addLayout(day_row)
+        details_layout.addLayout(day_row)
 
+        sound_section = QVBoxLayout()
+        sound_section.setSpacing(8)
         sound_row = QHBoxLayout()
-        sound_row.setSpacing(6)
+        sound_row.setSpacing(10)
         sound_icon = QLabel()
         sound_icon.setStyleSheet("border:none;")
         note_pix = c.pixmap("music-note.svg")
         if not note_pix.isNull():
-            tinted = c.tint_pixmap(note_pix.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation), QColor(c.CLR_TITLE))
+            tinted = c.tint_pixmap(
+                note_pix.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation),
+                QColor(c.CLR_TITLE),
+            )
             sound_icon.setPixmap(tinted)
         else:
             sound_icon.setText("♪")
-            sound_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 16px '{c.FONT_FAM}'; border:none;")
+            sound_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 18px '{c.FONT_FAM}'; border:none;")
         sound_row.addWidget(sound_icon)
         sound_lbl = QLabel("Sonido")
         sound_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
         sound_row.addWidget(sound_lbl)
         sound_row.addStretch(1)
-        layout.addLayout(sound_row)
+        sound_section.addLayout(sound_row)
 
         self.sound_combo = QComboBox()
         self.sound_combo.addItems(["Predeterminado", "Campanillas", "Digital", "Suave"])
+        self.sound_combo.setMinimumHeight(46)
         self.sound_combo.setStyleSheet(combo_style + _combo_arrow_style())
-        layout.addWidget(self.sound_combo)
+        sound_section.addWidget(self.sound_combo)
+        details_layout.addLayout(sound_section)
 
-        snooze_row = QHBoxLayout()
-        snooze_row.setSpacing(8)
+        snooze_section = QHBoxLayout()
+        snooze_section.setSpacing(12)
         snooze_lbl = QLabel("Repetir cada")
         snooze_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
-        snooze_row.addWidget(snooze_lbl)
+        snooze_section.addWidget(snooze_lbl)
         self.snooze_spin = QSpinBox()
         self.snooze_spin.setRange(1, 30)
         self.snooze_spin.setValue(5)
         self.snooze_spin.setSuffix(" min")
         _style_spinbox(self.snooze_spin)
-        snooze_row.addWidget(self.snooze_spin)
-        layout.addLayout(snooze_row)
+        self.snooze_spin.setFixedWidth(120)
+        snooze_section.addWidget(self.snooze_spin)
+        snooze_section.addStretch(1)
+        details_layout.addLayout(snooze_section)
+
+        layout.addWidget(details_card)
+        layout.addStretch(1)
 
         title = "Editar alarma" if alarm else "Nueva alarma"
-        super().__init__(title, form, "Guardar", parent=parent, size=(380, 420))
+        super().__init__(title, form, "Guardar", parent=parent, size=(420, 520))
         self._deleted = False
 
         if alarm:
