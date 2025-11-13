@@ -31,8 +31,19 @@ import os
 import hashlib
 import importlib
 import importlib.util
+import tempfile
+from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional, TYPE_CHECKING
+
+from models import (
+    AlarmState,
+    TimerState,
+    decode_repeat_days,
+    encode_repeat_days,
+    weekday_index,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - imported only for type checking
     try:
@@ -68,9 +79,11 @@ except Exception:
 # database file (``techhome_users.sql``) located in the same directory as
 # this module.  Each user's personal data (device states, lists, notes,
 # reminders, alarms, timers and action logs) are stored in a separate
-# database file named ``techhome_data_<username>.sql`` in the same directory.
-# This separation ensures that no user's data is mixed with another's and
-# allows per‑user data to be easily managed.
+# database file named ``techhome_data_<hash>.sql`` in the same directory.
+# Prior to November 2025 the plain username was embedded directly in the
+# filename; the helper below still recognises those legacy files.  This
+# separation ensures that no user's data is mixed with another's and allows
+# per‑user data to be easily managed.
 
 # Central database for user credentials
 USERS_DB_FILENAME = "techhome_users.sql"
@@ -81,14 +94,29 @@ USERS_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), USERS_D
 # path to a specific user's database file.
 DATA_DB_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def _legacy_user_db_path(username: str) -> str:
+    """Return the historical per-user database path for *username*."""
+
+    return os.path.join(DATA_DB_DIR, f"techhome_data_{username}.sql")
+
+
+def _safe_user_db_filename(username: str) -> str:
+    """Return a filesystem-safe database filename for *username*."""
+
+    username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
+    return f"techhome_data_{username_hash}.sql"
+
+
 def get_user_db_path(username: str) -> str:
     """
     Return the file path for a given user's data database.
 
-    The username is incorporated directly into the filename.  Special
-    characters are not escaped because usernames are expected to be simple
-    alphanumeric strings.  In a production environment you should
-    sanitise or hash usernames to avoid conflicts or path traversal.
+    Historically, usernames were interpolated directly into filenames.
+    This allowed crafted usernames (e.g. ``"../alice"``) to escape the
+    intended directory structure.  New databases now use a SHA-256 hash of
+    the username to derive a filesystem-safe filename.  If an older file
+    already exists for the requested username, it is returned unchanged for
+    backwards compatibility.
 
     Parameters
     ----------
@@ -100,7 +128,12 @@ def get_user_db_path(username: str) -> str:
     str
         The absolute path to the user's data database file.
     """
-    return os.path.join(DATA_DB_DIR, f"techhome_data_{username}.sql")
+
+    legacy_path = _legacy_user_db_path(username)
+    if os.path.exists(legacy_path):
+        return legacy_path
+    safe_filename = _safe_user_db_filename(username)
+    return os.path.join(DATA_DB_DIR, safe_filename)
 
 
 def init_db() -> None:
@@ -132,6 +165,14 @@ def init_db() -> None:
         cur.execute("ALTER TABLE users ADD COLUMN algo TEXT")
     conn.commit()
     conn.close()
+
+
+def _ensure_column(cur: sqlite3.Cursor, table: str, column: str, definition: str) -> None:
+    """Add ``column`` to ``table`` if it does not already exist."""
+    cur.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in cur.fetchall()}
+    if column not in existing:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def init_user_db(username: str) -> None:
@@ -211,6 +252,10 @@ def init_user_db(username: str) -> None:
         "text TEXT"
         ")"
     )
+    _ensure_column(cur, "alarms", "enabled", "INTEGER DEFAULT 1")
+    _ensure_column(cur, "alarms", "repeat_mask", "TEXT DEFAULT '0000000'")
+    _ensure_column(cur, "alarms", "sound", "TEXT DEFAULT ''")
+    _ensure_column(cur, "alarms", "snooze", "INTEGER DEFAULT 5")
     # Timers
     cur.execute(
         "CREATE TABLE IF NOT EXISTS timers ("
@@ -219,6 +264,11 @@ def init_user_db(username: str) -> None:
         "text TEXT"
         ")"
     )
+    _ensure_column(cur, "timers", "duration", "INTEGER DEFAULT 0")
+    _ensure_column(cur, "timers", "remaining", "INTEGER DEFAULT 0")
+    _ensure_column(cur, "timers", "running", "INTEGER DEFAULT 0")
+    _ensure_column(cur, "timers", "last_started", "TEXT")
+    _ensure_column(cur, "timers", "loop", "INTEGER DEFAULT 0")
 
     # Notifications
     # This table stores timestamp/message pairs representing the
@@ -623,97 +673,189 @@ def get_reminders(username: str) -> list[tuple[str, str]]:
     return [(dt, txt) for dt, txt in rows]
 
 
-def save_alarm(username: str, dt: str, text: str) -> None:
-    """
-    Persist an alarm for a user.
-    """
+def save_alarm(username: str, alarm: AlarmState) -> AlarmState:
+    """Insert or update an alarm for ``username``."""
+
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO alarms (datetime, text) VALUES (?, ?)",
-        (dt, text)
+    payload = (
+        alarm.trigger.isoformat(),
+        alarm.label,
+        1 if alarm.enabled else 0,
+        alarm.encode_repeat(),
+        alarm.sound,
+        int(alarm.snooze_minutes),
     )
+    if alarm.alarm_id is None:
+        cur.execute(
+            "INSERT INTO alarms (datetime, text, enabled, repeat_mask, sound, snooze)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            payload,
+        )
+        alarm.alarm_id = cur.lastrowid
+    else:
+        cur.execute(
+            "UPDATE alarms SET datetime=?, text=?, enabled=?, repeat_mask=?, sound=?, snooze=?"
+            " WHERE id=?",
+            payload + (alarm.alarm_id,),
+        )
+    conn.commit()
+    conn.close()
+    return alarm
+
+
+def delete_alarm(username: str, alarm_id: int) -> None:
+    """Delete an alarm by identifier."""
+
+    init_user_db(username)
+    path = get_user_db_path(username)
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM alarms WHERE id=?", (alarm_id,))
     conn.commit()
     conn.close()
 
 
-def delete_alarm(username: str, dt: str, text: str) -> None:
-    """
-    Delete an alarm for a user.
-    """
+def get_alarms(username: str) -> list[AlarmState]:
+    """Return all alarms stored for ``username`` as :class:`AlarmState` objects."""
+
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM alarms WHERE datetime=? AND text=?",
-        (dt, text)
+        "SELECT id, datetime, text, enabled, repeat_mask, sound, snooze"
+        " FROM alarms ORDER BY datetime"
     )
-    conn.commit()
-    conn.close()
-
-
-def get_alarms(username: str) -> list[tuple[str, str]]:
-    """
-    Retrieve all alarms for a user.  Returns a list of (datetime, text).
-    """
-    init_user_db(username)
-    path = get_user_db_path(username)
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-    cur.execute("SELECT datetime, text FROM alarms ORDER BY datetime")
     rows = cur.fetchall()
     conn.close()
-    return [(dt, txt) for dt, txt in rows]
+    alarms: list[AlarmState] = []
+    for row in rows:
+        dt_value = row["datetime"]
+        try:
+            trigger = datetime.fromisoformat(dt_value) if dt_value else datetime.now()
+        except Exception:
+            trigger = datetime.now()
+        alarms.append(
+            AlarmState(
+                label=row["text"] or "Alarma",
+                trigger=trigger,
+                enabled=bool(row["enabled"]),
+                repeat_days=decode_repeat_days(row["repeat_mask"]),
+                sound=row["sound"] or "",
+                snooze_minutes=int(row["snooze"]) if row["snooze"] is not None else 5,
+                alarm_id=int(row["id"]),
+            )
+        )
+    return alarms
 
 
-def save_timer(username: str, end_time: str, text: str) -> None:
-    """
-    Persist a timer for a user.  The end_time should be an ISO
-    formatted string.
-    """
+def save_timer(username: str, timer: TimerState) -> TimerState:
+    """Insert or update a timer for ``username``."""
+
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO timers (end_time, text) VALUES (?, ?)",
-        (end_time, text)
+    end_time_str: str | None = None
+    if timer.running and timer.last_started is not None:
+        end_time = timer.last_started + timedelta(seconds=max(0, timer.remaining))
+        end_time_str = end_time.isoformat()
+    payload = (
+        end_time_str,
+        timer.label,
+        int(timer.duration),
+        int(timer.remaining),
+        1 if timer.running else 0,
+        timer.last_started.isoformat() if timer.last_started else None,
+        1 if timer.loop else 0,
     )
+    if timer.timer_id is None:
+        cur.execute(
+            "INSERT INTO timers (end_time, text, duration, remaining, running, last_started, loop)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            payload,
+        )
+        timer.timer_id = cur.lastrowid
+    else:
+        cur.execute(
+            "UPDATE timers SET end_time=?, text=?, duration=?, remaining=?, running=?, last_started=?, loop=?"
+            " WHERE id=?",
+            payload + (timer.timer_id,),
+        )
+    conn.commit()
+    conn.close()
+    return timer
+
+
+def delete_timer(username: str, timer_id: int) -> None:
+    """Delete a timer by identifier."""
+
+    init_user_db(username)
+    path = get_user_db_path(username)
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM timers WHERE id=?", (timer_id,))
     conn.commit()
     conn.close()
 
 
-def delete_timer(username: str, end_time: str, text: str) -> None:
-    """
-    Delete a timer for a user.
-    """
+def get_timers(username: str) -> list[TimerState]:
+    """Return all timers stored for ``username`` as :class:`TimerState` objects."""
+
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM timers WHERE end_time=? AND text=?",
-        (end_time, text)
+        "SELECT id, text, duration, remaining, running, last_started, loop, end_time"
+        " FROM timers ORDER BY id"
     )
-    conn.commit()
-    conn.close()
-
-
-def get_timers(username: str) -> list[tuple[str, str]]:
-    """
-    Retrieve all timers for a user.  Returns a list of (end_time, text).
-    """
-    init_user_db(username)
-    path = get_user_db_path(username)
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-    cur.execute("SELECT end_time, text FROM timers ORDER BY end_time")
     rows = cur.fetchall()
     conn.close()
-    return [(et, txt) for et, txt in rows]
+    timers: list[TimerState] = []
+    now = datetime.now()
+    for row in rows:
+        duration = int(row["duration"]) if row["duration"] is not None else 0
+        remaining = int(row["remaining"]) if row["remaining"] is not None else duration
+        running = bool(row["running"])
+        last_started = row["last_started"]
+        last_started_dt: datetime | None = None
+        if last_started:
+            try:
+                last_started_dt = datetime.fromisoformat(last_started)
+            except Exception:
+                last_started_dt = None
+        if running and last_started_dt is not None:
+            elapsed = int((now - last_started_dt).total_seconds())
+            if elapsed > 0:
+                remaining = max(0, remaining - elapsed)
+        if duration == 0 and remaining > 0:
+            duration = remaining
+        # Legacy support: derive values from end_time when duration missing
+        if duration == 0 and row["end_time"]:
+            try:
+                end_dt = datetime.fromisoformat(row["end_time"])
+                remaining = max(0, int((end_dt - now).total_seconds()))
+                duration = remaining if duration == 0 else duration
+            except Exception:
+                pass
+        timers.append(
+            TimerState(
+                label=row["text"] or "Timer",
+                duration=duration,
+                remaining=remaining,
+                running=running and remaining > 0,
+                loop=bool(row["loop"]),
+                timer_id=int(row["id"]),
+                last_started=last_started_dt if running else None,
+            )
+        )
+    return timers
 
 # -----------------------------------------------------------------------------
 # Notifications and renamed devices persistence
@@ -999,6 +1141,12 @@ def get_setting(username: str, key: str, default: str | None = None) -> Optional
     return row[0]
 
 
+def _is_valid_credential(value: object) -> bool:
+    """Return ``True`` if *value* is a non-empty string."""
+
+    return isinstance(value, str) and value.strip() != ""
+
+
 def create_user(username: str, password: str) -> bool:
     """
     Create a new user with hashed credentials.
@@ -1021,6 +1169,12 @@ def create_user(username: str, password: str) -> bool:
         ``True`` if the user was created successfully; ``False`` if
         the username already exists or an error occurred.
     """
+    # Validate credentials before touching the filesystem.  Rejecting
+    # empty or whitespace-only usernames/passwords prevents creation of
+    # unusable records such as ``techhome_data_.sql``.
+    if not (_is_valid_credential(username) and _is_valid_credential(password)):
+        return False
+
     # Compute the hash of the username.  We use SHA-256 for
     # uniqueness and to avoid storing the plain username.
     username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
@@ -1082,6 +1236,9 @@ def authenticate(username: str, password: str) -> bool:
     bool
         ``True`` if the credentials are valid; ``False`` otherwise.
     """
+    if not (_is_valid_credential(username) and _is_valid_credential(password)):
+        return False
+
     username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
     # Ensure the central users database exists before authentication
     init_db()
@@ -1125,3 +1282,270 @@ def authenticate(username: str, password: str) -> bool:
     else:
         # Unknown algorithm
         return False
+
+
+def run_sanity_checks() -> list[tuple[str, bool, str]]:
+    """Run lightweight self-checks for the database module.
+
+    The project previously shipped PyTest-based regression tests that
+    exercised the credential validation logic as well as the
+    sanitisation of per-user database paths.  Distributing the tests as
+    part of the runtime environment is unnecessary, but the underlying
+    expectations remain valuable for manual verification and future
+    troubleshooting.  This helper executes the most critical scenarios
+    against temporary on-disk databases and reports whether each check
+    passed.
+
+    Returns
+    -------
+    list[tuple[str, bool, str]]
+        A list of ``(description, passed, details)`` tuples.  The
+        ``details`` entry provides additional context for failed
+        checks.  Callers can iterate through the list and print the
+        results to obtain a quick health report, for example::
+
+            for name, passed, detail in run_sanity_checks():
+                icon = "✅" if passed else "❌"
+                print(f"{icon} {name}" + (f": {detail}" if detail else ""))
+    """
+
+    results: list[tuple[str, bool, str]] = []
+
+    def record(name: str, passed: bool, detail: str = "") -> None:
+        results.append((name, bool(passed), detail))
+
+    # Use a temporary directory so the self-check never touches the
+    # user's real data.  The module-level globals are swapped out for
+    # the duration of the checks and then restored.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        original_users_db = USERS_DB_PATH
+        original_data_dir = DATA_DB_DIR
+        try:
+            globals()["USERS_DB_PATH"] = str(tmp_path / USERS_DB_FILENAME)
+            globals()["DATA_DB_DIR"] = str(tmp_path)
+
+            # Credential validation helpers should reject empty or
+            # whitespace-only values before touching the filesystem.
+            record(
+                "create_user rejects blank username",
+                not create_user("   ", "password"),
+            )
+            record(
+                "create_user rejects blank password",
+                not create_user("alice", "   "),
+            )
+            record(
+                "authenticate rejects blank username",
+                not authenticate("", "password"),
+            )
+            record(
+                "authenticate rejects blank password",
+                not authenticate("alice", ""),
+            )
+            record(
+                "no data files created for invalid credentials",
+                not any(tmp_path.glob("techhome_data_*.sql")),
+            )
+
+            # Happy-path credential lifecycle.
+            record("create_user stores valid user", create_user("alice", "secret-pass"))
+            record(
+                "authenticate accepts stored credentials",
+                authenticate("alice", "secret-pass"),
+            )
+            record(
+                "authenticate rejects wrong password",
+                not authenticate("alice", "wrong"),
+            )
+
+            alice_db_path = Path(get_user_db_path("alice"))
+            record("per-user database created", alice_db_path.exists())
+
+            actions_table_exists = False
+            if alice_db_path.exists():
+                with sqlite3.connect(alice_db_path) as conn:
+                    cursor = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='actions'"
+                    )
+                    actions_table_exists = cursor.fetchone() is not None
+            record("actions table initialised", actions_table_exists)
+
+            # Sanitised per-user database paths should stay inside the
+            # configured data directory and use hashed filenames.
+            tricky_username = "../malicious user"
+            tricky_path = Path(get_user_db_path(tricky_username))
+            record("sanitised path stays within data dir", tricky_path.parent == tmp_path)
+            record(
+                "sanitised path uses .sql suffix",
+                tricky_path.suffix == ".sql" and tricky_path.name.startswith("techhome_data_"),
+            )
+            hashed_suffix = tricky_path.stem.replace("techhome_data_", "")
+            detail = f"suffix length={len(hashed_suffix)}"
+            record("sanitised filename is 64 hex chars", len(hashed_suffix) == 64, detail)
+            try:
+                int(hashed_suffix, 16)
+                valid_hex = True
+            except ValueError:
+                valid_hex = False
+            record("sanitised filename contains hex", valid_hex)
+
+            # Legacy usernames should reuse existing files if present.
+            legacy_username = "legacy user"
+            legacy_path = tmp_path / f"techhome_data_{legacy_username}.sql"
+            legacy_path.write_text("")
+            record(
+                "legacy filename reused",
+                Path(get_user_db_path(legacy_username)) == legacy_path,
+            )
+
+            # When creating a user with a path-traversal attempt, the
+            # resulting database name should be derived from the hash.
+            hashed_username = "../bob"
+            record(
+                "create_user succeeds for tricky username",
+                create_user(hashed_username, "secret"),
+            )
+            hashed_path = Path(get_user_db_path(hashed_username))
+            expected_suffix = hashlib.sha256(hashed_username.encode("utf-8")).hexdigest()
+            record("hashed database created", hashed_path.exists())
+            record(
+                "hashed filename matches sha256",
+                hashed_path.stem == f"techhome_data_{expected_suffix}",
+                f"stem={hashed_path.stem}",
+            )
+
+            # Repeat mask helpers should remain stable across round-trips.
+            mask = encode_repeat_days([0, 2, 6])
+            record(
+                "encode_repeat_days returns seven characters",
+                mask == "1010001",
+                f"mask={mask}",
+            )
+            decoded = decode_repeat_days(mask)
+            record(
+                "decode_repeat_days restores indices",
+                decoded == {0, 2, 6},
+                f"decoded={sorted(decoded)}",
+            )
+            record(
+                "decode_repeat_days tolerates invalid input",
+                decode_repeat_days("invalid") == set(),
+                "mask='invalid'",
+            )
+            record("weekday_index maps 'Lu'", weekday_index("Lu") == 1)
+
+            # Timer persistence should retain configuration details and runtime state.
+            loop_timer = TimerState(
+                label="Timer en bucle",
+                duration=120,
+                remaining=120,
+                running=False,
+                loop=True,
+            )
+            loop_timer = save_timer("alice", loop_timer)
+            record("save_timer assigns identifier", loop_timer.timer_id is not None)
+            timers = {t.timer_id: t for t in get_timers("alice")}
+            stored_loop = timers.get(loop_timer.timer_id)
+            record("loop timer persisted", stored_loop is not None)
+            if stored_loop is not None:
+                record("loop flag round-trips", stored_loop.loop is True)
+                record(
+                    "timer progress starts at zero",
+                    abs(stored_loop.progress) < 1e-6,
+                    f"progress={stored_loop.progress:.4f}",
+                )
+
+            running_start = datetime.now() - timedelta(seconds=5)
+            running_timer = TimerState(
+                label="Cuenta regresiva",
+                duration=30,
+                remaining=30,
+                running=True,
+                loop=False,
+                last_started=running_start,
+            )
+            running_timer = save_timer("alice", running_timer)
+            timers = {t.timer_id: t for t in get_timers("alice")}
+            stored_running = timers.get(running_timer.timer_id)
+            record("running timer persisted", stored_running is not None)
+            if stored_running is not None:
+                record(
+                    "running timer remaining decays",
+                    0 <= stored_running.remaining < 30,
+                    f"remaining={stored_running.remaining}",
+                )
+                record("running timer flagged active", stored_running.running is True)
+
+            # Deleting timers should remove them from subsequent queries.
+            if loop_timer.timer_id is not None:
+                delete_timer("alice", loop_timer.timer_id)
+            if running_timer.timer_id is not None:
+                delete_timer("alice", running_timer.timer_id)
+            remaining_ids = {t.timer_id for t in get_timers("alice")}
+            record(
+                "delete_timer removes entries",
+                loop_timer.timer_id not in remaining_ids and running_timer.timer_id not in remaining_ids,
+            )
+
+            # Alarm persistence must honour repeat settings and scheduling helpers.
+            base_trigger = datetime.now().replace(hour=7, minute=0, second=0, microsecond=0)
+            if base_trigger <= datetime.now():
+                base_trigger += timedelta(days=1)
+            repeat_days = {weekday_index("Lu"), weekday_index("Mi")}
+            repeating_alarm = AlarmState(
+                label="Buenos días",
+                trigger=base_trigger,
+                enabled=True,
+                repeat_days=repeat_days,
+                sound="Campanillas",
+                snooze_minutes=10,
+            )
+            repeating_alarm = save_alarm("alice", repeating_alarm)
+            alarms = {a.alarm_id: a for a in get_alarms("alice")}
+            stored_alarm = alarms.get(repeating_alarm.alarm_id)
+            record("repeating alarm persisted", stored_alarm is not None)
+            if stored_alarm is not None:
+                record(
+                    "repeat days round-trip",
+                    stored_alarm.repeat_days == repeat_days,
+                    f"repeat={sorted(stored_alarm.repeat_days)}",
+                )
+                reference = base_trigger - timedelta(minutes=1)
+                next_trigger = stored_alarm.next_trigger_after(reference)
+                detail = f"next={next_trigger.isoformat() if next_trigger else 'None'}"
+                record("next_trigger_after finds upcoming time", next_trigger == base_trigger, detail)
+
+            past_alarm = AlarmState(
+                label="Pasado",
+                trigger=datetime.now() - timedelta(minutes=2),
+                enabled=True,
+                repeat_days=set(),
+                sound="",
+                snooze_minutes=5,
+            )
+            past_alarm = save_alarm("alice", past_alarm)
+            alarms = {a.alarm_id: a for a in get_alarms("alice")}
+            stored_past = alarms.get(past_alarm.alarm_id)
+            record("one-off alarm persisted", stored_past is not None)
+            if stored_past is not None:
+                record(
+                    "expired alarm has no future trigger",
+                    stored_past.next_trigger_after(datetime.now()) is None,
+                )
+
+            # Clean up alarms and confirm removal from listings.
+            for alarm in (repeating_alarm, past_alarm):
+                if alarm.alarm_id is not None:
+                    delete_alarm("alice", alarm.alarm_id)
+            remaining_alarm_ids = {a.alarm_id for a in get_alarms("alice")}
+            record(
+                "delete_alarm removes entries",
+                repeating_alarm.alarm_id not in remaining_alarm_ids
+                and past_alarm.alarm_id not in remaining_alarm_ids,
+            )
+        finally:
+            globals()["USERS_DB_PATH"] = original_users_db
+            globals()["DATA_DB_DIR"] = original_data_dir
+
+    return results
