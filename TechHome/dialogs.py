@@ -704,7 +704,7 @@ class AlarmEditorDialog(BaseFormDialog):
         layout.addLayout(snooze_row)
 
         title = "Editar alarma" if alarm else "Nueva alarma"
-        super().__init__(title, form, "Guardar", parent=parent, size=(380, 420))
+        super().__init__(title, form, "Guardar", parent=parent, size=(380, 480))
         self._deleted = False
 
         if alarm:
