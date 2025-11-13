@@ -580,8 +580,8 @@ class AlarmEditorDialog(BaseFormDialog):
         self._source = alarm
         form = QFrame()
         layout = QVBoxLayout(form)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 16, 12, 16)
+        layout.setSpacing(20)
 
         toolbar = QHBoxLayout()
         toolbar.addStretch(1)
@@ -604,7 +604,7 @@ class AlarmEditorDialog(BaseFormDialog):
         layout.addLayout(toolbar)
 
         time_row = QHBoxLayout()
-        time_row.setSpacing(8)
+        time_row.setSpacing(12)
         self.hour_spin = QSpinBox()
         self.hour_spin.setRange(1, 12)
         _style_spinbox(self.hour_spin, large=True)
@@ -629,8 +629,10 @@ class AlarmEditorDialog(BaseFormDialog):
         time_row.addWidget(self.ampm_combo)
         layout.addLayout(time_row)
 
+        layout.addSpacing(6)
+
         label_row = QHBoxLayout()
-        label_row.setSpacing(8)
+        label_row.setSpacing(12)
         alarm_label_icon = QLabel()
         pen_pix = c.pixmap("pen-to-square.svg")
         if not pen_pix.isNull():
@@ -646,13 +648,15 @@ class AlarmEditorDialog(BaseFormDialog):
         label_row.addWidget(self.label_edit)
         layout.addLayout(label_row)
 
+        layout.addSpacing(10)
+
         repeat_lbl = QLabel("Repetir alarma")
         repeat_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
         layout.addWidget(repeat_lbl)
 
         self.day_buttons: list[QToolButton] = []
         day_row = QHBoxLayout()
-        day_row.setSpacing(6)
+        day_row.setSpacing(10)
         for symbol in WEEKDAY_ORDER:
             btn = QToolButton()
             btn.setText(symbol)
@@ -667,8 +671,10 @@ class AlarmEditorDialog(BaseFormDialog):
         day_row.addStretch(1)
         layout.addLayout(day_row)
 
+        layout.addSpacing(10)
+
         sound_row = QHBoxLayout()
-        sound_row.setSpacing(6)
+        sound_row.setSpacing(10)
         sound_icon = QLabel()
         sound_icon.setStyleSheet("border:none;")
         note_pix = c.pixmap("music-note.svg")
@@ -685,13 +691,17 @@ class AlarmEditorDialog(BaseFormDialog):
         sound_row.addStretch(1)
         layout.addLayout(sound_row)
 
+        layout.addSpacing(6)
+
         self.sound_combo = QComboBox()
         self.sound_combo.addItems(["Predeterminado", "Campanillas", "Digital", "Suave"])
         self.sound_combo.setStyleSheet(combo_style + _combo_arrow_style())
         layout.addWidget(self.sound_combo)
 
+        layout.addSpacing(10)
+
         snooze_row = QHBoxLayout()
-        snooze_row.setSpacing(8)
+        snooze_row.setSpacing(12)
         snooze_lbl = QLabel("Repetir cada")
         snooze_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
         snooze_row.addWidget(snooze_lbl)
@@ -704,7 +714,7 @@ class AlarmEditorDialog(BaseFormDialog):
         layout.addLayout(snooze_row)
 
         title = "Editar alarma" if alarm else "Nueva alarma"
-        super().__init__(title, form, "Guardar", parent=parent, size=(380, 420))
+        super().__init__(title, form, "Guardar", parent=parent, size=(400, 480))
         self._deleted = False
 
         if alarm:
