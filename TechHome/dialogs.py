@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QDialog, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QCheckBox, QDateTimeEdit, QSpinBox, QProgressBar,
     QAbstractSpinBox, QMessageBox, QToolButton, QGraphicsDropShadowEffect,
-    QComboBox
+    QComboBox, QSizePolicy
 )
 
 import constants as c
@@ -87,34 +87,68 @@ def _combo_arrow_style() -> str:
     return "".join(parts)
 
 
-def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
-    font_sz = 28 if large else 16
-    height = 64 if large else 48
+class _TwoDigitSpinBox(QSpinBox):
+    """Spin box that always displays two digits."""
+
+    def textFromValue(self, value: int) -> str:  # type: ignore[override]
+        return f"{value:02d}"
+
+
+def _style_spinbox(spin: QSpinBox, *, large: bool = False, show_buttons: bool = True) -> None:
+    base_bg = _with_alpha(c.CLR_SURFACE, 0.92)
+    border = _with_alpha(c.CLR_TITLE, 0.25)
+    hover_border = _with_alpha(c.CLR_TITLE, 0.45)
+    focus_border = c.CLR_TITLE
+    font_sz = 44 if large else 18
+    height = 88 if large else 52
+    radius = 24 if large else 14
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
-    up_path = c.resolve_icon_path("chevron-up.svg")
-    down_path = c.resolve_icon_path("chevron-down.svg")
-    arrow_rules: list[str] = []
-    if up_path:
-        up_url = up_path.replace("\\", "/")
-        arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
-        arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+    padding = "0 28px" if large else "0 18px"
+    style = [
+        "QSpinBox {",
+        f"    background:{base_bg};",
+        f"    color:{text_color};",
+        f"    border:1px solid {border};",
+        f"    border-radius:{radius}px;",
+        f"    font:600 {font_sz}px '{c.FONT_FAM}';",
+        f"    padding:{padding};",
+        "    selection-background-color:transparent;",
+        "}",
+        "QSpinBox:hover {",
+        f"    border-color:{hover_border};",
+        "}",
+        "QSpinBox:focus {",
+        f"    border:2px solid {focus_border};",
+        "}",
+    ]
+    if show_buttons:
+        style.extend([
+            "QSpinBox::up-button {",
+            "    subcontrol-origin:border;",
+            "    subcontrol-position:right top;",
+            "    width:32px;",
+            "    border:none;",
+            "    background:transparent;",
+            "}",
+            "QSpinBox::down-button {",
+            "    subcontrol-origin:border;",
+            "    subcontrol-position:right bottom;",
+            "    width:32px;",
+            "    border:none;",
+            "    background:transparent;",
+            "}",
+            "QSpinBox::up-button:hover, QSpinBox::down-button:hover {",
+            f"    background:{_with_alpha(c.CLR_ITEM_ACT, 0.5)};",
+            "}",
+        ])
     else:
-        arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
-    if down_path:
-        down_url = down_path.replace("\\", "/")
-        arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
-        arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
-    else:
-        arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-    style = (
-        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px; padding-right:38px; font:600 {font_sz}px '{c.FONT_FAM}'; }}"
-        f"QSpinBox::up-button {{ subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }}"
-        f"QSpinBox::down-button {{ subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }}"
-        f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
-        f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
-        + "".join(arrow_rules)
-    )
-    spin.setStyleSheet(style)
+        style.extend([
+            "QSpinBox::up-button, QSpinBox::down-button { width:0; height:0; border:none; }",
+            "QSpinBox::up-arrow, QSpinBox::down-arrow { width:0; height:0; }",
+        ])
+    spin.setStyleSheet("\n".join(style))
+    if not show_buttons:
+        spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
     spin.setFixedHeight(height)
     spin.setAlignment(Qt.AlignCenter)
 
@@ -132,78 +166,126 @@ class BaseFormDialog(QDialog):
 
         main = QFrame(self)
         main.setObjectName("main")
+        shell_bg = _with_alpha(c.CLR_PANEL, 0.98)
+        border = _with_alpha(c.CLR_TITLE, 0.25)
         main.setStyleSheet(
             f"""
             QFrame#main {{
-                background:{c.CLR_PANEL};
-                border:2px solid {c.CLR_TITLE};
-                border-radius:5px;
+                background:{shell_bg};
+                border:1px solid {border};
+                border-radius:20px;
             }}
             """
         )
         main.setGeometry(0, 0, self.width(), self.height())
-        _apply_rounded_mask(self, 5)
+        _apply_rounded_mask(self, 20)
+        c.make_shadow(main, radius=36, offset=10, alpha=140)
+        self._main_frame = main
 
         # set up dragging support
         self._drag_offset = QPoint()
 
         v = QVBoxLayout(main)
-        v.setContentsMargins(16, 16, 16, 16)
-        v.setSpacing(12)
+        v.setContentsMargins(24, 24, 24, 24)
+        v.setSpacing(20)
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(8)
+        header.setSpacing(12)
 
         title_lbl = QLabel(title, main)
-        title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}';")
-        title_lbl.setAlignment(Qt.AlignCenter)
+        title_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 20px '{c.FONT_FAM}';")
+        title_lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         header.addWidget(title_lbl)
         header.addStretch(1)
 
-        close_btn = QPushButton("", main)
-        close_btn.setFixedSize(24, 24)
+        close_btn = QPushButton("✕", main)
+        close_btn.setFixedSize(36, 36)
         close_btn.setCursor(Qt.PointingHandCursor)
+        close_bg = _with_alpha(c.CLR_ITEM_ACT, 0.6)
+        close_hover = _with_alpha(c.CLR_ITEM_ACT, 0.9)
         close_btn.setStyleSheet(
             f"""
             QPushButton {{
-                background:transparent;
-                border:2px solid {c.CLR_TITLE};
-                border-radius:5px;
+                background:{close_bg};
+                border:none;
+                border-radius:12px;
+                color:{c.CLR_TEXT_IDLE};
+                font:600 16px '{c.FONT_FAM}';
             }}
             QPushButton:hover {{
-                background:{c.CLR_TITLE};
+                background:{close_hover};
+                color:{c.CLR_TITLE};
             }}
             """
         )
         close_btn.clicked.connect(self.reject)
         header.addWidget(close_btn)
+        self.close_btn = close_btn
 
         v.addLayout(header)
         v.addWidget(content, 1)
 
         btn_layout = QHBoxLayout()
-        btn_layout.addStretch(1)
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(12)
         self.btn_cancel = QPushButton(cancel_text, main)
-        self.btn_ok     = QPushButton(ok_text, main)
-        for btn in (self.btn_cancel, self.btn_ok):
-            btn.setFixedSize(100, 32)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(
+        self.btn_ok = QPushButton(ok_text, main)
+
+        cancel_bg = _with_alpha(c.CLR_ITEM_ACT, 0.65)
+        cancel_hover = _with_alpha(c.CLR_ITEM_ACT, 0.85)
+        cancel_pressed = _with_alpha(c.CLR_ITEM_ACT, 0.55)
+        primary_bg = c.CLR_TITLE
+        primary_hover = QColor(c.CLR_TITLE).lighter(115).name()
+        primary_pressed = QColor(c.CLR_TITLE).darker(120).name()
+
+        button_styles = (
+            (
+                self.btn_cancel,
                 f"""
                 QPushButton {{
-                    background:transparent;
-                    border:2px solid {c.CLR_TITLE};
-                    border-radius:5px;
-                    font:600 14px '{c.FONT_FAM}';
+                    background:{cancel_bg};
+                    border:none;
+                    border-radius:14px;
                     color:{c.CLR_TEXT_IDLE};
+                    font:600 15px '{c.FONT_FAM}';
+                    padding:12px 0px;
                 }}
                 QPushButton:hover {{
-                    background:{c.CLR_TITLE};
-                    color:#07101B;
+                    background:{cancel_hover};
                 }}
-                """
-            )
+                QPushButton:pressed {{
+                    background:{cancel_pressed};
+                }}
+                """,
+            ),
+            (
+                self.btn_ok,
+                f"""
+                QPushButton {{
+                    background:{primary_bg};
+                    border:none;
+                    border-radius:14px;
+                    color:{c.CLR_BG};
+                    font:600 15px '{c.FONT_FAM}';
+                    padding:12px 0px;
+                }}
+                QPushButton:hover {{
+                    background:{primary_hover};
+                }}
+                QPushButton:pressed {{
+                    background:{primary_pressed};
+                }}
+                """,
+            ),
+        )
+
+        for btn, style in button_styles:
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setMinimumHeight(48)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            btn.setStyleSheet(style)
+
         self.btn_cancel.clicked.connect(self.reject)
         self.btn_ok.clicked.connect(self.accept)
         btn_layout.addWidget(self.btn_cancel)
@@ -580,8 +662,8 @@ class AlarmEditorDialog(BaseFormDialog):
         self._source = alarm
         form = QFrame()
         layout = QVBoxLayout(form)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(18)
+        layout.setContentsMargins(24, 16, 24, 24)
+        layout.setSpacing(24)
 
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(0, 0, 0, 0)
@@ -589,162 +671,154 @@ class AlarmEditorDialog(BaseFormDialog):
         self.delete_btn = QToolButton()
         self.delete_btn.setCursor(Qt.PointingHandCursor)
         self.delete_btn.setToolTip("Eliminar alarma")
+        self.delete_btn.setAutoRaise(False)
+        delete_bg = _with_alpha(c.CLR_ITEM_ACT, 0.55)
+        delete_hover = _with_alpha(c.CLR_ITEM_ACT, 0.85)
+        self.delete_btn.setFixedSize(40, 40)
         self.delete_btn.setStyleSheet(
-            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
-            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
+            f"QToolButton {{ background:{delete_bg}; color:{c.CLR_TEXT_IDLE}; border:none; border-radius:14px; }}"
+            f"QToolButton:hover {{ background:{delete_hover}; color:{c.CLR_TITLE}; }}"
         )
         alarm_delete_icon = c.icon("trash-can.svg")
         if not alarm_delete_icon.isNull():
             self.delete_btn.setIcon(alarm_delete_icon)
-            self.delete_btn.setIconSize(QSize(20, 20))
+            self.delete_btn.setIconSize(QSize(18, 18))
         else:
             self.delete_btn.setText("🗑")
+            self.delete_btn.setStyleSheet(
+                f"QToolButton {{ background:{delete_bg}; color:{c.CLR_TEXT_IDLE}; border:none; border-radius:14px; font:600 18px '{c.FONT_FAM}'; }}"
+                f"QToolButton:hover {{ background:{delete_hover}; color:{c.CLR_TITLE}; }}"
+            )
         self.delete_btn.clicked.connect(self._on_delete)
         self.delete_btn.setVisible(alarm is not None)
         toolbar.addWidget(self.delete_btn)
         layout.addLayout(toolbar)
 
-        accent_border = _with_alpha(c.CLR_TITLE, 0.45)
-        surface = _with_alpha(c.CLR_SURFACE, 0.85)
+        accent_border = _with_alpha(c.CLR_TITLE, 0.35)
+        surface = _with_alpha(c.CLR_SURFACE, 0.92)
+        hover_border = _with_alpha(c.CLR_TITLE, 0.55)
 
         time_card = QFrame()
         time_card.setObjectName("timeCard")
         time_card.setStyleSheet(
-            f"QFrame#timeCard {{ background:{surface}; border:2px solid {accent_border}; border-radius:18px; }}"
+            f"QFrame#timeCard {{ background:{surface}; border:1px solid {accent_border}; border-radius:28px; }}"
         )
         time_layout = QHBoxLayout(time_card)
-        time_layout.setContentsMargins(20, 18, 20, 18)
-        time_layout.setSpacing(14)
+        time_layout.setContentsMargins(28, 28, 28, 28)
+        time_layout.setSpacing(20)
+        time_layout.setAlignment(Qt.AlignCenter)
 
-        self.hour_spin = QSpinBox()
+        self.hour_spin = _TwoDigitSpinBox()
         self.hour_spin.setRange(1, 12)
-        _style_spinbox(self.hour_spin, large=True)
-        self.hour_spin.setFixedWidth(100)
+        _style_spinbox(self.hour_spin, large=True, show_buttons=False)
+        self.hour_spin.setMinimumWidth(112)
         time_layout.addWidget(self.hour_spin)
 
         colon = QLabel(":")
         colon.setAlignment(Qt.AlignCenter)
-        colon.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 28px '{c.FONT_FAM}'; margin-bottom:6px;")
+        colon.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:700 44px '{c.FONT_FAM}'; margin-bottom:6px;")
         time_layout.addWidget(colon)
 
-        self.minute_spin = QSpinBox()
+        self.minute_spin = _TwoDigitSpinBox()
         self.minute_spin.setRange(0, 59)
-        _style_spinbox(self.minute_spin, large=True)
-        self.minute_spin.setFixedWidth(100)
+        _style_spinbox(self.minute_spin, large=True, show_buttons=False)
+        self.minute_spin.setMinimumWidth(112)
         time_layout.addWidget(self.minute_spin)
 
         self.ampm_combo = QComboBox()
         self.ampm_combo.addItems(["a. m.", "p. m."])
-        combo_style = (
-            f"QComboBox {{ background:{c.CLR_PANEL}; color:{c.CLR_TITLE}; padding:12px 16px; font:600 16px '{c.FONT_FAM}'; border:2px solid {accent_border}; border-radius:12px; min-width:90px; }}"
-            f"QComboBox QAbstractItemView {{ background:{c.CLR_PANEL}; color:{c.CLR_TEXT_IDLE}; selection-background-color:{c.CLR_ITEM_ACT}; border-radius:8px; padding:6px; }}"
+        ampm_style = (
+            f"QComboBox {{ background:{surface}; color:{c.CLR_TEXT_IDLE}; border:1px solid {accent_border}; border-radius:20px; font:600 18px '{c.FONT_FAM}'; padding:12px 18px; min-width:110px; }}"
+            f"QComboBox:hover {{ border-color:{hover_border}; }}"
+            f"QComboBox:focus {{ border:2px solid {c.CLR_TITLE}; }}"
+            f"QComboBox::drop-down {{ border:none; width:36px; background:transparent; }}"
+            f"QComboBox QAbstractItemView {{ background:{c.CLR_PANEL}; color:{c.CLR_TEXT_IDLE}; border-radius:10px; padding:8px; selection-background-color:{c.CLR_ITEM_ACT}; }}"
         )
-        self.ampm_combo.setStyleSheet(combo_style + _combo_arrow_style())
-        self.ampm_combo.setMinimumHeight(64)
+        self.ampm_combo.setStyleSheet(ampm_style + _combo_arrow_style())
+        self.ampm_combo.setFixedHeight(88)
         time_layout.addWidget(self.ampm_combo)
 
+        c.make_shadow(time_card, radius=30, offset=8, alpha=120)
         layout.addWidget(time_card)
 
         details_card = QFrame()
         details_card.setObjectName("alarmDetails")
         details_card.setStyleSheet(
-            f"QFrame#alarmDetails {{ background:{surface}; border:1px solid {accent_border}; border-radius:16px; }}"
+            f"QFrame#alarmDetails {{ background:{surface}; border:1px solid {accent_border}; border-radius:24px; }}"
         )
         details_layout = QVBoxLayout(details_card)
-        details_layout.setContentsMargins(18, 18, 18, 18)
-        details_layout.setSpacing(16)
+        details_layout.setContentsMargins(24, 24, 24, 24)
+        details_layout.setSpacing(20)
 
-        label_row = QHBoxLayout()
-        label_row.setSpacing(12)
-        alarm_label_icon = QLabel()
-        pen_pix = c.pixmap("pen-to-square.svg")
-        if not pen_pix.isNull():
-            alarm_label_icon.setPixmap(
-                c.tint_pixmap(
-                    pen_pix.scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation),
-                    QColor(c.CLR_TITLE),
-                )
-            )
-        else:
-            alarm_label_icon.setText("✎")
-            alarm_label_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}';")
-        label_row.addWidget(alarm_label_icon)
+        field_style = (
+            f"QLineEdit {{ background:{surface}; border:1px solid {accent_border}; border-radius:18px; color:{c.CLR_TEXT_IDLE}; font:500 15px '{c.FONT_FAM}'; padding:12px 16px; }}"
+            f"QLineEdit:hover {{ border-color:{hover_border}; }}"
+            f"QLineEdit:focus {{ border:2px solid {c.CLR_TITLE}; }}"
+            f"QLineEdit::placeholder {{ color:{c.CLR_PLACEHOLDER}; }}"
+        )
+
+        combo_style = (
+            f"QComboBox {{ background:{surface}; border:1px solid {accent_border}; border-radius:18px; color:{c.CLR_TEXT_IDLE}; font:500 15px '{c.FONT_FAM}'; padding:12px 16px; }}"
+            f"QComboBox:hover {{ border-color:{hover_border}; }}"
+            f"QComboBox:focus {{ border:2px solid {c.CLR_TITLE}; }}"
+            f"QComboBox::drop-down {{ border:none; width:36px; background:transparent; }}"
+            f"QComboBox QAbstractItemView {{ background:{c.CLR_PANEL}; color:{c.CLR_TEXT_IDLE}; border-radius:10px; padding:8px; selection-background-color:{c.CLR_ITEM_ACT}; }}"
+        )
 
         self.label_edit = QLineEdit()
         self.label_edit.setPlaceholderText("Nombre de la alarma")
-        self.label_edit.setMinimumHeight(44)
-        self.label_edit.setStyleSheet(c.input_style(pad=10))
-        label_row.addWidget(self.label_edit)
-        details_layout.addLayout(label_row)
+        self.label_edit.setClearButtonEnabled(True)
+        self.label_edit.setMinimumHeight(52)
+        self.label_edit.setStyleSheet(field_style)
+        details_layout.addWidget(self.label_edit)
 
         repeat_lbl = QLabel("Repetir alarma")
-        repeat_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
+        repeat_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 15px '{c.FONT_FAM}';")
         details_layout.addWidget(repeat_lbl)
 
         self.day_buttons: list[QToolButton] = []
         day_row = QHBoxLayout()
         day_row.setSpacing(10)
+        day_row.addStretch(1)
+        day_btn_style = (
+            f"QToolButton {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.45)}; color:{c.CLR_TEXT_IDLE}; border-radius:20px; border:1px solid transparent; font:600 13px '{c.FONT_FAM}'; padding:0px; }}"
+            f"QToolButton:hover {{ border:1px solid {hover_border}; }}"
+            f"QToolButton:checked {{ background:{c.CLR_TITLE}; color:{c.CLR_BG}; border:1px solid {c.CLR_TITLE}; }}"
+        )
         for symbol in WEEKDAY_ORDER:
             btn = QToolButton()
             btn.setText(symbol)
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setFixedSize(40, 40)
-            btn.setStyleSheet(
-                f"QToolButton {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.15)}; color:{c.CLR_TEXT_IDLE}; border-radius:20px; font:600 13px '{c.FONT_FAM}'; border:1px solid transparent; }}"
-                f"QToolButton:hover {{ border:1px solid {accent_border}; }}"
-                f"QToolButton:checked {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; border:1px solid {accent_border}; }}"
-            )
+            btn.setFixedSize(44, 44)
+            btn.setStyleSheet(day_btn_style)
             self.day_buttons.append(btn)
             day_row.addWidget(btn)
         day_row.addStretch(1)
         details_layout.addLayout(day_row)
 
-        sound_section = QVBoxLayout()
-        sound_section.setSpacing(8)
-        sound_row = QHBoxLayout()
-        sound_row.setSpacing(10)
-        sound_icon = QLabel()
-        sound_icon.setStyleSheet("border:none;")
-        note_pix = c.pixmap("music-note.svg")
-        if not note_pix.isNull():
-            tinted = c.tint_pixmap(
-                note_pix.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation),
-                QColor(c.CLR_TITLE),
-            )
-            sound_icon.setPixmap(tinted)
-        else:
-            sound_icon.setText("♪")
-            sound_icon.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 18px '{c.FONT_FAM}'; border:none;")
-        sound_row.addWidget(sound_icon)
         sound_lbl = QLabel("Sonido")
-        sound_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
-        sound_row.addWidget(sound_lbl)
-        sound_row.addStretch(1)
-        sound_section.addLayout(sound_row)
+        sound_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 15px '{c.FONT_FAM}';")
+        details_layout.addWidget(sound_lbl)
 
         self.sound_combo = QComboBox()
         self.sound_combo.addItems(["Predeterminado", "Campanillas", "Digital", "Suave"])
-        self.sound_combo.setMinimumHeight(46)
+        self.sound_combo.setMinimumHeight(54)
         self.sound_combo.setStyleSheet(combo_style + _combo_arrow_style())
-        sound_section.addWidget(self.sound_combo)
-        details_layout.addLayout(sound_section)
+        details_layout.addWidget(self.sound_combo)
 
-        snooze_section = QHBoxLayout()
-        snooze_section.setSpacing(12)
         snooze_lbl = QLabel("Repetir cada")
-        snooze_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 14px '{c.FONT_FAM}';")
-        snooze_section.addWidget(snooze_lbl)
-        self.snooze_spin = QSpinBox()
-        self.snooze_spin.setRange(1, 30)
-        self.snooze_spin.setValue(5)
-        self.snooze_spin.setSuffix(" min")
-        _style_spinbox(self.snooze_spin)
-        self.snooze_spin.setFixedWidth(120)
-        snooze_section.addWidget(self.snooze_spin)
-        snooze_section.addStretch(1)
-        details_layout.addLayout(snooze_section)
+        snooze_lbl.setStyleSheet(f"color:{c.CLR_TEXT_IDLE}; font:600 15px '{c.FONT_FAM}';")
+        details_layout.addWidget(snooze_lbl)
 
+        self.snooze_combo = QComboBox()
+        self.snooze_combo.setMinimumHeight(54)
+        for minutes in (5, 10, 15, 20, 30):
+            self.snooze_combo.addItem(f"{minutes} minutos", minutes)
+        self.snooze_combo.setStyleSheet(combo_style + _combo_arrow_style())
+        details_layout.addWidget(self.snooze_combo)
+
+        c.make_shadow(details_card, radius=30, offset=8, alpha=120)
         layout.addWidget(details_card)
         layout.addStretch(1)
 
@@ -767,11 +841,19 @@ class AlarmEditorDialog(BaseFormDialog):
                 idx = self.sound_combo.findText(alarm.sound)
                 if idx >= 0:
                     self.sound_combo.setCurrentIndex(idx)
-            self.snooze_spin.setValue(int(alarm.snooze_minutes))
+            snooze_value = int(alarm.snooze_minutes)
+            snooze_idx = self.snooze_combo.findData(snooze_value)
+            if snooze_idx < 0:
+                self.snooze_combo.addItem(f"{snooze_value} minutos", snooze_value)
+                snooze_idx = self.snooze_combo.count() - 1
+            self.snooze_combo.setCurrentIndex(snooze_idx)
         else:
             self.hour_spin.setValue(7)
             self.minute_spin.setValue(0)
             self.ampm_combo.setCurrentIndex(0)
+            default_snooze = self.snooze_combo.findData(5)
+            if default_snooze >= 0:
+                self.snooze_combo.setCurrentIndex(default_snooze)
 
     def _on_delete(self) -> None:
         self._deleted = True
@@ -794,13 +876,21 @@ class AlarmEditorDialog(BaseFormDialog):
         base_date = self._source.trigger.date() if self._source else date.today()
         trigger_dt = datetime.combine(base_date, time(hour=hour, minute=minute))
         label = self.label_edit.text().strip() or "Alarma"
+        snooze_data = self.snooze_combo.currentData()
+        if snooze_data is None:
+            try:
+                snooze_minutes = int(self.snooze_combo.currentText().split()[0])
+            except (ValueError, IndexError):
+                snooze_minutes = 5
+        else:
+            snooze_minutes = int(snooze_data)
         return AlarmState(
             label=label,
             trigger=trigger_dt,
             enabled=self._source.enabled if self._source else True,
             repeat_days=self._selected_days(),
             sound=self.sound_combo.currentText(),
-            snooze_minutes=self.snooze_spin.value(),
+            snooze_minutes=snooze_minutes,
             alarm_id=self._source.alarm_id if self._source else None,
         )
 
