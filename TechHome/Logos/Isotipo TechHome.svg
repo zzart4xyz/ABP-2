@@ -1,0 +1,36 @@
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TechHome — Casa con cruz de circuitos (unión línea-círculo)">
+  <title>TechHome — Línea unida al círculo + cruz de circuitos</title>
+
+  <defs>
+    <linearGradient id="TH" gradientUnits="userSpaceOnUse" x1="64" y1="256" x2="448" y2="256">
+      <stop offset="0%" stop-color="#1EBEFF"></stop>
+      <stop offset="100%" stop-color="#0D1A26"></stop>
+    </linearGradient>
+    <style>
+      .outer { fill: none; stroke: url(#TH); stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; }
+      .inner { fill: none; stroke: url(#TH); stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; }
+      .base  { stroke-linecap: butt; }
+      .trace { fill: none; stroke: url(#TH); stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; }
+      .pad   { fill: url(#TH); stroke: url(#TH); stroke-width: 6; rx: 3; ry: 3; }
+    </style>
+  </defs>
+
+  <!-- Casa (sin cambios) -->
+  <path class="outer" d="M96 360 L416 360 L416 208 L256 96 L96 208 Z"></path>
+  <path class="inner" d="M128 332 L128 228 L256 144 L384 228 L384 332"></path>
+  <!-- Base interior + círculo final unidos en UN SOLO PATH -->
+  <path class="inner base" d="M128 332 H296
+           A8 8 0 1 1 312 332
+           A8 8 0 1 1 296 332"></path>
+
+  <!-- SOLO interior añadido: cruz de circuitos con pads (sin tocar lo demás) -->
+  <line class="trace" x1="196" y1="260" x2="316" y2="260"></line>
+  <line class="trace" x1="256" y1="216" x2="256" y2="304"></line>
+
+  <rect class="pad" x="185" y="253" width="22" height="14"></rect>
+  <rect class="pad" x="305" y="253" width="22" height="14"></rect>
+  <rect class="pad" x="249" y="205" width="14" height="22"></rect>
+  <rect class="pad" x="249" y="293" width="14" height="22"></rect>
+  <rect class="pad" x="248" y="252" width="16" height="16"></rect>
+</svg>
