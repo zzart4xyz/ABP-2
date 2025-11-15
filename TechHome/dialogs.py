@@ -585,22 +585,6 @@ class AlarmEditorDialog(BaseFormDialog):
 
         toolbar = QHBoxLayout()
         toolbar.addStretch(1)
-        self.delete_btn = QToolButton()
-        self.delete_btn.setCursor(Qt.PointingHandCursor)
-        self.delete_btn.setToolTip("Eliminar alarma")
-        self.delete_btn.setStyleSheet(
-            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
-            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
-        )
-        alarm_delete_icon = c.icon("trash-can.svg")
-        if not alarm_delete_icon.isNull():
-            self.delete_btn.setIcon(alarm_delete_icon)
-            self.delete_btn.setIconSize(QSize(18, 18))
-        else:
-            self.delete_btn.setText("🗑")
-        self.delete_btn.clicked.connect(self._on_delete)
-        self.delete_btn.setVisible(alarm is not None)
-        toolbar.addWidget(self.delete_btn)
         layout.addLayout(toolbar)
 
         time_row = QHBoxLayout()
@@ -704,7 +688,7 @@ class AlarmEditorDialog(BaseFormDialog):
         layout.addLayout(snooze_row)
 
         title = "Editar alarma" if alarm else "Nueva alarma"
-        super().__init__(title, form, "Guardar", parent=parent, size=(380, 420))
+        super().__init__(title, form, "Guardar", parent=parent, size=(380, 480))
         self._deleted = False
 
         if alarm:
