@@ -20,6 +20,7 @@ from PyQt5.QtCore import (
     QParallelAnimationGroup,
     QSequentialAnimationGroup,
     QPauseAnimation,
+    QEvent,
 )
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
 try:
@@ -43,6 +44,44 @@ class MetricSpec:
     progress_fn: Callable[["MetricsDetailsDialog", float], float]
     value_fn: Callable[["MetricsDetailsDialog", float], str]
     graph_color: str = CLR_TITLE
+
+
+class TimerPopupDialog(QDialog):
+    """Frameless dialog that can be dragged and positioned manually."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._drag_active = False
+        self._drag_offset = QPoint()
+        self._drag_handles: list[QWidget] = []
+        self.installEventFilter(self)
+
+    def register_drag_handle(self, widget: QWidget) -> None:
+        if widget not in self._drag_handles:
+            widget.installEventFilter(self)
+            self._drag_handles.append(widget)
+
+    def eventFilter(self, obj, event):  # type: ignore[override]
+        if obj is self or obj in self._drag_handles:
+            if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                self._drag_active = True
+                self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
+            elif event.type() == QEvent.MouseMove and self._drag_active and event.buttons() & Qt.LeftButton:
+                self.move(event.globalPos() - self._drag_offset)
+            elif event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                self._drag_active = False
+        return super().eventFilter(obj, event)
+
+    def position_top_right(self, margin: int = 24) -> None:
+        screen = self.windowHandle().screen() if self.windowHandle() else QApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        geo = self.frameGeometry()
+        x = available.x() + available.width() - geo.width() - margin
+        y = available.y() + margin
+        min_x = available.x() + margin
+        self.move(max(min_x, x), y)
 
 class MetricGauge(QWidget):
 
@@ -2056,7 +2095,7 @@ class AnimatedBackground(QWidget):
         if not hasattr(self, 'timer_fullscreen_view'):
             return False
         if self.timer_fullscreen_dialog is None:
-            dialog = QDialog(self)
+            dialog = TimerPopupDialog(self)
             dialog.setModal(False)
             dialog.setObjectName('timerFullscreenDialog')
             dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -2072,12 +2111,13 @@ class AnimatedBackground(QWidget):
             frame_layout.setSpacing(0)
             frame_layout.addWidget(self.timer_fullscreen_view)
             layout.addWidget(frame)
+            dialog.register_drag_handle(frame)
             frame_radius = 28
             dialog.setStyleSheet(
                 "QDialog#timerFullscreenDialog { background: transparent; }"
                 f"QFrame#timerFullscreenFrame {{ background:{CLR_PANEL}; border-radius:{frame_radius}px; border:3px solid {CLR_TITLE}; }}"
             )
-            dialog.resize(520, 520)
+            dialog.resize(420, 420)
             dialog.rejected.connect(self._close_timer_fullscreen)
             self.timer_fullscreen_dialog = dialog
         return True
@@ -2091,6 +2131,7 @@ class AnimatedBackground(QWidget):
             self.timer_fullscreen_dialog.show()
             self.timer_fullscreen_dialog.raise_()
             self.timer_fullscreen_dialog.activateWindow()
+            self.timer_fullscreen_dialog.position_top_right()
 
     def _update_timer_fullscreen_state(self, timer: TimerState) -> None:
         if not hasattr(self, 'timer_fullscreen_view'):
