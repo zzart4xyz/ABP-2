@@ -463,7 +463,7 @@ class TimerCard(QFrame):
         self.fullscreen_btn = self._make_header_button("Mostrar temporizador")
         _set_button_icon(
             self.fullscreen_btn,
-            "arrow-up-right-and-arrow-down-left-from-center.svg",
+            "square-arrow-up-right.svg",
             QSize(20, 20),
             fallback="⤢",
         )
