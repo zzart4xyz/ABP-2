@@ -90,10 +90,10 @@ def _combo_arrow_style() -> str:
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font_sz = 28 if large else 16
     height = 64 if large else 48
-    # Use the high-contrast idle text colour even for the large timer inputs.
-    # Using the accent colour (``CLR_TITLE``) made the digits blend with the
-    # highlighted borders/backgrounds, so the numbers became difficult to read.
-    text_color = c.CLR_TEXT_IDLE
+    min_width = 92 if large else 0
+    # Large timer/alarm fields should keep their vibrant accent colour while
+    # smaller utility spin boxes retain the high-contrast idle text tone.
+    text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
     up_path = c.resolve_icon_path("chevron-up.svg")
     down_path = c.resolve_icon_path("chevron-down.svg")
     arrow_rules: list[str] = []
@@ -119,6 +119,8 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     )
     spin.setStyleSheet(style)
     spin.setFixedHeight(height)
+    if min_width:
+        spin.setMinimumWidth(min_width)
     spin.setAlignment(Qt.AlignCenter)
 
 
