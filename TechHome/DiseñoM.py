@@ -48,6 +48,7 @@ from constants import (
     make_shadow,
     load_icon_pixmap,
     tint_pixmap,
+    pill_button_style,
 )
 from widgets import (
     AlarmCard,
@@ -297,10 +298,7 @@ def build_more_page(app):
     app.edit_alarm_mode_btn.setCursor(Qt.PointingHandCursor)
     app.edit_alarm_mode_btn.setToolTip('Modo edición de alarmas')
     app.edit_alarm_mode_btn.setFixedSize(46, 38)
-    app.edit_alarm_mode_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_SURFACE}; color:{CLR_TEXT_IDLE}; border:none; border-radius:12px; padding:6px; }}"
-        f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-    )
+    app.edit_alarm_mode_btn.setStyleSheet(pill_button_style())
     edit_alarm_icon = icon('pen-to-square.svg')
     if not edit_alarm_icon.isNull():
         app.edit_alarm_mode_btn.setIcon(edit_alarm_icon)
@@ -312,10 +310,7 @@ def build_more_page(app):
     app.add_alarm_btn.setCursor(Qt.PointingHandCursor)
     app.add_alarm_btn.setToolTip('Añadir alarma')
     app.add_alarm_btn.setFixedSize(46, 38)
-    app.add_alarm_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_TITLE}; color:#07101B; border:none; border-radius:12px; padding:6px; font:700 16px '{FONT_FAM}'; }}"
-        f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-    )
+    app.add_alarm_btn.setStyleSheet(pill_button_style(True))
     add_alarm_icon = icon('plus.svg')
     if not add_alarm_icon.isNull():
         app.add_alarm_btn.setIcon(add_alarm_icon)
@@ -360,10 +355,7 @@ def build_more_page(app):
     app.edit_timer_mode_btn.setCursor(Qt.PointingHandCursor)
     app.edit_timer_mode_btn.setToolTip('Modo edición de timers')
     app.edit_timer_mode_btn.setFixedSize(46, 38)
-    app.edit_timer_mode_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_SURFACE}; color:{CLR_TEXT_IDLE}; border:none; border-radius:12px; padding:6px; }}"
-        f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-    )
+    app.edit_timer_mode_btn.setStyleSheet(pill_button_style())
     edit_timer_icon = icon('square-arrow-down-left.svg')
     if not edit_timer_icon.isNull():
         app.edit_timer_mode_btn.setIcon(edit_timer_icon)
@@ -375,10 +367,7 @@ def build_more_page(app):
     app.add_timer_btn.setCursor(Qt.PointingHandCursor)
     app.add_timer_btn.setToolTip('Añadir timer')
     app.add_timer_btn.setFixedSize(46, 38)
-    app.add_timer_btn.setStyleSheet(
-        f"QToolButton {{ background:{CLR_TITLE}; color:#07101B; border:none; border-radius:12px; padding:6px; font:700 16px '{FONT_FAM}'; }}"
-        f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-    )
+    app.add_timer_btn.setStyleSheet(pill_button_style(True))
     add_timer_icon = icon('square-arrow-up-right.svg')
     if not add_timer_icon.isNull():
         app.add_timer_btn.setIcon(add_timer_icon)
