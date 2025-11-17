@@ -463,7 +463,7 @@ class TimerCard(QFrame):
         self.fullscreen_btn = self._make_header_button("Mostrar temporizador")
         _set_button_icon(
             self.fullscreen_btn,
-            "square-arrow-down-left.svg",
+            "square-arrow-up-right.svg",
             QSize(20, 20),
             fallback="⤢",
         )
@@ -658,7 +658,7 @@ class TimerFullscreenView(QFrame):
             f"QToolButton {{ background:transparent; border:none; padding:0px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
         )
-        _set_button_icon(self.back_btn, "square-arrow-up-right.svg", QSize(34, 34), fallback="⤢")
+        _set_button_icon(self.back_btn, "square-arrow-down-left.svg", QSize(34, 34), fallback="⤢")
         self.back_btn.clicked.connect(lambda: self.closeRequested.emit())
         header.addWidget(self.back_btn)
 
