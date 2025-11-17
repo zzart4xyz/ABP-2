@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QDialog, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QCheckBox, QDateTimeEdit, QSpinBox, QProgressBar,
     QAbstractSpinBox, QMessageBox, QToolButton, QGraphicsDropShadowEffect,
-    QComboBox
+    QComboBox, QSizePolicy
 )
 
 import constants as c
@@ -90,33 +90,93 @@ def _combo_arrow_style() -> str:
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font_sz = 28 if large else 16
     height = 64 if large else 48
+    min_width = 92 if large else 0
+    # Keep enough internal spacing so the value text never sits beneath the
+    # arrow controls.  The margins mirror the padding used in the stylesheet
+    # as well as the explicit width we give to the up/down sub-controls.
+    left_margin = 12 if large else 6
+    right_margin = 40 if large else 34
+    # Large timer/alarm fields should keep their vibrant accent colour while
+    # smaller utility spin boxes retain the high-contrast idle text tone.
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
+    font = QFont(c.FONT_FAM)
+    font.setPixelSize(font_sz)
+    font.setWeight(QFont.DemiBold)
     up_path = c.resolve_icon_path("chevron-up.svg")
     down_path = c.resolve_icon_path("chevron-down.svg")
-    arrow_rules: list[str] = []
-    if up_path:
-        up_url = up_path.replace("\\", "/")
-        arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
-        arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+    style_parts = [
+        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px;"
+    ]
+    if large:
+        spin.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+        arrow_rules: list[str] = []
+        if up_path:
+            up_url = up_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
+        if down_path:
+            down_url = down_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
+        style_parts[0] += " padding-right:46px; padding-left:12px; }"
+        style_parts.extend(
+            [
+                "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top;"
+                " width:34px; border:none; background:transparent; margin:6px 6px 0 0; }",
+                "QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:right bottom;"
+                " width:34px; border:none; background:transparent; margin:0 6px 6px 0; }",
+                f"QSpinBox::up-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
+                f"QSpinBox::down-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
+                *arrow_rules,
+            ]
+        )
     else:
-        arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
-    if down_path:
-        down_url = down_path.replace("\\", "/")
-        arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
-        arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
-    else:
-        arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-    style = (
-        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px; padding-right:38px; font:600 {font_sz}px '{c.FONT_FAM}'; }}"
-        f"QSpinBox::up-button {{ subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }}"
-        f"QSpinBox::down-button {{ subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }}"
-        f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
-        f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
-        + "".join(arrow_rules)
-    )
+        spin.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+        arrow_rules: list[str] = []
+        if up_path:
+            up_url = up_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
+        if down_path:
+            down_url = down_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
+        style_parts[0] += " padding-right:38px; }"
+        style_parts.extend(
+            [
+                "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }",
+                "QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }",
+                f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}",
+                f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}",
+                *arrow_rules,
+            ]
+        )
+    style = "".join(style_parts)
+    spin.setFont(font)
     spin.setStyleSheet(style)
     spin.setFixedHeight(height)
+    if min_width:
+        spin.setMinimumWidth(min_width)
     spin.setAlignment(Qt.AlignCenter)
+    line_edit = spin.lineEdit()
+    line_edit.setFont(font)
+    line_edit.setAlignment(Qt.AlignCenter)
+    line_edit.setTextMargins(left_margin, 0, right_margin, 0)
+    line_edit.setContentsMargins(0, 0, 0, 0)
+    line_edit.setStyleSheet(
+        f"QLineEdit {{ background: transparent; border: none;"
+        f" color: {text_color};"
+        f" selection-background-color:{c.CLR_ITEM_ACT};"
+        f" selection-color:{c.CLR_TITLE if large else c.CLR_BG}; }}"
+    )
 
 
 class BaseFormDialog(QDialog):
@@ -585,22 +645,6 @@ class AlarmEditorDialog(BaseFormDialog):
 
         toolbar = QHBoxLayout()
         toolbar.addStretch(1)
-        self.delete_btn = QToolButton()
-        self.delete_btn.setCursor(Qt.PointingHandCursor)
-        self.delete_btn.setToolTip("Eliminar alarma")
-        self.delete_btn.setStyleSheet(
-            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
-            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
-        )
-        alarm_delete_icon = c.icon("trash-can.svg")
-        if not alarm_delete_icon.isNull():
-            self.delete_btn.setIcon(alarm_delete_icon)
-            self.delete_btn.setIconSize(QSize(18, 18))
-        else:
-            self.delete_btn.setText("🗑")
-        self.delete_btn.clicked.connect(self._on_delete)
-        self.delete_btn.setVisible(alarm is not None)
-        toolbar.addWidget(self.delete_btn)
         layout.addLayout(toolbar)
 
         time_row = QHBoxLayout()
@@ -704,7 +748,7 @@ class AlarmEditorDialog(BaseFormDialog):
         layout.addLayout(snooze_row)
 
         title = "Editar alarma" if alarm else "Nueva alarma"
-        super().__init__(title, form, "Guardar", parent=parent, size=(380, 420))
+        super().__init__(title, form, "Guardar", parent=parent, size=(380, 480))
         self._deleted = False
 
         if alarm:

@@ -1965,16 +1965,7 @@ class AnimatedBackground(QWidget):
         self._refresh_timer_cards()
 
     def _style_mode_button(self, button: QToolButton, active: bool) -> None:
-        if active:
-            button.setStyleSheet(
-                f"QToolButton {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; border:none; border-radius:12px; padding:6px; }}"
-                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-            )
-        else:
-            button.setStyleSheet(
-                f"QToolButton {{ background:{CLR_SURFACE}; color:{CLR_TEXT_IDLE}; border:none; border-radius:12px; padding:6px; }}"
-                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-            )
+        button.setStyleSheet(pill_button_style(active))
 
     def _set_timer_edit_mode(self, active: bool) -> None:
         self._timer_edit_mode = active

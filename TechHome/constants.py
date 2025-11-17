@@ -472,6 +472,33 @@ def button_style(color: str = None, padding: str = "0px") -> str:
         }}
     """
 
+
+def color_with_alpha(color: str, alpha: int) -> str:
+    """Return ``color`` expressed as a hex string with the given alpha value."""
+
+    qcol = QColor(color)
+    qcol.setAlpha(max(0, min(255, alpha)))
+    return qcol.name(QColor.HexArgb)
+
+
+def pill_button_style(active: bool = False) -> str:
+    """Stylesheet used for pill-shaped tool buttons in toolbars."""
+
+    base_bg = QColor(CLR_SURFACE).name()
+    base_text = CLR_TITLE if active else CLR_TEXT_IDLE
+    border_alpha = 180 if active else 110
+    base_border = color_with_alpha(CLR_TITLE, border_alpha)
+    hover_bg = color_with_alpha(CLR_TITLE, 60)
+    checked_bg = color_with_alpha(CLR_TITLE, 90)
+    checked_hover_bg = color_with_alpha(CLR_TITLE, 120)
+    return "\n".join([
+        f"QToolButton {{ background:{base_bg}; color:{base_text}; border:1px solid {base_border}; border-radius:12px; padding:6px; }}",
+        f"QToolButton:hover {{ background:{hover_bg}; color:{CLR_TITLE}; border:1px solid {CLR_TITLE}; }}",
+        f"QToolButton:checked {{ background:{checked_bg}; color:{CLR_TITLE}; border:1px solid {CLR_TITLE}; }}",
+        f"QToolButton:checked:hover {{ background:{checked_hover_bg}; border:1px solid {CLR_TITLE}; }}",
+        f"QToolButton:pressed {{ background:{checked_bg}; border:1px solid {CLR_TITLE}; }}",
+    ])
+
 def make_shadow(widget, radius: int = 15, offset: int = 4, alpha: int = None):
     """
     Apply a drop shadow effect to a widget.  The opacity is adjusted
