@@ -655,26 +655,13 @@ class TimerFullscreenView(QFrame):
         self.back_btn.setCursor(Qt.PointingHandCursor)
         self.back_btn.setToolTip("Cerrar vista de temporizador")
         self.back_btn.setStyleSheet(
-            f"QToolButton {{ background:transparent; border:none; padding:4px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton {{ background:transparent; border:none; padding:0px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
         )
         _set_button_icon(self.back_btn, "square-arrow-down-left.svg", QSize(34, 34), fallback="⤢")
         self.back_btn.clicked.connect(lambda: self.closeRequested.emit())
         header.addWidget(self.back_btn)
 
-        text_block = QVBoxLayout()
-        text_block.setContentsMargins(0, 0, 0, 0)
-        text_block.setSpacing(4)
-        self.title_lbl = QLabel("Timer")
-        self._title_style_tpl = f"color:{c.CLR_TITLE}; font:700 {{}}px '{c.FONT_FAM}';"
-        self.title_lbl.setStyleSheet(self._title_style_tpl.format(28))
-        text_block.addWidget(self.title_lbl)
-        self.subtitle_lbl = QLabel("Listo para iniciar")
-        self._subtitle_style_tpl = f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.85)}; font:500 {{}}px '{c.FONT_FAM}';"
-        self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(16))
-        self.subtitle_lbl.setWordWrap(True)
-        text_block.addWidget(self.subtitle_lbl)
-        header.addLayout(text_block, stretch=1)
         header.addStretch(1)
         self._layout.addLayout(header)
 
@@ -739,10 +726,7 @@ class TimerFullscreenView(QFrame):
 
     def set_state(self, state: object, progress: float, subtitle: str, running: bool) -> None:
         self._state = state
-        label = getattr(state, "label", "Timer") or "Timer"
         remaining = int(getattr(state, "remaining", 0))
-        self.title_lbl.setText(label)
-        self.subtitle_lbl.setText(subtitle)
         self.dial.update_state(progress, _format_seconds(remaining), subtitle)
         is_running = running and remaining > 0
         self._set_play_icon(is_running)
@@ -776,21 +760,8 @@ class TimerFullscreenView(QFrame):
             header_layout = header_item.layout()
             if isinstance(header_layout, QHBoxLayout):
                 header_layout.setSpacing(header_spacing)
-        radius = 18 if not self._compact_mode else 12
-        padding = 10 if not self._compact_mode else 6
-        self.back_btn.setStyleSheet(
-            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:{radius}px; padding:{padding}px; color:{c.CLR_TEXT_IDLE}; }}"
-            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
-        )
-        back_icon = 22 if not self._compact_mode else 16
+        back_icon = 34 if not self._compact_mode else 24
         self.back_btn.setIconSize(QSize(back_icon, back_icon))
-        text_alignment = Qt.AlignLeft | Qt.AlignVCenter if not self._compact_mode else Qt.AlignCenter
-        self.title_lbl.setAlignment(text_alignment)
-        self.subtitle_lbl.setAlignment(text_alignment)
-        title_size = 28 if not self._compact_mode else 15
-        subtitle_size = 16 if not self._compact_mode else 10
-        self.title_lbl.setStyleSheet(self._title_style_tpl.format(title_size))
-        self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(subtitle_size))
         dial_size = 320 if not self._compact_mode else 112
         self.dial.setFixedSize(dial_size, dial_size)
         self.dial.set_ring_thickness(18 if not self._compact_mode else 10)
