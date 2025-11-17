@@ -88,17 +88,14 @@ def _combo_arrow_style() -> str:
 
 
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
-    font_sz = 30 if large else 16
-    height = 80 if large else 48
-    # Give the big timer/alarm fields extra space so their digits are never
-    # squeezed beneath the arrow controls, while allowing compact spin boxes
-    # to size naturally inside tighter layouts.
-    min_width = 108 if large else 0
+    font_sz = 28 if large else 16
+    height = 64 if large else 48
+    min_width = 92 if large else 0
     # Keep enough internal spacing so the value text never sits beneath the
     # arrow controls.  The margins mirror the padding used in the stylesheet
     # as well as the explicit width we give to the up/down sub-controls.
-    left_margin = 18 if large else 6
-    right_margin = 60 if large else 34
+    left_margin = 12 if large else 6
+    right_margin = 40 if large else 34
     # Large timer/alarm fields should keep their vibrant accent colour while
     # smaller utility spin boxes retain the high-contrast idle text tone.
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
@@ -107,19 +104,8 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font.setWeight(QFont.DemiBold)
     up_path = c.resolve_icon_path("chevron-up.svg")
     down_path = c.resolve_icon_path("chevron-down.svg")
-    base_bg = c.CLR_SURFACE
-    border_color = c.CLR_ITEM_ACT
-    radius = 12
-    padding_left = 10
-    padding_right = 38
-    if large:
-        base_bg = _with_alpha(c.CLR_TITLE, 0.08)
-        border_color = c.CLR_TITLE
-        radius = 18
-        padding_left = 18
-        padding_right = 70
     style_parts = [
-        f"QSpinBox {{ background:{base_bg}; color:{text_color}; border:2px solid {border_color}; border-radius:{radius}px;"
+        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px;"
     ]
     if large:
         spin.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
@@ -136,15 +122,15 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
             arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
         else:
             arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-        style_parts[0] += f" padding-right:{padding_right}px; padding-left:{padding_left}px; }}"
+        style_parts[0] += " padding-right:46px; padding-left:12px; }"
         style_parts.extend(
             [
                 "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top;"
-                " width:30px; height:30px; border:none; background:transparent; margin:6px 10px 0 0; border-radius:10px; }",
+                " width:34px; border:none; background:transparent; margin:6px 6px 0 0; }",
                 "QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:right bottom;"
-                " width:30px; height:30px; border:none; background:transparent; margin:0 10px 6px 0; border-radius:10px; }",
-                f"QSpinBox::up-button:hover {{ background:{_with_alpha(c.CLR_TITLE, 0.25)}; }}",
-                f"QSpinBox::down-button:hover {{ background:{_with_alpha(c.CLR_TITLE, 0.25)}; }}",
+                " width:34px; border:none; background:transparent; margin:0 6px 6px 0; }",
+                f"QSpinBox::up-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
+                f"QSpinBox::down-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
                 *arrow_rules,
             ]
         )
@@ -163,7 +149,7 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
             arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
         else:
             arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-        style_parts[0] += f" padding-right:{padding_right}px; padding-left:{padding_left}px; }}"
+        style_parts[0] += " padding-right:38px; }"
         style_parts.extend(
             [
                 "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }",
