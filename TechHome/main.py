@@ -932,6 +932,7 @@ class AnimatedBackground(QWidget):
         self._alarm_card_widgets: dict[int, AlarmCard] = {}
         self._timer_card_widgets: dict[int, TimerCard] = {}
         self._timer_fullscreen_timer: TimerState | None = None
+        self.timer_fullscreen_dialog: QDialog | None = None
         self._alarm_edit_mode = False
         self._timer_edit_mode = False
         self._last_selected_timer: TimerState | None = None
@@ -2051,14 +2052,35 @@ class AnimatedBackground(QWidget):
         if not has_timers:
             self._close_timer_fullscreen()
 
+    def _ensure_timer_fullscreen_dialog(self) -> bool:
+        if not hasattr(self, 'timer_fullscreen_view'):
+            return False
+        if self.timer_fullscreen_dialog is None:
+            dialog = QDialog(self)
+            dialog.setModal(False)
+            dialog.setObjectName('timerFullscreenDialog')
+            dialog.setWindowTitle('Temporizador')
+            dialog.setAttribute(Qt.WA_DeleteOnClose, False)
+            dialog.setStyleSheet(
+                f"QDialog#timerFullscreenDialog {{ background:{CLR_BG}; border-radius:{FRAME_RAD}px; }}"
+            )
+            layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(self.timer_fullscreen_view)
+            dialog.resize(540, 640)
+            dialog.rejected.connect(self._close_timer_fullscreen)
+            self.timer_fullscreen_dialog = dialog
+        return True
+
     def _show_timer_fullscreen(self, timer: TimerState) -> None:
-        if not hasattr(self, 'timer_view_stack') or not hasattr(self, 'timer_fullscreen_view'):
+        if not self._ensure_timer_fullscreen_dialog():
             return
-        if hasattr(self, 'timer_toolbar_frame'):
-            self.timer_toolbar_frame.setVisible(False)
         self._timer_fullscreen_timer = timer
-        self.timer_view_stack.setCurrentWidget(self.timer_fullscreen_view)
         self._update_timer_fullscreen_state(timer)
+        if self.timer_fullscreen_dialog is not None:
+            self.timer_fullscreen_dialog.show()
+            self.timer_fullscreen_dialog.raise_()
+            self.timer_fullscreen_dialog.activateWindow()
 
     def _update_timer_fullscreen_state(self, timer: TimerState) -> None:
         if not hasattr(self, 'timer_fullscreen_view'):
@@ -2069,10 +2091,9 @@ class AnimatedBackground(QWidget):
 
     def _close_timer_fullscreen(self) -> None:
         self._timer_fullscreen_timer = None
-        if hasattr(self, 'timer_view_stack') and hasattr(self, 'timer_list_widget'):
-            self.timer_view_stack.setCurrentWidget(self.timer_list_widget)
-        if hasattr(self, 'timer_toolbar_frame'):
-            self.timer_toolbar_frame.setVisible(True)
+        dialog = getattr(self, 'timer_fullscreen_dialog', None)
+        if dialog is not None and dialog.isVisible():
+            dialog.hide()
 
     def _format_alarm_countdown(self, alarm: AlarmState, now: datetime) -> str:
         next_trigger = alarm.next_trigger_after(now)

@@ -416,14 +416,9 @@ def build_more_page(app):
     timer_container_layout.addWidget(timer_cards_frame, 0, Qt.AlignTop)
     timer_container_layout.addStretch(1)
 
-    timer_stack = QStackedWidget()
-    timer_stack.addWidget(timer_scroll)
     app.timer_list_widget = timer_scroll
+    ti_l.addWidget(timer_scroll, 1)
     app.timer_fullscreen_view = TimerFullscreenView()
-    timer_stack.addWidget(app.timer_fullscreen_view)
-    timer_stack.setCurrentWidget(timer_scroll)
-    app.timer_view_stack = timer_stack
-    ti_l.addWidget(timer_stack, 1)
     tab_at.addTab(timer_tab, 'Timers')
     ap_layout.addWidget(tab_at, 1)
     app.more_stack.addWidget(alarm_page)
