@@ -710,6 +710,7 @@ class TimerFullscreenView(QFrame):
         self._controls.addWidget(self.reset_btn)
         self._controls.addStretch(1)
         self._layout.addLayout(self._controls)
+        self._layout.addStretch(1)
 
         self._apply_mode_metrics()
 
@@ -749,47 +750,67 @@ class TimerFullscreenView(QFrame):
         self._apply_mode_metrics()
 
     def _apply_mode_metrics(self) -> None:
-        margins = 32 if not self._compact_mode else 10
-        spacing = 28 if not self._compact_mode else 6
+        if not self._compact_mode:
+            margins = 32
+            spacing = 28
+            header_spacing = 12
+            back_icon = 34
+            dial_size = 320
+            ring_thickness = 18
+            text_scale = 1.0
+            show_subtitle = True
+            control_spacing = 20
+            play_size = 92
+            play_padding = 18
+            play_icon = 44
+            reset_size = 76
+            reset_padding = 18
+            reset_icon = 30
+        else:
+            margins = 12
+            spacing = 12
+            header_spacing = 8
+            back_icon = 30
+            dial_size = 118
+            ring_thickness = 12
+            text_scale = 0.78
+            show_subtitle = False
+            control_spacing = 12
+            play_size = 52
+            play_padding = 12
+            play_icon = 32
+            reset_size = 44
+            reset_padding = 10
+            reset_icon = 22
         self._layout.setContentsMargins(margins, margins, margins, margins)
         self._layout.setSpacing(spacing)
-        header_spacing = 12 if not self._compact_mode else 6
         # header layout is first item in _layout
         if self._layout.count():
             header_item = self._layout.itemAt(0)
             header_layout = header_item.layout()
             if isinstance(header_layout, QHBoxLayout):
                 header_layout.setSpacing(header_spacing)
-        back_icon = 34 if not self._compact_mode else 24
         self.back_btn.setIconSize(QSize(back_icon, back_icon))
-        dial_size = 320 if not self._compact_mode else 112
         self.dial.setFixedSize(dial_size, dial_size)
-        self.dial.set_ring_thickness(18 if not self._compact_mode else 10)
-        self.dial.set_text_scale(1.0 if not self._compact_mode else 0.72)
-        self.dial.set_show_subtitle(not self._compact_mode)
-        control_spacing = 20 if not self._compact_mode else 8
+        self.dial.set_ring_thickness(ring_thickness)
+        self.dial.set_text_scale(text_scale)
+        self.dial.set_show_subtitle(show_subtitle)
         self._controls.setSpacing(control_spacing)
-        play_size = 92 if not self._compact_mode else 46
         play_radius = play_size // 2
-        play_padding = 18 if not self._compact_mode else 8
         self.play_btn.setFixedSize(play_size, play_size)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:{play_radius}px; padding:{play_padding}px; color:#07101B; }}"
             f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.35)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.5)}; }}"
         )
-        play_icon = 44 if not self._compact_mode else 26
         self.play_btn.setIconSize(QSize(play_icon, play_icon))
-        reset_size = 76 if not self._compact_mode else 38
         reset_radius = reset_size // 2
-        reset_padding = 18 if not self._compact_mode else 6
         self.reset_btn.setFixedSize(reset_size, reset_size)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:{reset_radius}px; padding:{reset_padding}px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.4)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.45)}; }}"
         )
-        reset_icon = 30 if not self._compact_mode else 18
         self.reset_btn.setIconSize(QSize(reset_icon, reset_icon))
 
 
