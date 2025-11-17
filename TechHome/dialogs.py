@@ -103,8 +103,32 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
         f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px;"
     ]
     if large:
-        spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        style_parts[0] += " padding-right:12px; padding-left:12px; }"
+        spin.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+        arrow_rules: list[str] = []
+        if up_path:
+            up_url = up_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
+        if down_path:
+            down_url = down_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
+        style_parts[0] += " padding-right:46px; padding-left:12px; }"
+        style_parts.extend(
+            [
+                "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top;"
+                " width:34px; border:none; background:transparent; margin:6px 6px 0 0; }",
+                "QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:right bottom;"
+                " width:34px; border:none; background:transparent; margin:0 6px 6px 0; }",
+                f"QSpinBox::up-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
+                f"QSpinBox::down-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
+                *arrow_rules,
+            ]
+        )
     else:
         spin.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         arrow_rules: list[str] = []
