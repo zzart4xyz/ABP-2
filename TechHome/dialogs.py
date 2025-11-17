@@ -99,27 +99,38 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font.setWeight(QFont.DemiBold)
     up_path = c.resolve_icon_path("chevron-up.svg")
     down_path = c.resolve_icon_path("chevron-down.svg")
-    arrow_rules: list[str] = []
-    if up_path:
-        up_url = up_path.replace("\\", "/")
-        arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
-        arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+    style_parts = [
+        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px;"
+    ]
+    if large:
+        spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        style_parts[0] += " padding-right:12px; padding-left:12px; }"
     else:
-        arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
-    if down_path:
-        down_url = down_path.replace("\\", "/")
-        arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
-        arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
-    else:
-        arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-    style = (
-        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px; padding-right:38px; }}"
-        f"QSpinBox::up-button {{ subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }}"
-        f"QSpinBox::down-button {{ subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }}"
-        f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
-        f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
-        + "".join(arrow_rules)
-    )
+        spin.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+        arrow_rules: list[str] = []
+        if up_path:
+            up_url = up_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::up-arrow {{ image: url(\"{up_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::up-arrow:disabled {{ image: url(\"{up_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::up-arrow { width:0; height:0; }")
+        if down_path:
+            down_url = down_path.replace("\\", "/")
+            arrow_rules.append(f"QSpinBox::down-arrow {{ image: url(\"{down_url}\"); width:18px; height:18px; }}")
+            arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
+        else:
+            arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
+        style_parts[0] += " padding-right:38px; }"
+        style_parts.extend(
+            [
+                "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }",
+                "QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }",
+                f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}",
+                f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}",
+                *arrow_rules,
+            ]
+        )
+    style = "".join(style_parts)
     spin.setFont(font)
     spin.setStyleSheet(style)
     spin.setFixedHeight(height)
