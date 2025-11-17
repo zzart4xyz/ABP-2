@@ -450,17 +450,17 @@ class TimerCard(QFrame):
         header.addWidget(self.title_lbl)
         header.addStretch(1)
 
-        self.edit_btn = self._make_header_button("Editar timer")
+        self.edit_btn = self._make_header_button()
         _set_button_icon(self.edit_btn, "pencil.svg", QSize(20, 20), fallback="✏")
         self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
         header.addWidget(self.edit_btn)
 
-        self.delete_btn = self._make_header_button("Eliminar timer")
+        self.delete_btn = self._make_header_button()
         _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
         self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
         header.addWidget(self.delete_btn)
 
-        self.fullscreen_btn = self._make_header_button("Mostrar temporizador")
+        self.fullscreen_btn = self._make_header_button()
         _set_button_icon(
             self.fullscreen_btn,
             "square-arrow-up-right.svg",
@@ -470,7 +470,7 @@ class TimerCard(QFrame):
         self.fullscreen_btn.clicked.connect(lambda: self.fullscreenRequested.emit(self))
         header.addWidget(self.fullscreen_btn)
 
-        self.loop_btn = self._make_header_button("Notificar al finalizar")
+        self.loop_btn = self._make_header_button()
         self.loop_btn.setCheckable(True)
         self._loop_icon_active = self._make_tinted_icon("bell.svg", c.CLR_TITLE)
         inactive_color = _with_alpha(c.CLR_TEXT_IDLE, 0.85)
@@ -495,7 +495,6 @@ class TimerCard(QFrame):
         play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
         self.play_btn = QToolButton()
         self.play_btn.setCursor(Qt.PointingHandCursor)
-        self.play_btn.setToolTip("Iniciar")
         self.play_btn.setFixedSize(64, 64)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:32px; padding:14px; color:#07101B; }}"
@@ -512,7 +511,6 @@ class TimerCard(QFrame):
         reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
         self.reset_btn = QToolButton()
         self.reset_btn.setCursor(Qt.PointingHandCursor)
-        self.reset_btn.setToolTip("Reiniciar")
         self.reset_btn.setFixedSize(52, 52)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:26px; padding:12px; color:{c.CLR_TEXT_IDLE}; }}"
@@ -531,10 +529,9 @@ class TimerCard(QFrame):
 
         self._apply_loop_style(False)
 
-    def _make_header_button(self, tooltip: str) -> QToolButton:
+    def _make_header_button(self) -> QToolButton:
         btn = QToolButton()
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setToolTip(tooltip)
         btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
@@ -591,7 +588,6 @@ class TimerCard(QFrame):
         is_running = running and remaining > 0
         can_reset = duration > 0 and remaining != duration
         self.play_btn.setEnabled(duration > 0)
-        self.play_btn.setToolTip("Pausar" if is_running else "Iniciar")
         self._set_play_icon(is_running)
         self._set_reset_enabled(can_reset)
         self.loop_btn.blockSignals(True)
@@ -653,7 +649,6 @@ class TimerFullscreenView(QFrame):
 
         self.back_btn = QToolButton()
         self.back_btn.setCursor(Qt.PointingHandCursor)
-        self.back_btn.setToolTip("Cerrar vista de temporizador")
         self.back_btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; padding:0px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
@@ -681,7 +676,6 @@ class TimerFullscreenView(QFrame):
         play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
         self.play_btn = QToolButton()
         self.play_btn.setCursor(Qt.PointingHandCursor)
-        self.play_btn.setToolTip("Iniciar")
         self.play_btn.setFixedSize(92, 92)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:46px; padding:18px; color:#07101B; }}"
@@ -698,7 +692,6 @@ class TimerFullscreenView(QFrame):
         reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
         self.reset_btn = QToolButton()
         self.reset_btn.setCursor(Qt.PointingHandCursor)
-        self.reset_btn.setToolTip("Reiniciar")
         self.reset_btn.setFixedSize(76, 76)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:38px; padding:18px; color:{c.CLR_TEXT_IDLE}; }}"
@@ -850,7 +843,6 @@ class AlarmCard(QFrame):
         header.addStretch(1)
 
         self.toggle = ToggleSwitch()
-        self.toggle.setToolTip("Activar o desactivar alarma")
         self.toggle.toggled.connect(self._on_toggle)
         header.addWidget(self.toggle)
         layout.addLayout(header)
@@ -896,12 +888,12 @@ class AlarmCard(QFrame):
         footer.setSpacing(8)
         footer.addStretch(1)
 
-        self.edit_btn = self._make_footer_button("Editar alarma")
+        self.edit_btn = self._make_footer_button()
         _set_button_icon(self.edit_btn, "pencil.svg", QSize(18, 18), fallback="✏")
         self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
         footer.addWidget(self.edit_btn)
 
-        self.delete_btn = self._make_footer_button("Eliminar alarma")
+        self.delete_btn = self._make_footer_button()
         _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
         self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
         footer.addWidget(self.delete_btn)
@@ -953,10 +945,9 @@ class AlarmCard(QFrame):
         scaled = pix.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         return c.tint_pixmap(scaled, QColor(color))
 
-    def _make_footer_button(self, tooltip: str) -> QToolButton:
+    def _make_footer_button(self) -> QToolButton:
         btn = QToolButton()
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setToolTip(tooltip)
         btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:14px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"

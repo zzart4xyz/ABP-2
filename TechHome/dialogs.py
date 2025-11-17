@@ -351,7 +351,6 @@ class TimerEditorDialog(BaseFormDialog):
         toolbar.addStretch(1)
         self.delete_btn = QToolButton()
         self.delete_btn.setCursor(Qt.PointingHandCursor)
-        self.delete_btn.setToolTip("Eliminar timer")
         self.delete_btn.setStyleSheet(
             f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
             f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
@@ -506,7 +505,6 @@ class TimerDisplayDialog(QDialog):
 
         self.expand_btn = QToolButton()
         self.expand_btn.setCursor(Qt.PointingHandCursor)
-        self.expand_btn.setToolTip("Ampliar")
         self.expand_btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
@@ -522,7 +520,6 @@ class TimerDisplayDialog(QDialog):
 
         self.close_btn = QToolButton()
         self.close_btn.setCursor(Qt.PointingHandCursor)
-        self.close_btn.setToolTip("Cerrar")
         self.close_btn.setText("✕")
         self.close_btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; font:700 16px '{c.FONT_FAM}'; }}"
@@ -608,7 +605,6 @@ class TimerDisplayDialog(QDialog):
             self.expand_btn.setText("")
         else:
             self.expand_btn.setText("⤡" if self._expanded else "⤢")
-        self.expand_btn.setToolTip("Restaurar" if self._expanded else "Ampliar")
 
     def set_state(self, state: TimerState, progress: float, subtitle: str, running: bool) -> None:
         self._state = state
