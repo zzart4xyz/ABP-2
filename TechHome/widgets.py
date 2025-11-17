@@ -658,7 +658,7 @@ class TimerFullscreenView(QFrame):
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:18px; padding:10px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
         )
-        _set_button_icon(self.back_btn, "square-arrow-down-left.svg", QSize(22, 22), fallback="⤢")
+        _set_button_icon(self.back_btn, "square-arrow-down-left.svg", QSize(28, 28), fallback="⤢")
         self.back_btn.clicked.connect(lambda: self.closeRequested.emit())
         header.addWidget(self.back_btn)
 
