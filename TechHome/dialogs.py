@@ -180,6 +180,12 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     # Ensure the editable text is rendered above the decorative spin buttons so
     # the digits remain visible even with custom styles applied.
     line_edit.raise_()
+    # Some Qt styles (especially on Windows) repaint or restack the spin box
+    # sub-controls after the dialog is shown, which can cause the editable text
+    # field to slip behind the up/down buttons.  Schedule another raise on the
+    # next event loop cycle to keep the digits in front of every decorative
+    # layer regardless of platform order quirks.
+    QTimer.singleShot(0, line_edit.raise_)
 
 
 class BaseFormDialog(QDialog):
