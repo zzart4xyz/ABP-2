@@ -1995,6 +1995,7 @@ class AnimatedBackground(QWidget):
         layout = self.timer_cards_layout
         now = datetime.now()
         keep: set[int] = set()
+        ordered_cards: list[TimerCard] = []
         for timer in self.timers:
             key = id(timer)
             keep.add(key)
@@ -2010,8 +2011,6 @@ class AnimatedBackground(QWidget):
                 card.deleteRequested.connect(lambda c, t=timer: self._delete_timer(t))
                 card.fullscreenRequested.connect(lambda c, t=timer: self._open_timer_view(t))
                 card.clicked.connect(lambda c, t=timer: setattr(self, '_last_selected_timer', t))
-                insert_pos = max(0, layout.count() - 1)
-                layout.insertWidget(insert_pos, card)
             progress = timer.progress if timer.duration else 0.0
             finish_text = self._format_timer_finish(timer)
             card.set_state(timer, progress, finish_text, timer.running)
@@ -2019,6 +2018,11 @@ class AnimatedBackground(QWidget):
             viewer = self._timer_viewers.get(key)
             if viewer is not None:
                 viewer.set_state(timer, progress, finish_text, timer.running)
+            ordered_cards.append(card)
+        for idx, card in enumerate(ordered_cards):
+            row = idx // 2
+            col = idx % 2
+            layout.addWidget(card, row, col)
         for key, card in list(self._timer_card_widgets.items()):
             if key not in keep:
                 card.setParent(None)
@@ -2034,6 +2038,8 @@ class AnimatedBackground(QWidget):
         has_timers = bool(self.timers)
         if hasattr(self, 'timer_empty_label'):
             self.timer_empty_label.setVisible(not has_timers)
+        if hasattr(self, 'timer_cards_widget'):
+            self.timer_cards_widget.setVisible(has_timers)
 
     def _open_timer_view(self, timer: TimerState) -> None:
         key = id(timer)
