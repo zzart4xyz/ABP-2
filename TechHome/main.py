@@ -2077,7 +2077,7 @@ class AnimatedBackground(QWidget):
                 "QDialog#timerFullscreenDialog { background: transparent; }"
                 f"QFrame#timerFullscreenFrame {{ background:{CLR_PANEL}; border-radius:{frame_radius}px; border:3px solid {CLR_TITLE}; }}"
             )
-            dialog.resize(600, 600)
+            dialog.resize(520, 520)
             dialog.rejected.connect(self._close_timer_fullscreen)
             self.timer_fullscreen_dialog = dialog
         return True
