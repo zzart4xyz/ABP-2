@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from PyQt5.QtCore import Qt, QSize, QEasingCurve
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QAbstractSpinBox,
     QCalendarWidget,
@@ -356,9 +356,12 @@ def build_more_page(app):
     app.edit_timer_mode_btn.setToolTip('Modo edición de timers')
     app.edit_timer_mode_btn.setFixedSize(46, 38)
     app.edit_timer_mode_btn.setStyleSheet(pill_button_style())
-    edit_timer_icon = icon('square-arrow-down-left.svg')
-    if not edit_timer_icon.isNull():
-        app.edit_timer_mode_btn.setIcon(edit_timer_icon)
+    edit_timer_pix = load_icon_pixmap('pen-to-square.svg', QSize(20, 20))
+    if edit_timer_pix.isNull():
+        edit_timer_pix = load_icon_pixmap('edit.svg', QSize(20, 20))
+    if not edit_timer_pix.isNull():
+        tinted_edit = tint_pixmap(edit_timer_pix, QColor(CLR_TITLE))
+        app.edit_timer_mode_btn.setIcon(QIcon(tinted_edit))
         app.edit_timer_mode_btn.setIconSize(QSize(20, 20))
     else:
         app.edit_timer_mode_btn.setText('✏')
@@ -368,9 +371,12 @@ def build_more_page(app):
     app.add_timer_btn.setToolTip('Añadir timer')
     app.add_timer_btn.setFixedSize(46, 38)
     app.add_timer_btn.setStyleSheet(pill_button_style(True))
-    add_timer_icon = icon('square-arrow-up-right.svg')
-    if not add_timer_icon.isNull():
-        app.add_timer_btn.setIcon(add_timer_icon)
+    add_timer_pix = load_icon_pixmap('plus.svg', QSize(20, 20))
+    if add_timer_pix.isNull():
+        add_timer_pix = load_icon_pixmap('circle-plus.svg', QSize(20, 20))
+    if not add_timer_pix.isNull():
+        tinted_add = tint_pixmap(add_timer_pix, QColor(CLR_TITLE))
+        app.add_timer_btn.setIcon(QIcon(tinted_add))
         app.add_timer_btn.setIconSize(QSize(20, 20))
     else:
         app.add_timer_btn.setText('+')
