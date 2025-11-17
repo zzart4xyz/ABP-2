@@ -667,6 +667,10 @@ class TimerFullscreenView(QFrame):
 
         self.dial = CircularCountdown(320, 18)
         self._layout.addWidget(self.dial, alignment=Qt.AlignCenter)
+        # Provide a flexible spacer below the dial so it stays closer to the
+        # header, keeping the countdown circle visually higher in compact
+        # popups without affecting the default layout proportions.
+        self._layout.addStretch(1)
 
         self._controls = QHBoxLayout()
         self._controls.setContentsMargins(0, 0, 0, 0)
