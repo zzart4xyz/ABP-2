@@ -601,6 +601,133 @@ class TimerCard(QFrame):
         self.reset_btn.setEnabled(enabled)
 
 
+class TimerFullscreenView(QFrame):
+    """Fullscreen timer view embedded inside the alarms & timers page."""
+
+    playRequested = pyqtSignal()
+    pauseRequested = pyqtSignal()
+    resetRequested = pyqtSignal()
+    closeRequested = pyqtSignal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._state = None
+        self.setObjectName("timerFullscreenView")
+        self.setStyleSheet(
+            f"QFrame#timerFullscreenView {{ background:{c.CLR_PANEL}; border-radius:24px; border:1px solid {_with_alpha('#FFFFFF', 0.08)}; }}"
+        )
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(28)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(12)
+
+        self.back_btn = QToolButton()
+        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.setToolTip("Cerrar vista de temporizador")
+        self.back_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:18px; padding:10px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+        )
+        _set_button_icon(self.back_btn, "arrow-down-left-and-arrow-up-right-to-center.svg", QSize(22, 22), fallback="⤢")
+        self.back_btn.clicked.connect(lambda: self.closeRequested.emit())
+        header.addWidget(self.back_btn)
+
+        text_block = QVBoxLayout()
+        text_block.setContentsMargins(0, 0, 0, 0)
+        text_block.setSpacing(4)
+        self.title_lbl = QLabel("Timer")
+        self.title_lbl.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 28px '{c.FONT_FAM}';")
+        text_block.addWidget(self.title_lbl)
+        self.subtitle_lbl = QLabel("Listo para iniciar")
+        self.subtitle_lbl.setStyleSheet(f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.85)}; font:500 16px '{c.FONT_FAM}';")
+        text_block.addWidget(self.subtitle_lbl)
+        header.addLayout(text_block, stretch=1)
+        header.addStretch(1)
+        layout.addLayout(header)
+
+        self.dial = CircularCountdown(320, 18)
+        layout.addWidget(self.dial, alignment=Qt.AlignCenter)
+
+        controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(20)
+        controls.addStretch(1)
+
+        play_disabled_bg = _with_alpha(c.CLR_SURFACE, 0.35)
+        play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
+        self.play_btn = QToolButton()
+        self.play_btn.setCursor(Qt.PointingHandCursor)
+        self.play_btn.setToolTip("Iniciar")
+        self.play_btn.setFixedSize(92, 92)
+        self.play_btn.setStyleSheet(
+            f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:46px; padding:18px; color:#07101B; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{play_disabled_bg}; color:{play_disabled_fg}; }}"
+        )
+        self._play_icon = c.icon("play.svg")
+        self._pause_icon = c.icon("pause.svg")
+        self._set_play_icon(False)
+        self.play_btn.clicked.connect(self._on_play_clicked)
+        controls.addWidget(self.play_btn)
+
+        reset_disabled_bg = _with_alpha(c.CLR_SURFACE, 0.4)
+        reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
+        self.reset_btn = QToolButton()
+        self.reset_btn.setCursor(Qt.PointingHandCursor)
+        self.reset_btn.setToolTip("Reiniciar")
+        self.reset_btn.setFixedSize(76, 76)
+        self.reset_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:38px; padding:18px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{reset_disabled_bg}; color:{reset_disabled_fg}; }}"
+        )
+        reset_icon = c.icon("rotate-left.svg")
+        if not reset_icon.isNull():
+            self.reset_btn.setIcon(reset_icon)
+            self.reset_btn.setIconSize(QSize(30, 30))
+        self.reset_btn.clicked.connect(lambda: self.resetRequested.emit())
+        self.reset_btn.setEnabled(False)
+        controls.addWidget(self.reset_btn)
+        controls.addStretch(1)
+        layout.addLayout(controls)
+
+    def _on_play_clicked(self) -> None:
+        if self._state is None:
+            self.playRequested.emit()
+            return
+        running = bool(getattr(self._state, "running", False))
+        remaining = int(getattr(self._state, "remaining", 0))
+        if running and remaining > 0:
+            self.pauseRequested.emit()
+        else:
+            self.playRequested.emit()
+
+    def set_state(self, state: object, progress: float, subtitle: str, running: bool) -> None:
+        self._state = state
+        label = getattr(state, "label", "Timer") or "Timer"
+        remaining = int(getattr(state, "remaining", 0))
+        self.title_lbl.setText(label)
+        self.subtitle_lbl.setText(subtitle)
+        self.dial.update_state(progress, _format_seconds(remaining), subtitle)
+        is_running = running and remaining > 0
+        self._set_play_icon(is_running)
+        self.reset_btn.setEnabled(remaining < int(getattr(state, "duration", 0)))
+
+    def _set_play_icon(self, running: bool) -> None:
+        icon = self._pause_icon if running else self._play_icon
+        if icon.isNull():
+            self.play_btn.setText("⏸" if running else "▶")
+            self.play_btn.setIcon(QIcon())
+        else:
+            self.play_btn.setText("")
+            self.play_btn.setIcon(icon)
+            self.play_btn.setIconSize(QSize(44, 44))
+
+
 class AlarmCard(QFrame):
     """Card representation of an alarm."""
 

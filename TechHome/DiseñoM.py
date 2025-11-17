@@ -58,6 +58,7 @@ from widgets import (
     NoFocusDelegate,
     NotesManager,
     TimerCard,
+    TimerFullscreenView,
     CurrentMonthCalendar,
     style_table,
 )
@@ -385,6 +386,7 @@ def build_more_page(app):
     timer_controls.setContentsMargins(0, 0, 0, 0)
     timer_controls.addStretch(1)
     timer_controls.addWidget(timer_toolbar)
+    app.timer_toolbar_frame = timer_toolbar
     ti_l.addLayout(timer_controls)
 
     timer_scroll = QScrollArea()
@@ -413,7 +415,15 @@ def build_more_page(app):
     app.timer_cards_widget = timer_cards_frame
     timer_container_layout.addWidget(timer_cards_frame, 0, Qt.AlignTop)
     timer_container_layout.addStretch(1)
-    ti_l.addWidget(timer_scroll, 1)
+
+    timer_stack = QStackedWidget()
+    timer_stack.addWidget(timer_scroll)
+    app.timer_list_widget = timer_scroll
+    app.timer_fullscreen_view = TimerFullscreenView()
+    timer_stack.addWidget(app.timer_fullscreen_view)
+    timer_stack.setCurrentWidget(timer_scroll)
+    app.timer_view_stack = timer_stack
+    ti_l.addWidget(timer_stack, 1)
     tab_at.addTab(timer_tab, 'Timers')
     ap_layout.addWidget(tab_at, 1)
     app.more_stack.addWidget(alarm_page)
