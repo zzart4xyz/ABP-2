@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QDialog, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QCheckBox, QDateTimeEdit, QSpinBox, QProgressBar,
     QAbstractSpinBox, QMessageBox, QToolButton, QGraphicsDropShadowEffect,
-    QComboBox
+    QComboBox, QSizePolicy
 )
 
 import constants as c
@@ -122,6 +122,16 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     if min_width:
         spin.setMinimumWidth(min_width)
     spin.setAlignment(Qt.AlignCenter)
+    line_edit = spin.lineEdit()
+    line_edit.setAlignment(Qt.AlignCenter)
+    line_edit.setMinimumHeight(height - 4)
+    line_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    line_edit.setStyleSheet(
+        f"QLineEdit {{ background: transparent; border: none;"
+        f" color: {text_color}; font:600 {font_sz}px '{c.FONT_FAM}';"
+        f" selection-background-color:{c.CLR_ITEM_ACT};"
+        f" selection-color:{c.CLR_TITLE if large else c.CLR_BG}; }}"
+    )
 
 
 class BaseFormDialog(QDialog):
