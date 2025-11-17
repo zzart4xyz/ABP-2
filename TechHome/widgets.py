@@ -833,11 +833,11 @@ class ReminderCard(QFrame):
         c.make_shadow(self, 18, 6, 120)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(10)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(14)
 
         header = QHBoxLayout()
-        header.setSpacing(8)
+        header.setSpacing(12)
         self.date_chip = QLabel("Hoy")
         self.date_chip.setStyleSheet(
             f"QLabel {{ background:{_with_alpha(c.CLR_SURFACE, 0.9)}; color:{c.CLR_TEXT_IDLE}; border-radius:14px; padding:4px 12px; font:600 13px '{c.FONT_FAM}'; }}"
@@ -852,14 +852,20 @@ class ReminderCard(QFrame):
 
         self.message_label = QLabel("Recordatorio")
         self.message_label.setWordWrap(True)
-        self.message_label.setStyleSheet(f"color:{c.CLR_TITLE}; font:600 17px '{c.FONT_FAM}';")
+        self.message_label.setStyleSheet(
+            f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; line-height:130%;"
+        )
         layout.addWidget(self.message_label)
 
         self.relative_label = QLabel("en 2 horas")
-        self.relative_label.setStyleSheet(f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.9)}; font:500 13px '{c.FONT_FAM}';")
+        self.relative_label.setStyleSheet(
+            f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.9)}; font:500 14px '{c.FONT_FAM}';"
+        )
         layout.addWidget(self.relative_label)
 
         footer = QHBoxLayout()
+        footer.setContentsMargins(0, 6, 0, 0)
+        footer.setSpacing(6)
         footer.addStretch(1)
         self.edit_btn = self._make_footer_button()
         _set_button_icon(self.edit_btn, "pencil.svg", QSize(18, 18), fallback="✏")
