@@ -94,6 +94,9 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     # Large timer/alarm fields should keep their vibrant accent colour while
     # smaller utility spin boxes retain the high-contrast idle text tone.
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
+    font = QFont(c.FONT_FAM)
+    font.setPixelSize(font_sz)
+    font.setWeight(QFont.DemiBold)
     up_path = c.resolve_icon_path("chevron-up.svg")
     down_path = c.resolve_icon_path("chevron-down.svg")
     arrow_rules: list[str] = []
@@ -110,25 +113,27 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     else:
         arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
     style = (
-        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px; padding-right:38px; font:600 {font_sz}px '{c.FONT_FAM}'; }}"
+        f"QSpinBox {{ background:{c.CLR_SURFACE}; color:{text_color}; border:2px solid {c.CLR_ITEM_ACT}; border-radius:12px; padding-right:38px; }}"
         f"QSpinBox::up-button {{ subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }}"
         f"QSpinBox::down-button {{ subcontrol-origin:border; subcontrol-position:right bottom; width:36px; border:none; background:transparent; }}"
         f"QSpinBox::up-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
         f"QSpinBox::down-button:hover {{ background:{c.CLR_ITEM_ACT}; }}"
         + "".join(arrow_rules)
     )
+    spin.setFont(font)
     spin.setStyleSheet(style)
     spin.setFixedHeight(height)
     if min_width:
         spin.setMinimumWidth(min_width)
     spin.setAlignment(Qt.AlignCenter)
     line_edit = spin.lineEdit()
+    line_edit.setFont(font)
     line_edit.setAlignment(Qt.AlignCenter)
-    line_edit.setMinimumHeight(height - 4)
-    line_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    line_edit.setTextMargins(0, 0, 0, 0)
+    line_edit.setContentsMargins(0, 0, 0, 0)
     line_edit.setStyleSheet(
         f"QLineEdit {{ background: transparent; border: none;"
-        f" color: {text_color}; font:600 {font_sz}px '{c.FONT_FAM}';"
+        f" color: {text_color};"
         f" selection-background-color:{c.CLR_ITEM_ACT};"
         f" selection-color:{c.CLR_TITLE if large else c.CLR_BG}; }}"
     )
