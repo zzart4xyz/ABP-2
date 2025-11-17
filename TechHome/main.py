@@ -2034,12 +2034,9 @@ class AnimatedBackground(QWidget):
             card.set_edit_mode(active)
 
     def _format_timer_finish(self, timer: TimerState) -> str:
-        if timer.running and timer.remaining > 0:
-            finish = datetime.now() + timedelta(seconds=timer.remaining)
-            return finish.strftime('Termina a las %H:%M')
         if timer.remaining == 0:
             return 'Completado'
-        return 'Listo para iniciar'
+        return ''
 
     def _refresh_timer_cards(self):
         if not hasattr(self, 'timer_cards_layout'):
