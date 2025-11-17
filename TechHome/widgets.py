@@ -404,6 +404,10 @@ class TimerCard(QFrame):
         self.state = None
         self.setObjectName("timerCard")
         self.setMinimumWidth(240)
+        # Mantener un ancho estable impide que las tarjetas existentes se
+        # redimensionen al añadirse nuevas, de modo que siempre conservan el
+        # mismo tamaño que tendrían dentro de la cuadrícula de dos columnas.
+        self.setMaximumWidth(420)
         self.setStyleSheet(
             f"QFrame#timerCard {{ background:{c.CLR_PANEL}; border-radius:16px; border:1px solid {_with_alpha('#FFFFFF', 0.06)}; }}"
         )

@@ -407,7 +407,7 @@ def build_more_page(app):
     app.timer_cards_layout.setContentsMargins(0, 0, 0, 0)
     app.timer_cards_layout.setHorizontalSpacing(16)
     app.timer_cards_layout.setVerticalSpacing(16)
-    app.timer_cards_layout.setAlignment(Qt.AlignTop)
+    app.timer_cards_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
     app.timer_cards_layout.setColumnStretch(0, 1)
     app.timer_cards_layout.setColumnStretch(1, 1)
     app.timer_cards_widget = timer_cards_frame
