@@ -3,7 +3,7 @@ from datetime import datetime, date, time
 from PyQt5.QtCore import (
     Qt, QPoint, QTimer, QPropertyAnimation, QParallelAnimationGroup,
     QSequentialAnimationGroup, QSize, QEvent, QEasingCurve, pyqtProperty,
-    QRectF, QRect, pyqtSignal
+    QRectF, QRect, pyqtSignal, QObject
 )
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QFont, QPainter, QPen, QLinearGradient, QPainterPath, QConicalGradient, QTransform, QRegion
 from PyQt5.QtWidgets import (
@@ -85,6 +85,27 @@ def _combo_arrow_style() -> str:
             f"QComboBox::down-arrow:on {{ image: url(\"{up_url}\"); }}"
         )
     return "".join(parts)
+
+
+class _SpinboxLineEditRaiser(QObject):
+    """Event filter that keeps the spin box line edit above its buttons."""
+
+    def __init__(self, line_edit: QLineEdit, parent: QObject) -> None:
+        super().__init__(parent)
+        self._line_edit = line_edit
+
+    def eventFilter(self, obj, event):  # type: ignore[override]
+        if event.type() in (
+            QEvent.Show,
+            QEvent.Polish,
+            QEvent.PolishRequest,
+            QEvent.StyleChange,
+            QEvent.Resize,
+            QEvent.Paint,
+            QEvent.LayoutRequest,
+        ):
+            QTimer.singleShot(0, self._line_edit.raise_)
+        return False
 
 
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
@@ -180,12 +201,16 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     # Ensure the editable text is rendered above the decorative spin buttons so
     # the digits remain visible even with custom styles applied.
     line_edit.raise_()
-    # Some Qt styles (especially on Windows) repaint or restack the spin box
-    # sub-controls after the dialog is shown, which can cause the editable text
-    # field to slip behind the up/down buttons.  Schedule another raise on the
-    # next event loop cycle to keep the digits in front of every decorative
-    # layer regardless of platform order quirks.
     QTimer.singleShot(0, line_edit.raise_)
+    # Install an event filter the first time we style this spin box so that
+    # every repaint/restack event also re-raises the text field.  This guards
+    # against platforms that reshuffle the child order after the dialog shows
+    # (e.g. high DPI scaling toggles) and guarantees the value digits always
+    # remain on top of the chrome.
+    if not hasattr(spin, "_line_edit_raiser"):
+        raiser = _SpinboxLineEditRaiser(line_edit, spin)
+        spin._line_edit_raiser = raiser  # type: ignore[attr-defined]
+        spin.installEventFilter(raiser)
 
 
 class BaseFormDialog(QDialog):
