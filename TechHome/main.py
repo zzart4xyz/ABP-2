@@ -2109,6 +2109,8 @@ class AnimatedBackground(QWidget):
             frame_layout = QVBoxLayout(frame)
             frame_layout.setContentsMargins(16, 16, 16, 16)
             frame_layout.setSpacing(0)
+            if hasattr(self, 'timer_fullscreen_view'):
+                self.timer_fullscreen_view.set_compact_mode(True)
             frame_layout.addWidget(self.timer_fullscreen_view)
             layout.addWidget(frame)
             dialog.register_drag_handle(frame)
@@ -2117,7 +2119,7 @@ class AnimatedBackground(QWidget):
                 "QDialog#timerFullscreenDialog { background: transparent; }"
                 f"QFrame#timerFullscreenFrame {{ background:{CLR_PANEL}; border-radius:{frame_radius}px; border:3px solid {CLR_TITLE}; }}"
             )
-            dialog.resize(200, 200)
+            dialog.setFixedSize(200, 200)
             dialog.rejected.connect(self._close_timer_fullscreen)
             self.timer_fullscreen_dialog = dialog
         return True
