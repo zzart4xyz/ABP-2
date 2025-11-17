@@ -136,7 +136,7 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
             arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
         else:
             arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-        style_parts[0] += f" padding-right:{padding_right}px; padding-left:{padding_left}px; }"
+        style_parts[0] += f" padding-right:{padding_right}px; padding-left:{padding_left}px; }}"
         style_parts.extend(
             [
                 "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top;"
@@ -163,7 +163,7 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
             arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
         else:
             arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-        style_parts[0] += f" padding-right:{padding_right}px; padding-left:{padding_left}px; }"
+        style_parts[0] += f" padding-right:{padding_right}px; padding-left:{padding_left}px; }}"
         style_parts.extend(
             [
                 "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top; width:36px; border:none; background:transparent; }",
