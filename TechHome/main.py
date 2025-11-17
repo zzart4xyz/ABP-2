@@ -29,7 +29,7 @@ except Exception:
     QSvgRenderer = None
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QStackedWidget, QLineEdit, QComboBox, QScrollBar, QTableWidget, QTableWidgetItem, QTabWidget, QListWidget, QListWidgetItem, QDialog, QTextEdit, QDateTimeEdit, QSpinBox, QCalendarWidget, QCheckBox, QStyledItemDelegate, QStyle, QToolButton, QTableView, QHeaderView, QAbstractSpinBox, QSizePolicy, QProgressBar, QGraphicsOpacityEffect
 from constants import *
-from models import AlarmState, TimerState, WEEKDAY_ORDER
+from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
 
 
 def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
@@ -928,6 +928,7 @@ from dialogs import (
     NewElementDialog,
     TimerEditorDialog,
     AlarmEditorDialog,
+    ReminderEditorDialog,
 )
 from DiseñoPC import SplashScreen, create_splash_animations
 from DiseñoIR import LoginDialog
@@ -952,6 +953,7 @@ from widgets import (
     TimerCard,
     TimerFullscreenView,
     AlarmCard,
+    ReminderCard,
 )
 from health import BPMGauge, MetricsPanel
 
@@ -962,7 +964,9 @@ class AnimatedBackground(QWidget):
         self.username = username
         self.login_time = login_time
         self.lists = {'Compra': [], 'Tareas': []}
-        self.recordatorios = []
+        self.recordatorios: list[ReminderState] = []
+        self._reminder_cards: list[ReminderCard] = []
+        self._reminder_edit_mode = False
         self.reminder_timer = QTimer(self)
         self.reminder_timer.timeout.connect(self._check_reminders)
         self.reminder_timer.start(60000)
@@ -1524,13 +1528,11 @@ class AnimatedBackground(QWidget):
             prefix = 'Current Group:' if self.lang == 'en' else 'Grupo Actual:'
             name = self._translate_name(self.active_group, mapping)
             self.group_indicator.setText(f'{prefix} {name}')
-        tables = {'table_recordatorios': ['Fecha Y Hora', 'Mensaje'], 'notif_table': ['Hora', 'Mensaje'], 'table_health': ['Fecha', 'PA', 'BPM', 'SpO₂', 'Temp', 'FR']}
+        tables = {'notif_table': ['Hora', 'Mensaje'], 'table_health': ['Fecha', 'PA', 'BPM', 'SpO₂', 'Temp', 'FR']}
         for attr, headers in tables.items():
             tbl = getattr(self, attr, None)
             if tbl:
                 tbl.setHorizontalHeaderLabels([mapping.get(h, h) for h in headers])
-        if hasattr(self, 'table_recordatorios'):
-            self._populate_record_table()
         if hasattr(self, 'notif_table'):
             self._populate_notif_table()
         if hasattr(self, 'table_health'):
@@ -1668,12 +1670,20 @@ class AnimatedBackground(QWidget):
 
     def _check_reminders(self):
         now = datetime.now()
-        due = [(dt, txt) for dt, txt in self.recordatorios if dt <= now]
-        for dt, txt in due:
-            self.recordatorios.remove((dt, txt))
+        due = [rem for rem in list(self.recordatorios) if rem.when <= now]
+        if not due:
+            return
+        mapping = TRANSLATIONS_EN if self.lang == 'en' else {}
+        for reminder in due:
+            self.recordatorios.remove(reminder)
+            if hasattr(self, 'username') and self.username:
+                try:
+                    database.delete_reminder(self.username, reminder)
+                except Exception:
+                    pass
             if self.notifications_enabled:
-                mapping = TRANSLATIONS_EN if self.lang == 'en' else {}
-                self.popup_label.setText('🔔 ' + mapping.get(txt, txt))
+                text = mapping.get(reminder.message, reminder.message)
+                self.popup_label.setText('🔔 ' + text)
                 self.popup_label.adjustSize()
                 try:
                     parent_width = self.parent().width() if self.parent() else self.width()
@@ -1689,84 +1699,122 @@ class AnimatedBackground(QWidget):
                 self.show_anim.setEndValue(1.0)
                 self.show_anim.start()
                 QTimer.singleShot(3000, lambda: (self.hide_anim.setStartValue(1.0), self.hide_anim.setEndValue(0.0), self.hide_anim.start()))
-                self._add_notification(f'Recordatorio: {txt}')
-        if self.stack.currentIndex() == 2 and self.more_stack.currentIndex() == 2:
-            self._populate_record_table()
-        if due:
-            self._refresh_calendar_events()
+                self._add_notification(f'Recordatorio: {reminder.message}')
+        self._after_reminders_changed()
 
-    def _add_recordatorio(self):
-        text = self.input_record_text.text().strip()
-        dt = self.input_record_datetime.dateTime().toPyDateTime()
-        if text and dt:
-            self.recordatorios.append((dt, text))
-            self._populate_record_table()
-            self.input_record_text.clear()
-            self.input_record_datetime.setDateTime(datetime.now())
-            self._add_notification('Recordatorio Añadido')
-            self._refresh_calendar_events()
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.save_reminder(self.username, dt.isoformat(), text)
-                except Exception:
-                    pass
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.log_action(self.username, f'Recordatorio añadido: {text} @ {dt.isoformat()}')
-                except Exception:
-                    pass
+    def _open_new_reminder_dialog(self) -> None:
+        dialog = ReminderEditorDialog(parent=self)
+        if dialog.exec_() != QDialog.Accepted or dialog.was_deleted:
+            return
+        reminder = dialog.result_state()
+        if hasattr(self, 'username') and self.username:
             try:
-                self._refresh_account_info()
+                database.save_reminder(self.username, reminder)
             except Exception:
                 pass
+            try:
+                database.log_action(self.username, f'Recordatorio añadido: {reminder.message} @ {reminder.when.isoformat()}')
+            except Exception:
+                pass
+        self.recordatorios.append(reminder)
+        self._after_reminders_changed()
+        self._add_notification('Recordatorio Añadido')
 
-    def _populate_record_table(self):
-        if not hasattr(self, 'table_recordatorios'):
+    def _edit_reminder(self, reminder: ReminderState) -> None:
+        dialog = ReminderEditorDialog(reminder, parent=self)
+        if dialog.exec_() != QDialog.Accepted:
             return
-        data = sorted(self.recordatorios, key=lambda x: x[0])
-        tbl = self.table_recordatorios
-        tbl.setRowCount(len(data))
-        for i, (dt, txt) in enumerate(data):
-            tbl.setItem(i, 0, QTableWidgetItem(dt.strftime('%Y-%m-%d %H:%M')))
-            tbl.setItem(i, 1, QTableWidgetItem(txt))
-        has_rows = len(data) > 0
-        tbl.setVisible(has_rows)
-        if hasattr(self, 'record_empty_label'):
-            self.record_empty_label.setVisible(not has_rows)
+        if dialog.was_deleted:
+            self._delete_reminder(reminder)
+            return
+        updated = dialog.result_state()
+        reminder.when = updated.when
+        reminder.message = updated.message
+        reminder.reminder_id = updated.reminder_id
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.save_reminder(self.username, reminder)
+            except Exception:
+                pass
+            try:
+                database.log_action(self.username, f'Recordatorio editado: {reminder.message}')
+            except Exception:
+                pass
+        self._after_reminders_changed()
+        self._add_notification('Recordatorio Actualizado')
+
+    def _delete_reminder(self, reminder: ReminderState, *, notify: bool = True, log: bool = True, refresh: bool = True) -> None:
+        if reminder in self.recordatorios:
+            self.recordatorios.remove(reminder)
+        if hasattr(self, 'username') and self.username:
+            try:
+                database.delete_reminder(self.username, reminder)
+            except Exception:
+                pass
+            if log:
+                try:
+                    database.log_action(self.username, f'Recordatorio eliminado: {reminder.message}')
+                except Exception:
+                    pass
+        if refresh:
+            self._after_reminders_changed()
+        if notify:
+            self._add_notification('Recordatorio Eliminado')
+
+    def _set_reminder_edit_mode(self, active: bool) -> None:
+        self._reminder_edit_mode = active
+        if hasattr(self, 'edit_reminder_mode_btn'):
+            self._style_mode_button(self.edit_reminder_mode_btn, active)
+        for card in self._reminder_cards:
+            card.set_edit_mode(active)
+
+    def _refresh_reminder_cards(self) -> None:
+        if not hasattr(self, 'reminder_cards_layout'):
+            return
+        grid = self.reminder_cards_layout
+        for card in self._reminder_cards:
+            card.setParent(None)
+            card.deleteLater()
+        self._reminder_cards = []
+        reminders = sorted(self.recordatorios, key=lambda r: r.when)
+        for idx, reminder in enumerate(reminders):
+            card = ReminderCard()
+            card.set_state(reminder)
+            card.set_edit_mode(self._reminder_edit_mode)
+            card.editRequested.connect(lambda _, r=reminder: self._edit_reminder(r))
+            card.deleteRequested.connect(lambda _, r=reminder: self._delete_reminder(r))
+            grid.addWidget(card, idx // 2, idx % 2)
+            self._reminder_cards.append(card)
+
+    def _update_reminder_summary(self) -> None:
+        has_reminders = bool(self.recordatorios)
+        if hasattr(self, 'reminder_cards_scroll'):
+            self.reminder_cards_scroll.setVisible(has_reminders)
+        if hasattr(self, 'reminder_empty_label'):
+            self.reminder_empty_label.setVisible(not has_reminders)
         if hasattr(self, 'record_count_badge'):
-            self.record_count_badge.setText(f"{len(data)} activos")
+            self.record_count_badge.setText(f"{len(self.recordatorios)} activos")
         if hasattr(self, 'next_record_label'):
-            if has_rows:
-                next_dt, next_txt = data[0]
+            if has_reminders:
+                upcoming = min(self.recordatorios, key=lambda r: r.when)
                 self.next_record_label.setText(
-                    f"Próximo: {next_dt.strftime('%d %b · %H:%M')} · {next_txt}"
+                    f"Próximo: {upcoming.when.strftime('%d %b · %H:%M')} · {upcoming.message}"
                 )
             else:
                 self.next_record_label.setText('Sin recordatorios programados')
 
-    def _delete_selected_recordatorio(self):
-        row = self.table_recordatorios.currentRow()
-        if 0 <= row < len(self.recordatorios):
-            data = sorted(self.recordatorios, key=lambda x: x[0])
-            dt, txt = data[row]
-            self.recordatorios.remove((dt, txt))
-            self._populate_record_table()
-            self._add_notification('Recordatorio Eliminado')
+    def _after_reminders_changed(self) -> None:
+        self.recordatorios.sort(key=lambda r: r.when)
+        self._refresh_reminder_cards()
+        self._update_reminder_summary()
+        try:
             self._refresh_calendar_events()
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.delete_reminder(self.username, dt.isoformat(), txt)
-                except Exception:
-                    pass
-            if hasattr(self, 'username') and self.username:
-                try:
-                    database.log_action(self.username, f'Recordatorio eliminado: {txt}')
-                except Exception:
-                    pass
-            try:
-                self._refresh_account_info()
-            except Exception:
-                pass
+        except Exception:
+            pass
+        try:
+            self._refresh_account_info()
+        except Exception:
+            pass
 
     def _show_popup_message(self, message: str) -> None:
         self.popup_label.setText(message)
@@ -2225,6 +2273,12 @@ class AnimatedBackground(QWidget):
             self.edit_alarm_mode_btn.setCheckable(True)
             self.edit_alarm_mode_btn.toggled.connect(self._set_alarm_edit_mode)
             self._style_mode_button(self.edit_alarm_mode_btn, False)
+        if hasattr(self, 'add_reminder_btn'):
+            self.add_reminder_btn.clicked.connect(self._open_new_reminder_dialog)
+        if hasattr(self, 'edit_reminder_mode_btn'):
+            self.edit_reminder_mode_btn.setCheckable(True)
+            self.edit_reminder_mode_btn.toggled.connect(self._set_reminder_edit_mode)
+            self._style_mode_button(self.edit_reminder_mode_btn, False)
         if hasattr(self, 'timer_fullscreen_view'):
             view: TimerFullscreenView = self.timer_fullscreen_view
             view.playRequested.connect(self._play_fullscreen_timer)
@@ -2859,18 +2913,11 @@ class AnimatedBackground(QWidget):
             user_rems = database.get_reminders(user)
         except Exception:
             user_rems = []
-        self.recordatorios = []
-        for dt_str, txt in user_rems:
-            try:
-                dt_obj = datetime.fromisoformat(dt_str)
-            except Exception:
-                continue
-            self.recordatorios.append((dt_obj, txt))
-        if hasattr(self, 'table_recordatorios'):
-            try:
-                self._populate_record_table()
-            except Exception:
-                pass
+        self.recordatorios = user_rems
+        try:
+            self._after_reminders_changed()
+        except Exception:
+            pass
         try:
             self.alarms = database.get_alarms(user)
         except Exception:
@@ -3086,12 +3133,14 @@ class AnimatedBackground(QWidget):
     def _on_calendar_date_selected(self):
         date = self.calendar_widget.selectedDate().toPyDate()
         alarm_events = [(alarm.trigger, alarm.label) for alarm in self.alarms]
-        self.selected_day_events = [(dt, txt) for dt, txt in self.recordatorios + alarm_events if dt.date() == date]
+        reminder_events = [(rem.when, rem.message) for rem in self.recordatorios]
+        combined = reminder_events + alarm_events
+        self.selected_day_events = [(dt, txt) for dt, txt in combined if dt.date() == date]
 
     def _refresh_calendar_events(self):
         if self.calendar_widget:
             alarm_dates = [alarm.trigger.date() for alarm in self.alarms]
-            rec_dates = [dt.date() for dt, _ in self.recordatorios]
+            rec_dates = [rem.when.date() for rem in self.recordatorios]
             self.calendar_widget.update_events(rec_dates + alarm_dates)
 
     def _refresh_account_info(self) -> None:
