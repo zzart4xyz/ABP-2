@@ -1721,12 +1721,28 @@ class AnimatedBackground(QWidget):
                 pass
 
     def _populate_record_table(self):
+        if not hasattr(self, 'table_recordatorios'):
+            return
         data = sorted(self.recordatorios, key=lambda x: x[0])
         tbl = self.table_recordatorios
         tbl.setRowCount(len(data))
         for i, (dt, txt) in enumerate(data):
             tbl.setItem(i, 0, QTableWidgetItem(dt.strftime('%Y-%m-%d %H:%M')))
             tbl.setItem(i, 1, QTableWidgetItem(txt))
+        has_rows = len(data) > 0
+        tbl.setVisible(has_rows)
+        if hasattr(self, 'record_empty_label'):
+            self.record_empty_label.setVisible(not has_rows)
+        if hasattr(self, 'record_count_badge'):
+            self.record_count_badge.setText(f"{len(data)} activos")
+        if hasattr(self, 'next_record_label'):
+            if has_rows:
+                next_dt, next_txt = data[0]
+                self.next_record_label.setText(
+                    f"Próximo: {next_dt.strftime('%d %b · %H:%M')} · {next_txt}"
+                )
+            else:
+                self.next_record_label.setText('Sin recordatorios programados')
 
     def _delete_selected_recordatorio(self):
         row = self.table_recordatorios.currentRow()
