@@ -315,6 +315,8 @@ class CircularCountdown(QWidget):
         self._subtitle = ""
         self._diameter = diameter
         self._thickness = thickness
+        self._text_scale = 1.0
+        self._show_subtitle = True
         self.setMinimumSize(diameter, diameter)
         self.setMaximumSize(diameter, diameter)
 
@@ -322,6 +324,27 @@ class CircularCountdown(QWidget):
         self._progress = max(0.0, min(1.0, progress))
         self._time_text = time_text
         self._subtitle = subtitle
+        self.update()
+
+    def set_text_scale(self, scale: float) -> None:
+        scale = max(0.4, min(1.5, float(scale)))
+        if abs(scale - self._text_scale) <= 1e-3:
+            return
+        self._text_scale = scale
+        self.update()
+
+    def set_ring_thickness(self, thickness: int) -> None:
+        thickness = max(4, int(thickness))
+        if thickness == self._thickness:
+            return
+        self._thickness = thickness
+        self.update()
+
+    def set_show_subtitle(self, show: bool) -> None:
+        show = bool(show)
+        if self._show_subtitle == show:
+            return
+        self._show_subtitle = show
         self.update()
 
     def paintEvent(self, event) -> None:
@@ -350,20 +373,22 @@ class CircularCountdown(QWidget):
         painter.setPen(QPen(QColor(c.CLR_TITLE)))
         font = painter.font()
         font.setFamily(c.FONT_FAM)
-        font.setPointSize(28)
+        font.setPointSizeF(28 * self._text_scale)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(self.rect(), Qt.AlignCenter, self._time_text)
 
-        if self._subtitle:
+        if self._subtitle and self._show_subtitle:
             subtitle_font = painter.font()
-            subtitle_font.setPointSize(12)
+            subtitle_font.setPointSizeF(12 * self._text_scale)
             subtitle_font.setBold(False)
             painter.setFont(subtitle_font)
             metrics = painter.fontMetrics()
             text_width = metrics.horizontalAdvance(self._subtitle)
-            bubble_width = text_width + 24
-            bubble_height = metrics.height() + 12
+            padding_x = 12 * self._text_scale
+            padding_y = 6 * self._text_scale
+            bubble_width = text_width + padding_x * 2
+            bubble_height = metrics.height() + padding_y * 2
             bubble_rect = QRectF(
                 (self.width() - bubble_width) / 2,
                 self.height() * 0.66,
@@ -647,6 +672,7 @@ class TimerFullscreenView(QFrame):
         self.subtitle_lbl = QLabel("Listo para iniciar")
         self._subtitle_style_tpl = f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.85)}; font:500 {{}}px '{c.FONT_FAM}';"
         self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(16))
+        self.subtitle_lbl.setWordWrap(True)
         text_block.addWidget(self.subtitle_lbl)
         header.addLayout(text_block, stretch=1)
         header.addStretch(1)
@@ -739,7 +765,7 @@ class TimerFullscreenView(QFrame):
         self._apply_mode_metrics()
 
     def _apply_mode_metrics(self) -> None:
-        margins = 32 if not self._compact_mode else 8
+        margins = 32 if not self._compact_mode else 10
         spacing = 28 if not self._compact_mode else 6
         self._layout.setContentsMargins(margins, margins, margins, margins)
         self._layout.setSpacing(spacing)
@@ -756,32 +782,44 @@ class TimerFullscreenView(QFrame):
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:{radius}px; padding:{padding}px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
         )
-        title_size = 28 if not self._compact_mode else 16
-        subtitle_size = 16 if not self._compact_mode else 11
+        back_icon = 22 if not self._compact_mode else 16
+        self.back_btn.setIconSize(QSize(back_icon, back_icon))
+        text_alignment = Qt.AlignLeft | Qt.AlignVCenter if not self._compact_mode else Qt.AlignCenter
+        self.title_lbl.setAlignment(text_alignment)
+        self.subtitle_lbl.setAlignment(text_alignment)
+        title_size = 28 if not self._compact_mode else 15
+        subtitle_size = 16 if not self._compact_mode else 10
         self.title_lbl.setStyleSheet(self._title_style_tpl.format(title_size))
         self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(subtitle_size))
-        dial_size = 320 if not self._compact_mode else 120
+        dial_size = 320 if not self._compact_mode else 112
         self.dial.setFixedSize(dial_size, dial_size)
+        self.dial.set_ring_thickness(18 if not self._compact_mode else 10)
+        self.dial.set_text_scale(1.0 if not self._compact_mode else 0.72)
+        self.dial.set_show_subtitle(not self._compact_mode)
         control_spacing = 20 if not self._compact_mode else 8
         self._controls.setSpacing(control_spacing)
-        play_size = 92 if not self._compact_mode else 48
+        play_size = 92 if not self._compact_mode else 46
         play_radius = play_size // 2
-        play_padding = 18 if not self._compact_mode else 10
+        play_padding = 18 if not self._compact_mode else 8
         self.play_btn.setFixedSize(play_size, play_size)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:{play_radius}px; padding:{play_padding}px; color:#07101B; }}"
             f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.35)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.5)}; }}"
         )
+        play_icon = 44 if not self._compact_mode else 26
+        self.play_btn.setIconSize(QSize(play_icon, play_icon))
         reset_size = 76 if not self._compact_mode else 38
         reset_radius = reset_size // 2
-        reset_padding = 18 if not self._compact_mode else 8
+        reset_padding = 18 if not self._compact_mode else 6
         self.reset_btn.setFixedSize(reset_size, reset_size)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:{reset_radius}px; padding:{reset_padding}px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.4)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.45)}; }}"
         )
+        reset_icon = 30 if not self._compact_mode else 18
+        self.reset_btn.setIconSize(QSize(reset_icon, reset_icon))
 
 
 
