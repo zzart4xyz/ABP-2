@@ -90,12 +90,15 @@ def _combo_arrow_style() -> str:
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font_sz = 28 if large else 16
     height = 64 if large else 48
-    min_width = 92 if large else 0
+    # Give the big timer/alarm fields extra space so their digits are never
+    # squeezed beneath the arrow controls, while allowing compact spin boxes
+    # to size naturally inside tighter layouts.
+    min_width = 118 if large else 0
     # Keep enough internal spacing so the value text never sits beneath the
     # arrow controls.  The margins mirror the padding used in the stylesheet
     # as well as the explicit width we give to the up/down sub-controls.
-    left_margin = 12 if large else 6
-    right_margin = 40 if large else 34
+    left_margin = 16 if large else 6
+    right_margin = 56 if large else 34
     # Large timer/alarm fields should keep their vibrant accent colour while
     # smaller utility spin boxes retain the high-contrast idle text tone.
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
@@ -122,15 +125,15 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
             arrow_rules.append(f"QSpinBox::down-arrow:disabled {{ image: url(\"{down_url}\"); }}")
         else:
             arrow_rules.append("QSpinBox::down-arrow { width:0; height:0; }")
-        style_parts[0] += " padding-right:46px; padding-left:12px; }"
+        style_parts[0] += " padding-right:64px; padding-left:16px; }"
         style_parts.extend(
             [
                 "QSpinBox::up-button { subcontrol-origin:border; subcontrol-position:right top;"
-                " width:34px; border:none; background:transparent; margin:6px 6px 0 0; }",
+                " width:28px; height:28px; border:none; background:transparent; margin:6px 8px 0 0; border-radius:8px; }",
                 "QSpinBox::down-button { subcontrol-origin:border; subcontrol-position:right bottom;"
-                " width:34px; border:none; background:transparent; margin:0 6px 6px 0; }",
-                f"QSpinBox::up-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
-                f"QSpinBox::down-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; border-radius:8px; }}",
+                " width:28px; height:28px; border:none; background:transparent; margin:0 8px 6px 0; border-radius:8px; }",
+                f"QSpinBox::up-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; }}",
+                f"QSpinBox::down-button:hover {{ background:{_with_alpha(c.CLR_ITEM_ACT, 0.35)}; }}",
                 *arrow_rules,
             ]
         )
