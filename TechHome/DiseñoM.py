@@ -238,21 +238,24 @@ def build_more_page(app):
         btn.setStyleSheet(pill_button_style(accent))
         return btn
 
+    def apply_toolbar_icon(button: QToolButton, icon_name: str) -> bool:
+        pix = load_icon_pixmap(icon_name, QSize(20, 20))
+        if pix.isNull():
+            return False
+        ico = QIcon()
+        for mode in (QIcon.Normal, QIcon.Disabled, QIcon.Active, QIcon.Selected):
+            ico.addPixmap(pix, mode, QIcon.Off)
+        button.setIcon(ico)
+        button.setIconSize(pix.size())
+        return True
+
     app.edit_reminder_btn = make_toolbar_btn()
-    edit_icon = icon('pen-to-square.svg')
-    if not edit_icon.isNull():
-        app.edit_reminder_btn.setIcon(edit_icon)
-        app.edit_reminder_btn.setIconSize(QSize(20, 20))
-    else:
+    if not apply_toolbar_icon(app.edit_reminder_btn, 'pen-to-square.svg'):
         app.edit_reminder_btn.setText('✏')
     header_row.addWidget(app.edit_reminder_btn)
 
     app.delete_reminder_btn = make_toolbar_btn()
-    delete_icon = icon('trash-can.svg')
-    if not delete_icon.isNull():
-        app.delete_reminder_btn.setIcon(delete_icon)
-        app.delete_reminder_btn.setIconSize(QSize(20, 20))
-    else:
+    if not apply_toolbar_icon(app.delete_reminder_btn, 'trash-can.svg'):
         app.delete_reminder_btn.setText('🗑')
     header_row.addWidget(app.delete_reminder_btn)
 
