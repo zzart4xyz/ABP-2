@@ -221,7 +221,7 @@ def build_more_page(app):
     board_layout.setSpacing(22)
     header_row = QHBoxLayout()
     header_row.setSpacing(12)
-    section_title = QLabel('Tus recordatorios activos')
+    section_title = QLabel('Recordatorios')
     section_title.setStyleSheet(f"color:{CLR_TITLE}; font:600 20px '{FONT_FAM}';")
     header_row.addWidget(section_title)
     header_row.addStretch(1)
