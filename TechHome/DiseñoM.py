@@ -268,6 +268,15 @@ def build_more_page(app):
         app.add_reminder_btn.setText('+')
     header_row.addWidget(app.add_reminder_btn)
     board_layout.addLayout(header_row)
+    table_shell = QFrame()
+    table_shell.setObjectName('remTableShell')
+    table_shell.setStyleSheet(
+        f"QFrame#remTableShell {{ background:{CLR_PANEL}; border-radius:22px; border:1px solid rgba(255,255,255,0.05); }}"
+    )
+    make_shadow(table_shell, 28, 6, 180)
+    shell_layout = QVBoxLayout(table_shell)
+    shell_layout.setContentsMargins(14, 14, 14, 14)
+    shell_layout.setSpacing(0)
     app.reminder_table = QTableWidget(0, 3)
     app.reminder_table.setObjectName('reminderTable')
     app.reminder_table.setHorizontalHeaderLabels(['Recordatorio', 'Fecha', 'Hora'])
@@ -276,14 +285,27 @@ def build_more_page(app):
     header.setSectionResizeMode(0, QHeaderView.Stretch)
     header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
     header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+    header.setHighlightSections(False)
+    header.setStyleSheet(
+        f"QHeaderView::section {{ background:{CLR_HEADER_BG}; color:{CLR_HEADER_TEXT}; border:none; padding:12px 14px; font:600 14px '{FONT_FAM}'; }}"
+        " QHeaderView::section:first { border-top-left-radius:14px; }"
+        " QHeaderView::section:last { border-top-right-radius:14px; }"
+    )
     app.reminder_table.verticalHeader().setVisible(False)
     app.reminder_table.setSelectionBehavior(QAbstractItemView.SelectRows)
     app.reminder_table.setSelectionMode(QAbstractItemView.SingleSelection)
     app.reminder_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-    app.reminder_table.setAlternatingRowColors(True)
-    app.reminder_table.setStyleSheet('QTableWidget#reminderTable { border-radius:12px; }')
+    app.reminder_table.setAlternatingRowColors(False)
     style_table(app.reminder_table)
-    board_layout.addWidget(app.reminder_table, 1)
+    app.reminder_table.setStyleSheet(
+        f"QTableWidget#reminderTable {{ background:{CLR_SURFACE}; border-radius:16px; border:1px solid rgba(255,255,255,0.08);"
+        f" gridline-color:rgba(255,255,255,0.08); color:{CLR_TEXT_IDLE}; font:500 14px '{FONT_FAM}'; }}"
+        f" QTableWidget#reminderTable::item {{ padding:14px 10px; background:transparent; }}"
+        f" QTableWidget#reminderTable::item:selected {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
+        " QTableWidget#reminderTable::item:focus { outline:none; }"
+    )
+    shell_layout.addWidget(app.reminder_table)
+    board_layout.addWidget(table_shell, 1)
     rp_layout.addWidget(cards_frame, 1)
     app.more_stack.addWidget(rec_page)
     alarm_page = QFrame()
