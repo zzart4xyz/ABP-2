@@ -1839,14 +1839,6 @@ class AnimatedBackground(QWidget):
             table.setVisible(True)
         if hasattr(self, 'record_count_badge'):
             self.record_count_badge.setText(f"{len(self.recordatorios)} activos")
-        if hasattr(self, 'next_record_label'):
-            if has_reminders:
-                upcoming = min(self.recordatorios, key=lambda r: r.when)
-                self.next_record_label.setText(
-                    f"Próximo: {upcoming.when.strftime('%d %b · %H:%M')} · {upcoming.message}"
-                )
-            else:
-                self.next_record_label.setText('Sin recordatorios programados')
 
     def _after_reminders_changed(self) -> None:
         self.recordatorios.sort(key=lambda r: r.when)

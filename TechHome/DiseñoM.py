@@ -210,42 +210,6 @@ def build_more_page(app):
     back_rec.setStyleSheet('background:transparent; border:none;')
     back_rec.clicked.connect(app._back_from_more)
     rp_layout.addWidget(back_rec, alignment=Qt.AlignLeft)
-    hero_card = QFrame()
-    hero_card.setObjectName('remHeroCard')
-    hero_card.setStyleSheet(
-        f"QFrame#remHeroCard {{"
-        f"background:qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1B2334, stop:1 {CLR_TITLE});"
-        "border-radius:20px;"
-        "padding:20px;"
-        "}}"
-    )
-    hero_layout = QHBoxLayout(hero_card)
-    hero_layout.setContentsMargins(0, 0, 0, 0)
-    hero_layout.setSpacing(16)
-    rec_icon_lbl = QLabel()
-    rec_icon = icon('Recordatorios.svg')
-    if not rec_icon.isNull():
-        rec_icon_lbl.setPixmap(rec_icon.pixmap(72, 72))
-    hero_layout.addWidget(rec_icon_lbl, alignment=Qt.AlignTop)
-    hero_text = QVBoxLayout()
-    hero_text.setSpacing(6)
-    title_rec = QLabel('Recordatorios')
-    title_rec.setStyleSheet(f"color:white; font:700 26px '{FONT_FAM}';")
-    hero_text.addWidget(title_rec)
-    subtitle_rec = QLabel('Crea recordatorios claros y mantén tus tareas importantes en primer plano.')
-    subtitle_rec.setWordWrap(True)
-    subtitle_rec.setStyleSheet("color:rgba(255,255,255,0.85); font:500 15px 'Montserrat';")
-    hero_text.addWidget(subtitle_rec)
-    app.next_record_label = QLabel('Sin recordatorios programados')
-    app.next_record_label.setStyleSheet(
-        "color:#0B1423; background:white; border-radius:14px;"
-        "padding:6px 14px; font:600 13px 'Montserrat';"
-    )
-    hero_text.addWidget(app.next_record_label, alignment=Qt.AlignLeft)
-    hero_text.addStretch(1)
-    hero_layout.addLayout(hero_text)
-    make_shadow(hero_card, 20, 4, 150)
-    rp_layout.addWidget(hero_card)
     cards_frame = QFrame()
     cards_frame.setObjectName('remBoard')
     cards_frame.setStyleSheet(
