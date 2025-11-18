@@ -230,10 +230,33 @@ def build_more_page(app):
         f"color:{CLR_TITLE}; background:{CLR_SURFACE}; border-radius:14px; padding:4px 12px; font:600 13px '{FONT_FAM}';"
     )
     header_row.addWidget(app.record_count_badge)
-    app.add_reminder_btn = QToolButton()
-    app.add_reminder_btn.setCursor(Qt.PointingHandCursor)
-    app.add_reminder_btn.setFixedSize(46, 38)
-    app.add_reminder_btn.setStyleSheet(pill_button_style(True))
+
+    def make_toolbar_btn(accent: bool = False) -> QToolButton:
+        btn = QToolButton()
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedSize(46, 38)
+        btn.setStyleSheet(pill_button_style(accent))
+        return btn
+
+    app.edit_reminder_btn = make_toolbar_btn()
+    edit_icon = icon('pen-to-square.svg')
+    if not edit_icon.isNull():
+        app.edit_reminder_btn.setIcon(edit_icon)
+        app.edit_reminder_btn.setIconSize(QSize(20, 20))
+    else:
+        app.edit_reminder_btn.setText('✏')
+    header_row.addWidget(app.edit_reminder_btn)
+
+    app.delete_reminder_btn = make_toolbar_btn()
+    delete_icon = icon('trash-can.svg')
+    if not delete_icon.isNull():
+        app.delete_reminder_btn.setIcon(delete_icon)
+        app.delete_reminder_btn.setIconSize(QSize(20, 20))
+    else:
+        app.delete_reminder_btn.setText('🗑')
+    header_row.addWidget(app.delete_reminder_btn)
+
+    app.add_reminder_btn = make_toolbar_btn(True)
     add_icon = icon('plus.svg')
     if not add_icon.isNull():
         app.add_reminder_btn.setIcon(add_icon)
@@ -246,15 +269,14 @@ def build_more_page(app):
     helper_lbl.setWordWrap(True)
     helper_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:500 13px '{FONT_FAM}';")
     board_layout.addWidget(helper_lbl)
-    app.reminder_table = QTableWidget(0, 4)
+    app.reminder_table = QTableWidget(0, 3)
     app.reminder_table.setObjectName('reminderTable')
-    app.reminder_table.setHorizontalHeaderLabels(['Recordatorio', 'Fecha', 'Hora', 'Acciones'])
+    app.reminder_table.setHorizontalHeaderLabels(['Recordatorio', 'Fecha', 'Hora'])
     header = app.reminder_table.horizontalHeader()
     header.setStretchLastSection(False)
     header.setSectionResizeMode(0, QHeaderView.Stretch)
     header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
     header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-    header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
     app.reminder_table.verticalHeader().setVisible(False)
     app.reminder_table.setSelectionBehavior(QAbstractItemView.SelectRows)
     app.reminder_table.setSelectionMode(QAbstractItemView.SingleSelection)

@@ -1778,44 +1778,10 @@ class AnimatedBackground(QWidget):
             time_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             table.setItem(row, 2, time_item)
 
-            actions_widget = QWidget()
-            actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(0, 0, 0, 0)
-            actions_layout.setSpacing(6)
-
-            edit_btn = QToolButton()
-            edit_btn.setCursor(Qt.PointingHandCursor)
-            edit_btn.setStyleSheet(
-                f"QToolButton {{ background:{CLR_SURFACE}; border:none; border-radius:12px; padding:6px; color:{CLR_TEXT_IDLE}; }}"
-                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-            )
-            edit_icon = icon('pen-to-square.svg')
-            if not edit_icon.isNull():
-                edit_btn.setIcon(edit_icon)
-                edit_btn.setIconSize(QSize(18, 18))
-            else:
-                edit_btn.setText('✏')
-            edit_btn.clicked.connect(lambda _, r=reminder: self._edit_reminder(r))
-            actions_layout.addWidget(edit_btn)
-
-            delete_btn = QToolButton()
-            delete_btn.setCursor(Qt.PointingHandCursor)
-            delete_btn.setStyleSheet(
-                f"QToolButton {{ background:{CLR_SURFACE}; border:none; border-radius:12px; padding:6px; color:{CLR_TEXT_IDLE}; }}"
-                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
-            )
-            delete_icon = icon('trash-can.svg')
-            if not delete_icon.isNull():
-                delete_btn.setIcon(delete_icon)
-                delete_btn.setIconSize(QSize(18, 18))
-            else:
-                delete_btn.setText('🗑')
-            delete_btn.clicked.connect(lambda _, r=reminder: self._delete_reminder(r))
-            actions_layout.addWidget(delete_btn)
-            actions_layout.addStretch(1)
-            table.setCellWidget(row, 3, actions_widget)
-
             table.setRowHeight(row, 54)
+
+        table.clearSelection()
+        self._update_reminder_action_buttons()
 
     def _reminder_for_row(self, row: int) -> ReminderState | None:
         table = getattr(self, 'reminder_table', None)
@@ -1825,10 +1791,37 @@ class AnimatedBackground(QWidget):
         reminder = item.data(Qt.UserRole) if item else None
         return reminder if isinstance(reminder, ReminderState) else None
 
+    def _selected_reminder(self) -> ReminderState | None:
+        table = getattr(self, 'reminder_table', None)
+        if table is None:
+            return None
+        return self._reminder_for_row(table.currentRow())
+
+    def _edit_selected_reminder(self) -> None:
+        reminder = self._selected_reminder()
+        if reminder is not None:
+            self._edit_reminder(reminder)
+
+    def _delete_selected_reminder(self) -> None:
+        reminder = self._selected_reminder()
+        if reminder is not None:
+            self._delete_reminder(reminder)
+
     def _on_reminder_cell_double_clicked(self, row: int, column: int) -> None:
         reminder = self._reminder_for_row(row)
         if reminder is not None:
             self._edit_reminder(reminder)
+
+    def _on_reminder_selection_changed(self) -> None:
+        self._update_reminder_action_buttons()
+
+    def _update_reminder_action_buttons(self) -> None:
+        reminder = self._selected_reminder()
+        enabled = reminder is not None
+        if hasattr(self, 'edit_reminder_btn'):
+            self.edit_reminder_btn.setEnabled(enabled)
+        if hasattr(self, 'delete_reminder_btn'):
+            self.delete_reminder_btn.setEnabled(enabled)
 
     def _update_reminder_summary(self) -> None:
         has_reminders = bool(self.recordatorios)
@@ -2312,8 +2305,14 @@ class AnimatedBackground(QWidget):
             self._style_mode_button(self.edit_alarm_mode_btn, False)
         if hasattr(self, 'add_reminder_btn'):
             self.add_reminder_btn.clicked.connect(self._open_new_reminder_dialog)
+        if hasattr(self, 'edit_reminder_btn'):
+            self.edit_reminder_btn.clicked.connect(self._edit_selected_reminder)
+        if hasattr(self, 'delete_reminder_btn'):
+            self.delete_reminder_btn.clicked.connect(self._delete_selected_reminder)
         if hasattr(self, 'reminder_table'):
             self.reminder_table.cellDoubleClicked.connect(self._on_reminder_cell_double_clicked)
+            self.reminder_table.itemSelectionChanged.connect(self._on_reminder_selection_changed)
+            self._update_reminder_action_buttons()
         if hasattr(self, 'timer_fullscreen_view'):
             view: TimerFullscreenView = self.timer_fullscreen_view
             view.playRequested.connect(self._play_fullscreen_timer)
