@@ -3,7 +3,7 @@ from datetime import datetime, date, time
 from PyQt5.QtCore import (
     Qt, QPoint, QTimer, QPropertyAnimation, QParallelAnimationGroup,
     QSequentialAnimationGroup, QSize, QEvent, QEasingCurve, pyqtProperty,
-    QRectF, QRect, pyqtSignal
+    QRectF, QRect, pyqtSignal, QObject
 )
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QFont, QPainter, QPen, QLinearGradient, QPainterPath, QConicalGradient, QTransform, QRegion
 from PyQt5.QtWidgets import (
@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
 import constants as c
 import os
 from PyQt5.QtWidgets import QWidget
-from models import AlarmState, TimerState, WEEKDAY_ORDER
+from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
 from widgets import CircularCountdown, _format_seconds
 from ui_helpers import (
     apply_rounded_mask as _apply_rounded_mask,
@@ -85,6 +85,27 @@ def _combo_arrow_style() -> str:
             f"QComboBox::down-arrow:on {{ image: url(\"{up_url}\"); }}"
         )
     return "".join(parts)
+
+
+class _SpinboxLineEditRaiser(QObject):
+    """Event filter that keeps the spin box line edit above its buttons."""
+
+    def __init__(self, line_edit: QLineEdit, parent: QObject) -> None:
+        super().__init__(parent)
+        self._line_edit = line_edit
+
+    def eventFilter(self, obj, event):  # type: ignore[override]
+        if event.type() in (
+            QEvent.Show,
+            QEvent.Polish,
+            QEvent.PolishRequest,
+            QEvent.StyleChange,
+            QEvent.Resize,
+            QEvent.Paint,
+            QEvent.LayoutRequest,
+        ):
+            QTimer.singleShot(0, self._line_edit.raise_)
+        return False
 
 
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
@@ -180,6 +201,16 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     # Ensure the editable text is rendered above the decorative spin buttons so
     # the digits remain visible even with custom styles applied.
     line_edit.raise_()
+    QTimer.singleShot(0, line_edit.raise_)
+    # Install an event filter the first time we style this spin box so that
+    # every repaint/restack event also re-raises the text field.  This guards
+    # against platforms that reshuffle the child order after the dialog shows
+    # (e.g. high DPI scaling toggles) and guarantees the value digits always
+    # remain on top of the chrome.
+    if not hasattr(spin, "_line_edit_raiser"):
+        raiser = _SpinboxLineEditRaiser(line_edit, spin)
+        spin._line_edit_raiser = raiser  # type: ignore[attr-defined]
+        spin.installEventFilter(raiser)
 
 
 class BaseFormDialog(QDialog):
@@ -351,7 +382,6 @@ class TimerEditorDialog(BaseFormDialog):
         toolbar.addStretch(1)
         self.delete_btn = QToolButton()
         self.delete_btn.setCursor(Qt.PointingHandCursor)
-        self.delete_btn.setToolTip("Eliminar timer")
         self.delete_btn.setStyleSheet(
             f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
             f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
@@ -466,6 +496,69 @@ class TimerEditorDialog(BaseFormDialog):
         )
 
 
+class ReminderEditorDialog(BaseFormDialog):
+    """Dialog to create or edit reminders."""
+
+    def __init__(self, reminder: ReminderState | None = None, parent=None):
+        self._source = reminder
+        form = QFrame()
+        layout = QVBoxLayout(form)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
+        toolbar = QHBoxLayout()
+        toolbar.addStretch(1)
+        self.delete_btn = QToolButton()
+        self.delete_btn.setCursor(Qt.PointingHandCursor)
+        self.delete_btn.setStyleSheet(
+            f"QToolButton {{ color:{c.CLR_TEXT_IDLE}; background:transparent; border:none; font:600 14px '{c.FONT_FAM}'; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}",
+        )
+        delete_icon = c.icon("trash-can.svg")
+        if not delete_icon.isNull():
+            self.delete_btn.setIcon(delete_icon)
+            self.delete_btn.setIconSize(QSize(18, 18))
+        else:
+            self.delete_btn.setText("🗑")
+        self.delete_btn.clicked.connect(self._on_delete)
+        self.delete_btn.setVisible(reminder is not None)
+        toolbar.addWidget(self.delete_btn)
+        layout.addLayout(toolbar)
+
+        self.datetime_edit = QDateTimeEdit(datetime.now())
+        self.datetime_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.datetime_edit.setCalendarPopup(True)
+        self.datetime_edit.setStyleSheet(c.input_style('QDateTimeEdit', c.CLR_SURFACE))
+        layout.addWidget(self.datetime_edit)
+
+        self.message_edit = QLineEdit()
+        self.message_edit.setPlaceholderText("Mensaje del recordatorio")
+        self.message_edit.setStyleSheet(c.input_style())
+        layout.addWidget(self.message_edit)
+
+        title = "Editar recordatorio" if reminder else "Nuevo recordatorio"
+        super().__init__(title, form, "Guardar", parent=parent, size=(360, 220))
+        self._deleted = False
+
+        if reminder:
+            self.datetime_edit.setDateTime(reminder.when)
+            self.message_edit.setText(reminder.message)
+
+    def _on_delete(self) -> None:
+        self._deleted = True
+        self.accept()
+
+    @property
+    def was_deleted(self) -> bool:
+        return self._deleted
+
+    def result_state(self) -> ReminderState:
+        message = self.message_edit.text().strip() or "Recordatorio"
+        dt = self.datetime_edit.dateTime().toPyDateTime()
+        reminder_id = self._source.reminder_id if self._source else None
+        return ReminderState(message=message, when=dt, reminder_id=reminder_id)
+
+
 class TimerDisplayDialog(QDialog):
     """Floating dialog that mirrors the timer card in a dedicated window."""
 
@@ -506,7 +599,6 @@ class TimerDisplayDialog(QDialog):
 
         self.expand_btn = QToolButton()
         self.expand_btn.setCursor(Qt.PointingHandCursor)
-        self.expand_btn.setToolTip("Ampliar")
         self.expand_btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
@@ -522,7 +614,6 @@ class TimerDisplayDialog(QDialog):
 
         self.close_btn = QToolButton()
         self.close_btn.setCursor(Qt.PointingHandCursor)
-        self.close_btn.setToolTip("Cerrar")
         self.close_btn.setText("✕")
         self.close_btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; font:700 16px '{c.FONT_FAM}'; }}"
@@ -608,7 +699,6 @@ class TimerDisplayDialog(QDialog):
             self.expand_btn.setText("")
         else:
             self.expand_btn.setText("⤡" if self._expanded else "⤢")
-        self.expand_btn.setToolTip("Restaurar" if self._expanded else "Ampliar")
 
     def set_state(self, state: TimerState, progress: float, subtitle: str, running: bool) -> None:
         self._state = state
