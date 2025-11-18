@@ -1824,9 +1824,6 @@ class AnimatedBackground(QWidget):
             self.delete_reminder_btn.setEnabled(enabled)
 
     def _update_reminder_summary(self) -> None:
-        has_reminders = bool(self.recordatorios)
-        if hasattr(self, 'reminder_empty_label'):
-            self.reminder_empty_label.setVisible(not has_reminders)
         table = getattr(self, 'reminder_table', None)
         if table is not None:
             table.setVisible(True)
