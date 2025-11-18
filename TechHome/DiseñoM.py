@@ -8,15 +8,13 @@ from datetime import datetime
 from PyQt5.QtCore import Qt, QSize, QEasingCurve
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
-    QAbstractSpinBox,
+    QAbstractItemView,
     QCalendarWidget,
-    QDateTimeEdit,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -203,8 +201,8 @@ def build_more_page(app):
     rec_page = QFrame()
     rec_page.setStyleSheet(f'background:{CLR_BG}; border-radius:5px;')
     rp_layout = QVBoxLayout(rec_page)
-    rp_layout.setContentsMargins(16, 16, 16, 16)
-    rp_layout.setSpacing(12)
+    rp_layout.setContentsMargins(24, 24, 24, 24)
+    rp_layout.setSpacing(22)
     back_rec = QPushButton()
     back_rec.setIcon(icon('Flecha.svg'))
     back_rec.setIconSize(QSize(24, 24))
@@ -212,58 +210,89 @@ def build_more_page(app):
     back_rec.setStyleSheet('background:transparent; border:none;')
     back_rec.clicked.connect(app._back_from_more)
     rp_layout.addWidget(back_rec, alignment=Qt.AlignLeft)
-    title_rec = QLabel('Recordatorios')
-    title_rec.setStyleSheet(f"color:{CLR_TITLE}; font:700 22px '{FONT_FAM}';")
-    rp_layout.addWidget(title_rec)
-    input_frame = QFrame()
-    input_frame.setStyleSheet(f'background:{CLR_PANEL}; border:2px solid {CLR_TITLE}; border-radius:5px;')
-    ih = QHBoxLayout(input_frame)
-    ih.setContentsMargins(8, 8, 8, 8)
-    ih.setSpacing(8)
-    app.input_record_text = QLineEdit()
-    app.input_record_text.setPlaceholderText('Texto Del Recordatorio')
-    app.input_record_text.setStyleSheet(input_style(bg=CLR_SURFACE))
-    app.input_record_datetime = QDateTimeEdit(datetime.now())
-    app.input_record_datetime.setDisplayFormat('yyyy-MM-dd HH:mm')
-    app.input_record_datetime.setStyleSheet(input_style('QDateTimeEdit', CLR_SURFACE))
-    app.input_record_datetime.setButtonSymbols(QAbstractSpinBox.NoButtons)
-    btn_add_rec = QPushButton(' Añadir')
-    btn_add_rec.setIcon(icon('Más.svg'))
-    btn_add_rec.setIconSize(QSize(16, 16))
-    btn_add_rec.setFixedSize(120, 32)
-    btn_add_rec.setCursor(Qt.PointingHandCursor)
-    btn_add_rec.setStyleSheet(button_style())
-    btn_add_rec.clicked.connect(app._add_recordatorio)
-    ih.addWidget(app.input_record_text, 2)
-    ih.addWidget(app.input_record_datetime, 1)
-    ih.addWidget(btn_add_rec)
-    rp_layout.addWidget(input_frame)
-    table_frame = QFrame()
-    table_frame.setStyleSheet(f'background:{CLR_PANEL}; border:2px solid {CLR_TITLE}; border-radius:5px;')
-    table_layout = QVBoxLayout(table_frame)
-    table_layout.setContentsMargins(8, 8, 8, 8)
-    table_layout.setSpacing(8)
-    app.table_recordatorios = QTableWidget()
-    app.table_recordatorios.setColumnCount(2)
-    app.table_recordatorios.setHorizontalHeaderLabels(['Fecha Y Hora', 'Mensaje'])
-    hdr = app.table_recordatorios.horizontalHeader()
-    hdr.setStyleSheet(f"QHeaderView::section {{ background:{CLR_HEADER_BG}; color:{CLR_HEADER_TEXT}; padding:8px; font:600 14px '{FONT_FAM}'; border:none; }}")
-    hdr.setDefaultAlignment(Qt.AlignCenter)
-    app.table_recordatorios.verticalHeader().setVisible(False)
-    app.table_recordatorios.setEditTriggers(QTableWidget.NoEditTriggers)
-    style_table(app.table_recordatorios)
-    app.table_recordatorios.setColumnWidth(0, 160)
-    make_shadow(table_frame, 12, 4, 120)
-    table_layout.addWidget(app.table_recordatorios)
-    rp_layout.addWidget(table_frame, 1)
-    btn_del_rec = QPushButton('Eliminar Seleccionado')
-    btn_del_rec.setIcon(icon('Papelera.svg'))
-    btn_del_rec.setIconSize(QSize(16, 16))
-    btn_del_rec.setFixedSize(180, 32)
-    btn_del_rec.setCursor(Qt.PointingHandCursor)
-    btn_del_rec.setStyleSheet(button_style(CLR_TITLE, '4px 8px'))
-    btn_del_rec.clicked.connect(app._delete_selected_recordatorio)
-    rp_layout.addWidget(btn_del_rec, alignment=Qt.AlignRight)
+    cards_frame = QFrame()
+    cards_frame.setObjectName('remBoard')
+    cards_frame.setStyleSheet(
+        f"QFrame#remBoard {{ background:{CLR_PANEL}; border-radius:18px; border:1px solid rgba(255,255,255,0.04); }}"
+    )
+    make_shadow(cards_frame, 20, 4, 140)
+    board_layout = QVBoxLayout(cards_frame)
+    board_layout.setContentsMargins(26, 24, 26, 26)
+    board_layout.setSpacing(22)
+    header_row = QHBoxLayout()
+    header_row.setSpacing(12)
+    section_title = QLabel('Tus recordatorios activos')
+    section_title.setStyleSheet(f"color:{CLR_TITLE}; font:600 20px '{FONT_FAM}';")
+    header_row.addWidget(section_title)
+    header_row.addStretch(1)
+    app.record_count_badge = QLabel('0 activos')
+    app.record_count_badge.setStyleSheet(
+        f"color:{CLR_TITLE}; background:{CLR_SURFACE}; border-radius:14px; padding:4px 12px; font:600 13px '{FONT_FAM}';"
+    )
+    header_row.addWidget(app.record_count_badge)
+
+    def make_toolbar_btn(accent: bool = False) -> QToolButton:
+        btn = QToolButton()
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedSize(46, 38)
+        btn.setStyleSheet(pill_button_style(accent))
+        return btn
+
+    def apply_toolbar_icon(button: QToolButton, icon_name: str) -> bool:
+        pix = load_icon_pixmap(icon_name, QSize(20, 20))
+        if pix.isNull():
+            return False
+        ico = QIcon()
+        for mode in (QIcon.Normal, QIcon.Disabled, QIcon.Active, QIcon.Selected):
+            ico.addPixmap(pix, mode, QIcon.Off)
+        button.setIcon(ico)
+        button.setIconSize(pix.size())
+        return True
+
+    app.edit_reminder_btn = make_toolbar_btn()
+    if not apply_toolbar_icon(app.edit_reminder_btn, 'pen-to-square.svg'):
+        app.edit_reminder_btn.setText('✏')
+    header_row.addWidget(app.edit_reminder_btn)
+
+    app.delete_reminder_btn = make_toolbar_btn()
+    if not apply_toolbar_icon(app.delete_reminder_btn, 'trash-can.svg'):
+        app.delete_reminder_btn.setText('🗑')
+    header_row.addWidget(app.delete_reminder_btn)
+
+    app.add_reminder_btn = make_toolbar_btn(True)
+    add_icon = icon('plus.svg')
+    if not add_icon.isNull():
+        app.add_reminder_btn.setIcon(add_icon)
+        app.add_reminder_btn.setIconSize(QSize(20, 20))
+    else:
+        app.add_reminder_btn.setText('+')
+    header_row.addWidget(app.add_reminder_btn)
+    board_layout.addLayout(header_row)
+    helper_lbl = QLabel('Gestiona tus recordatorios en una sola tabla y edítalos con un doble clic cuando lo necesites.')
+    helper_lbl.setWordWrap(True)
+    helper_lbl.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:500 13px '{FONT_FAM}';")
+    board_layout.addWidget(helper_lbl)
+    app.reminder_table = QTableWidget(0, 3)
+    app.reminder_table.setObjectName('reminderTable')
+    app.reminder_table.setHorizontalHeaderLabels(['Recordatorio', 'Fecha', 'Hora'])
+    header = app.reminder_table.horizontalHeader()
+    header.setStretchLastSection(False)
+    header.setSectionResizeMode(0, QHeaderView.Stretch)
+    header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+    header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+    app.reminder_table.verticalHeader().setVisible(False)
+    app.reminder_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+    app.reminder_table.setSelectionMode(QAbstractItemView.SingleSelection)
+    app.reminder_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    app.reminder_table.setAlternatingRowColors(True)
+    app.reminder_table.setStyleSheet('QTableWidget#reminderTable { border-radius:12px; }')
+    style_table(app.reminder_table)
+    board_layout.addWidget(app.reminder_table, 1)
+    app.reminder_empty_label = QLabel('Sin recordatorios todavía. Añade el primero para comenzar.')
+    app.reminder_empty_label.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:600 14px '{FONT_FAM}';")
+    app.reminder_empty_label.setAlignment(Qt.AlignCenter)
+    board_layout.addWidget(app.reminder_empty_label)
+    rp_layout.addWidget(cards_frame, 1)
     app.more_stack.addWidget(rec_page)
     alarm_page = QFrame()
     alarm_page.setStyleSheet(f'background:{CLR_BG}; border-radius:5px;')
@@ -297,7 +326,6 @@ def build_more_page(app):
     alarm_tb.setSpacing(6)
     app.edit_alarm_mode_btn = QToolButton()
     app.edit_alarm_mode_btn.setCursor(Qt.PointingHandCursor)
-    app.edit_alarm_mode_btn.setToolTip('Modo edición de alarmas')
     app.edit_alarm_mode_btn.setFixedSize(46, 38)
     app.edit_alarm_mode_btn.setStyleSheet(pill_button_style())
     edit_alarm_icon = icon('pen-to-square.svg')
@@ -309,7 +337,6 @@ def build_more_page(app):
     alarm_tb.addWidget(app.edit_alarm_mode_btn)
     app.add_alarm_btn = QToolButton()
     app.add_alarm_btn.setCursor(Qt.PointingHandCursor)
-    app.add_alarm_btn.setToolTip('Añadir alarma')
     app.add_alarm_btn.setFixedSize(46, 38)
     app.add_alarm_btn.setStyleSheet(pill_button_style(True))
     add_alarm_icon = icon('plus.svg')
@@ -354,7 +381,6 @@ def build_more_page(app):
     timer_tb.setSpacing(6)
     app.edit_timer_mode_btn = QToolButton()
     app.edit_timer_mode_btn.setCursor(Qt.PointingHandCursor)
-    app.edit_timer_mode_btn.setToolTip('Modo edición de timers')
     app.edit_timer_mode_btn.setFixedSize(46, 38)
     app.edit_timer_mode_btn.setStyleSheet(pill_button_style())
     edit_timer_pix = load_icon_pixmap('pen-to-square.svg', QSize(20, 20))
@@ -369,7 +395,6 @@ def build_more_page(app):
     timer_tb.addWidget(app.edit_timer_mode_btn)
     app.add_timer_btn = QToolButton()
     app.add_timer_btn.setCursor(Qt.PointingHandCursor)
-    app.add_timer_btn.setToolTip('Añadir timer')
     app.add_timer_btn.setFixedSize(46, 38)
     app.add_timer_btn.setStyleSheet(pill_button_style(True))
     add_timer_pix = load_icon_pixmap('plus.svg', QSize(20, 20))
