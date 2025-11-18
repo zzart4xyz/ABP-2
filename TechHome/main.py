@@ -953,7 +953,6 @@ from widgets import (
     TimerCard,
     TimerFullscreenView,
     AlarmCard,
-    ReminderCard,
 )
 from health import BPMGauge, MetricsPanel
 
@@ -965,8 +964,6 @@ class AnimatedBackground(QWidget):
         self.login_time = login_time
         self.lists = {'Compra': [], 'Tareas': []}
         self.recordatorios: list[ReminderState] = []
-        self._reminder_cards: list[ReminderCard] = []
-        self._reminder_edit_mode = False
         self.reminder_timer = QTimer(self)
         self.reminder_timer.timeout.connect(self._check_reminders)
         self.reminder_timer.start(60000)
@@ -1761,37 +1758,85 @@ class AnimatedBackground(QWidget):
         if notify:
             self._add_notification('Recordatorio Eliminado')
 
-    def _set_reminder_edit_mode(self, active: bool) -> None:
-        self._reminder_edit_mode = active
-        if hasattr(self, 'edit_reminder_mode_btn'):
-            self._style_mode_button(self.edit_reminder_mode_btn, active)
-        for card in self._reminder_cards:
-            card.set_edit_mode(active)
-
-    def _refresh_reminder_cards(self) -> None:
-        if not hasattr(self, 'reminder_cards_layout'):
+    def _refresh_reminder_table(self) -> None:
+        table = getattr(self, 'reminder_table', None)
+        if table is None:
             return
-        grid = self.reminder_cards_layout
-        for card in self._reminder_cards:
-            card.setParent(None)
-            card.deleteLater()
-        self._reminder_cards = []
         reminders = sorted(self.recordatorios, key=lambda r: r.when)
-        for idx, reminder in enumerate(reminders):
-            card = ReminderCard()
-            card.set_state(reminder)
-            card.set_edit_mode(self._reminder_edit_mode)
-            card.editRequested.connect(lambda _, r=reminder: self._edit_reminder(r))
-            card.deleteRequested.connect(lambda _, r=reminder: self._delete_reminder(r))
-            grid.addWidget(card, idx // 2, idx % 2)
-            self._reminder_cards.append(card)
+        table.setRowCount(len(reminders))
+        for row, reminder in enumerate(reminders):
+            message_item = QTableWidgetItem(reminder.message or 'Recordatorio')
+            message_item.setData(Qt.UserRole, reminder)
+            message_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            table.setItem(row, 0, message_item)
+
+            date_item = QTableWidgetItem(reminder.when.strftime('%d %b %Y'))
+            date_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            table.setItem(row, 1, date_item)
+
+            time_item = QTableWidgetItem(reminder.when.strftime('%H:%M'))
+            time_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            table.setItem(row, 2, time_item)
+
+            actions_widget = QWidget()
+            actions_layout = QHBoxLayout(actions_widget)
+            actions_layout.setContentsMargins(0, 0, 0, 0)
+            actions_layout.setSpacing(6)
+
+            edit_btn = QToolButton()
+            edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.setStyleSheet(
+                f"QToolButton {{ background:{CLR_SURFACE}; border:none; border-radius:12px; padding:6px; color:{CLR_TEXT_IDLE}; }}"
+                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
+            )
+            edit_icon = icon('pen-to-square.svg')
+            if not edit_icon.isNull():
+                edit_btn.setIcon(edit_icon)
+                edit_btn.setIconSize(QSize(18, 18))
+            else:
+                edit_btn.setText('✏')
+            edit_btn.clicked.connect(lambda _, r=reminder: self._edit_reminder(r))
+            actions_layout.addWidget(edit_btn)
+
+            delete_btn = QToolButton()
+            delete_btn.setCursor(Qt.PointingHandCursor)
+            delete_btn.setStyleSheet(
+                f"QToolButton {{ background:{CLR_SURFACE}; border:none; border-radius:12px; padding:6px; color:{CLR_TEXT_IDLE}; }}"
+                f"QToolButton:hover {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
+            )
+            delete_icon = icon('trash-can.svg')
+            if not delete_icon.isNull():
+                delete_btn.setIcon(delete_icon)
+                delete_btn.setIconSize(QSize(18, 18))
+            else:
+                delete_btn.setText('🗑')
+            delete_btn.clicked.connect(lambda _, r=reminder: self._delete_reminder(r))
+            actions_layout.addWidget(delete_btn)
+            actions_layout.addStretch(1)
+            table.setCellWidget(row, 3, actions_widget)
+
+            table.setRowHeight(row, 54)
+
+    def _reminder_for_row(self, row: int) -> ReminderState | None:
+        table = getattr(self, 'reminder_table', None)
+        if table is None or row < 0 or row >= table.rowCount():
+            return None
+        item = table.item(row, 0)
+        reminder = item.data(Qt.UserRole) if item else None
+        return reminder if isinstance(reminder, ReminderState) else None
+
+    def _on_reminder_cell_double_clicked(self, row: int, column: int) -> None:
+        reminder = self._reminder_for_row(row)
+        if reminder is not None:
+            self._edit_reminder(reminder)
 
     def _update_reminder_summary(self) -> None:
         has_reminders = bool(self.recordatorios)
-        if hasattr(self, 'reminder_cards_scroll'):
-            self.reminder_cards_scroll.setVisible(has_reminders)
         if hasattr(self, 'reminder_empty_label'):
             self.reminder_empty_label.setVisible(not has_reminders)
+        table = getattr(self, 'reminder_table', None)
+        if table is not None:
+            table.setVisible(True)
         if hasattr(self, 'record_count_badge'):
             self.record_count_badge.setText(f"{len(self.recordatorios)} activos")
         if hasattr(self, 'next_record_label'):
@@ -1805,7 +1850,7 @@ class AnimatedBackground(QWidget):
 
     def _after_reminders_changed(self) -> None:
         self.recordatorios.sort(key=lambda r: r.when)
-        self._refresh_reminder_cards()
+        self._refresh_reminder_table()
         self._update_reminder_summary()
         try:
             self._refresh_calendar_events()
@@ -2275,10 +2320,8 @@ class AnimatedBackground(QWidget):
             self._style_mode_button(self.edit_alarm_mode_btn, False)
         if hasattr(self, 'add_reminder_btn'):
             self.add_reminder_btn.clicked.connect(self._open_new_reminder_dialog)
-        if hasattr(self, 'edit_reminder_mode_btn'):
-            self.edit_reminder_mode_btn.setCheckable(True)
-            self.edit_reminder_mode_btn.toggled.connect(self._set_reminder_edit_mode)
-            self._style_mode_button(self.edit_reminder_mode_btn, False)
+        if hasattr(self, 'reminder_table'):
+            self.reminder_table.cellDoubleClicked.connect(self._on_reminder_cell_double_clicked)
         if hasattr(self, 'timer_fullscreen_view'):
             view: TimerFullscreenView = self.timer_fullscreen_view
             view.playRequested.connect(self._play_fullscreen_timer)

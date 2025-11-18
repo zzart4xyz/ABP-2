@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from PyQt5.QtCore import (
     Qt,
     QRectF,
@@ -27,7 +25,6 @@ from PyQt5.QtWidgets import (
 )
 
 import constants as c
-from models import ReminderState
 
 """
 Custom widgets used throughout the TechHome interface.  These include
@@ -813,113 +810,6 @@ class TimerFullscreenView(QFrame):
         )
         self.reset_btn.setIconSize(QSize(reset_icon, reset_icon))
 
-
-
-class ReminderCard(QFrame):
-    """Compact card that displays a reminder."""
-
-    editRequested = pyqtSignal(object)
-    deleteRequested = pyqtSignal(object)
-    clicked = pyqtSignal(object)
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.reminder: ReminderState | None = None
-        self.setObjectName("reminderCard")
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
-        self.setStyleSheet(
-            f"QFrame#reminderCard {{ background:{c.CLR_PANEL}; border-radius:18px; border:1px solid {_with_alpha('#FFFFFF', 0.05)}; }}"
-        )
-        c.make_shadow(self, 18, 6, 120)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 22, 24, 22)
-        layout.setSpacing(14)
-
-        header = QHBoxLayout()
-        header.setSpacing(12)
-        self.date_chip = QLabel("Hoy")
-        self.date_chip.setStyleSheet(
-            f"QLabel {{ background:{_with_alpha(c.CLR_SURFACE, 0.9)}; color:{c.CLR_TEXT_IDLE}; border-radius:14px; padding:4px 12px; font:600 13px '{c.FONT_FAM}'; }}"
-        )
-        header.addWidget(self.date_chip)
-
-        self.time_label = QLabel("08:00")
-        self.time_label.setStyleSheet(f"color:{c.CLR_TITLE}; font:700 20px '{c.FONT_FAM}';")
-        header.addWidget(self.time_label)
-        header.addStretch(1)
-        layout.addLayout(header)
-
-        self.message_label = QLabel("Recordatorio")
-        self.message_label.setWordWrap(True)
-        self.message_label.setStyleSheet(
-            f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; line-height:130%;"
-        )
-        layout.addWidget(self.message_label)
-
-        self.relative_label = QLabel("en 2 horas")
-        self.relative_label.setStyleSheet(
-            f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.9)}; font:500 14px '{c.FONT_FAM}';"
-        )
-        layout.addWidget(self.relative_label)
-
-        footer = QHBoxLayout()
-        footer.setContentsMargins(0, 6, 0, 0)
-        footer.setSpacing(6)
-        footer.addStretch(1)
-        self.edit_btn = self._make_footer_button()
-        _set_button_icon(self.edit_btn, "pencil.svg", QSize(18, 18), fallback="✏")
-        self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
-        footer.addWidget(self.edit_btn)
-
-        self.delete_btn = self._make_footer_button()
-        _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
-        self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
-        footer.addWidget(self.delete_btn)
-        layout.addLayout(footer)
-
-        self.set_edit_mode(False)
-
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit(self)
-        super().mousePressEvent(event)
-
-    def _make_footer_button(self) -> QToolButton:
-        btn = QToolButton()
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet(
-            f"QToolButton {{ background:transparent; border:none; border-radius:14px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
-            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
-        )
-        return btn
-
-    def set_state(self, reminder: ReminderState) -> None:
-        self.reminder = reminder
-        self.date_chip.setText(reminder.when.strftime("%d %b"))
-        self.time_label.setText(reminder.when.strftime("%H:%M"))
-        self.message_label.setText(reminder.message)
-        self.relative_label.setText(self._format_relative(reminder.when))
-
-    def set_edit_mode(self, active: bool) -> None:
-        self.edit_btn.setVisible(active)
-        self.delete_btn.setVisible(active)
-
-    def _format_relative(self, when: datetime) -> str:
-        delta = when - datetime.now()
-        total = int(delta.total_seconds())
-        if total <= 0:
-            return "Listo"
-        hours, rem = divmod(total, 3600)
-        minutes, _ = divmod(rem, 60)
-        parts: list[str] = []
-        if hours:
-            parts.append(f"{hours} h")
-        if minutes:
-            parts.append(f"{minutes} min")
-        if not parts:
-            parts.append("<1 min")
-        return "En " + " ".join(parts)
 
 
 class AlarmCard(QFrame):
