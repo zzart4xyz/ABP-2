@@ -213,9 +213,9 @@ def build_more_page(app):
     cards_frame = QFrame()
     cards_frame.setObjectName('remBoard')
     cards_frame.setStyleSheet(
-        f"QFrame#remBoard {{ background:{CLR_PANEL}; border-radius:18px; border:1px solid rgba(255,255,255,0.04); }}"
+        f"QFrame#remBoard {{ background:{CLR_PANEL}; border-radius:18px; border:2px solid {CLR_HEADER_BG}; }}"
     )
-    make_shadow(cards_frame, 20, 4, 140)
+    make_shadow(cards_frame, 20, 4)
     board_layout = QVBoxLayout(cards_frame)
     board_layout.setContentsMargins(26, 24, 26, 26)
     board_layout.setSpacing(22)
@@ -271,9 +271,9 @@ def build_more_page(app):
     table_shell = QFrame()
     table_shell.setObjectName('remTableShell')
     table_shell.setStyleSheet(
-        f"QFrame#remTableShell {{ background:{CLR_PANEL}; border-radius:22px; border:1px solid rgba(255,255,255,0.05); }}"
+        f"QFrame#remTableShell {{ background:{CLR_SURFACE}; border-radius:20px; border:2px solid {CLR_HEADER_BG}; }}"
     )
-    make_shadow(table_shell, 28, 6, 180)
+    make_shadow(table_shell, 28, 6)
     shell_layout = QVBoxLayout(table_shell)
     shell_layout.setContentsMargins(14, 14, 14, 14)
     shell_layout.setSpacing(0)
@@ -298,8 +298,8 @@ def build_more_page(app):
     app.reminder_table.setAlternatingRowColors(False)
     style_table(app.reminder_table)
     app.reminder_table.setStyleSheet(
-        f"QTableWidget#reminderTable {{ background:{CLR_SURFACE}; border-radius:16px; border:1px solid rgba(255,255,255,0.08);"
-        f" gridline-color:rgba(255,255,255,0.08); color:{CLR_TEXT_IDLE}; font:500 14px '{FONT_FAM}'; }}"
+        f"QTableWidget#reminderTable {{ background:{CLR_PANEL}; border-radius:16px; border:2px solid {CLR_HEADER_BG};"
+        f" gridline-color:{CLR_HEADER_BG}; color:{CLR_TEXT_IDLE}; font:500 14px '{FONT_FAM}'; }}"
         f" QTableWidget#reminderTable::item {{ padding:14px 10px; background:transparent; }}"
         f" QTableWidget#reminderTable::item:selected {{ background:{CLR_ITEM_ACT}; color:{CLR_TITLE}; }}"
         " QTableWidget#reminderTable::item:focus { outline:none; }"
