@@ -35,6 +35,7 @@ from constants import (
     CLR_HEADER_BG,
     CLR_HEADER_TEXT,
     CLR_ITEM_ACT,
+    CLR_PLACEHOLDER,
     CLR_PANEL,
     CLR_SURFACE,
     CLR_TEXT_IDLE,
