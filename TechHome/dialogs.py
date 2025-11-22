@@ -1,4 +1,5 @@
 from datetime import datetime, date, time
+from functools import lru_cache
 
 from PyQt5.QtCore import (
     Qt, QPoint, QTimer, QPropertyAnimation, QParallelAnimationGroup,
@@ -68,6 +69,7 @@ def _with_alpha(color: str, alpha: float) -> str:
     return qcol.name(QColor.HexArgb)
 
 
+@lru_cache(maxsize=1)
 def _combo_arrow_style() -> str:
     """Return stylesheet rules that swap the combo box arrow icons."""
 
