@@ -3,8 +3,10 @@ import random
 import csv
 import os
 from dataclasses import dataclass
-from typing import Any, Callable
 from datetime import datetime, timedelta
+from pathlib import Path
+import importlib.util
+from typing import Any, Callable
 from PyQt5.QtCore import (
     Qt,
     QPoint,
@@ -919,6 +921,22 @@ class NotificationsDetailsDialog(QDialog):
         if event.buttons() & Qt.LeftButton:
             self.move(event.globalPos() - self._drag_offset)
             event.accept()
+BASE_DIR = Path(__file__).resolve().parent
+
+def _load_section_module(alias: str, filename: str):
+    module_path = BASE_DIR / filename
+    spec = importlib.util.spec_from_file_location(alias, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"No se pudo cargar el módulo {alias} desde {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[alias] = module
+    spec.loader.exec_module(module)
+    return module
+
+def _load_section_exports(alias: str, filename: str, names: list[str]):
+    module = _load_section_module(alias, filename)
+    return [getattr(module, name) for name in names]
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from constants import HEALTH_CSV_PATH, CLR_HEADER_BG, CLR_HOVER, CLR_TITLE, CLR_TEXT_IDLE, FONT_FAM, make_shadow, CLR_BG, FRAME_RAD, set_theme_constants, TRANSLATIONS_EN, TRANSLATIONS_ES, MAX_NOTIFICATIONS, HOME_RECENT_COUNT, PANEL_W, CLR_PANEL, CLR_ITEM_ACT, CLR_SURFACE, CLR_TRACK, CLR_HEADER_TEXT, CURRENT_THEME, button_style, icon, input_style, pixmap
@@ -930,14 +948,14 @@ from dialogs import (
     AlarmEditorDialog,
     ReminderEditorDialog,
 )
-from DiseñoPC import SplashScreen, create_splash_animations
-from DiseñoIR import LoginDialog
-from DiseñoI import build_home_page, create_home_animations
-from DiseñoD import build_devices_page, create_devices_animations
-from DiseñoM import build_more_page, create_more_animations
-from DiseñoS import build_health_page, create_health_animations
-from DiseñoC import build_config_page, create_config_animations
-from DiseñoCa import build_account_page, create_account_animations
+SplashScreen, create_splash_animations = _load_section_exports("pantalla_de_carga", "Pantalla de Carga.py", ["SplashScreen", "create_splash_animations"])
+LoginDialog, = _load_section_exports("sesion_registro", "Sesion y Registro.py", ["LoginDialog"])
+build_home_page, create_home_animations = _load_section_exports("inicio", "Inicio.py", ["build_home_page", "create_home_animations"])
+build_devices_page, create_devices_animations = _load_section_exports("dispositivos", "Dispositivos.py", ["build_devices_page", "create_devices_animations"])
+build_more_page, create_more_animations = _load_section_exports("mas", "Mas.py", ["build_more_page", "create_more_animations"])
+build_health_page, create_health_animations = _load_section_exports("salud", "Salud.py", ["build_health_page", "create_health_animations"])
+build_config_page, create_config_animations = _load_section_exports("configuracion", "Configuracion.py", ["build_config_page", "create_config_animations"])
+build_account_page, create_account_animations = _load_section_exports("cuenta", "Cuenta.py", ["build_account_page", "create_account_animations"])
 import database
 from widgets import (
     NotesManager,
