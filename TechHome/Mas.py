@@ -808,26 +808,24 @@ def create_more_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    return [
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'more_stack', None),
-                order=0,
-                duration=base_duration,
-                offset=18.0,
-                direction='down',
-                step=32,
-            )
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'more_stack', None),
+            order=0,
+            duration=base_duration,
+            offset=18.0,
+            direction='down',
+            step=32,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'more_grid_widget', None),
-                order=1,
-                duration=base_duration,
-                offset=24.0,
-                direction='down',
-                step=32,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'more_grid_widget', None),
+            order=1,
+            duration=base_duration,
+            offset=24.0,
+            direction='down',
+            step=32,
         ),
     ]
+
+    return [slide_fade(spec) for spec in specs]
 

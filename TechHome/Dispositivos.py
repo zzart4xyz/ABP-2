@@ -239,48 +239,42 @@ def create_devices_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    specs: list[dict[str, object]] = []
+    specs: list[SlideSpec] = []
 
     order = 0
     # Encabezado principal y botón de agregar replican la animación de bienvenida de inicio.
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_title_label', None),
-                order=order,
-                duration=base_duration,
-                offset=18.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_title_label', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_add_button', None),
-                order=order,
-                duration=base_duration,
-                offset=18.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_add_button', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     order += 1
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_groups_label', None),
-                order=order,
-                duration=base_duration,
-                offset=18.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_groups_label', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     order += 1
@@ -288,102 +282,88 @@ def create_devices_animations(app) -> list[dict[str, object]]:
     group_cards = list(getattr(app, 'group_cards', []))
     for idx, card in enumerate(group_cards):
         specs.append(
-            slide_fade(
-                SlideSpec(
-                    target_getter=lambda card=card: card,
-                    order=order + idx,
-                    duration=base_duration,
-                    offset=18.0,
-                    step=30,
-                    fade=True,
-                    remove_effect=True,
-                )
+            SlideSpec(
+                target_getter=lambda card=card: card,
+                order=order + idx,
+                duration=base_duration,
+                offset=18.0,
+                step=30,
+                fade=True,
+                remove_effect=True,
             )
         )
     order += len(group_cards)
     if hasattr(app, 'add_group_card'):
         specs.append(
-            slide_fade(
-                SlideSpec(
-                    target_getter=lambda: getattr(app, 'add_group_card', None),
-                    order=order,
-                    duration=base_duration,
-                    offset=18.0,
-                    step=30,
-                    fade=True,
-                    remove_effect=True,
-                )
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'add_group_card', None),
+                order=order,
+                duration=base_duration,
+                offset=18.0,
+                step=30,
+                fade=True,
+                remove_effect=True,
             )
         )
         order += 1
 
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'group_indicator', None),
-                order=order,
-                duration=base_duration,
-                offset=18.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'group_indicator', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     order += 1
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_groups_scroll', None),
-                order=order,
-                duration=base_duration,
-                offset=18.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_groups_scroll', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     order += 1
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_groups_scrollbar', None),
-                order=order,
-                duration=base_duration,
-                offset=12.0,
-                step=30,
-                fade=False,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_groups_scrollbar', None),
+            order=order,
+            duration=base_duration,
+            offset=12.0,
+            step=30,
+            fade=False,
+            remove_effect=True,
         )
     )
     order += 1
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_filter_bar', None),
-                order=order,
-                duration=base_duration,
-                offset=18.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_filter_bar', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     order += 1
     specs.append(
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'devices_vertical_scrollbar', None),
-                order=order,
-                duration=base_duration,
-                offset=24.0,
-                step=30,
-                fade=True,
-                remove_effect=True,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_vertical_scrollbar', None),
+            order=order,
+            duration=base_duration,
+            offset=24.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
         )
     )
     order += 1
@@ -391,17 +371,15 @@ def create_devices_animations(app) -> list[dict[str, object]]:
     device_rows = list(getattr(app, 'device_rows', []))
     for idx, row in enumerate(device_rows):
         specs.append(
-            slide_fade(
-                SlideSpec(
-                    target_getter=lambda row=row: row,
-                    order=order + idx,
-                    duration=base_duration,
-                    offset=18.0,
-                    step=30,
-                    fade=True,
-                    remove_effect=True,
-                )
+            SlideSpec(
+                target_getter=lambda row=row: row,
+                order=order + idx,
+                duration=base_duration,
+                offset=18.0,
+                step=30,
+                fade=True,
+                remove_effect=True,
             )
         )
 
-    return specs
+    return [slide_fade(spec) for spec in specs]

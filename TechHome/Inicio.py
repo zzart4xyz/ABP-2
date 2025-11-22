@@ -202,75 +202,63 @@ def create_home_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    return [
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_greeting_frame', None),
-                order=0,
-                duration=base_duration,
-                offset=16.0,
-                direction='down',
-                step=30,
-            )
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_greeting_frame', None),
+            order=0,
+            duration=base_duration,
+            offset=16.0,
+            direction='down',
+            step=30,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_notifications_header', None),
-                order=1,
-                duration=base_duration,
-                offset=18.0,
-                direction='down',
-                step=30,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_notifications_header', None),
+            order=1,
+            duration=base_duration,
+            offset=18.0,
+            direction='down',
+            step=30,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_notifications_container', None),
-                order=2,
-                duration=base_duration,
-                offset=20.0,
-                direction='down',
-                step=30,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_notifications_container', None),
+            order=2,
+            duration=base_duration,
+            offset=20.0,
+            direction='down',
+            step=30,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_metrics_header', None),
-                order=3,
-                duration=base_duration,
-                offset=21.0,
-                direction='down',
-                step=30,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_metrics_header', None),
+            order=3,
+            duration=base_duration,
+            offset=21.0,
+            direction='down',
+            step=30,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_metrics_container', None),
-                order=4,
-                duration=base_duration,
-                offset=22.0,
-                direction='down',
-                step=30,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_metrics_container', None),
+            order=4,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=30,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_quick_access_label', None),
-                order=5,
-                duration=base_duration,
-                offset=23.0,
-                direction='down',
-                step=28,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_quick_access_label', None),
+            order=5,
+            duration=base_duration,
+            offset=23.0,
+            direction='down',
+            step=28,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'home_quick_access_frame', None),
-                order=6,
-                duration=base_duration,
-                offset=24.0,
-                direction='down',
-                step=30,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'home_quick_access_frame', None),
+            order=6,
+            duration=base_duration,
+            offset=24.0,
+            direction='down',
+            step=30,
         ),
     ]
+
+    return [slide_fade(spec) for spec in specs]

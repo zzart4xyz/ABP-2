@@ -36,25 +36,23 @@ def create_health_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    return [
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'health_gauge', None),
-                order=0,
-                duration=base_duration,
-                offset=16.0,
-                direction='down',
-                step=30,
-            )
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'health_gauge', None),
+            order=0,
+            duration=base_duration,
+            offset=16.0,
+            direction='down',
+            step=30,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'health_metrics', None),
-                order=1,
-                duration=base_duration,
-                offset=22.0,
-                direction='down',
-                step=30,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'health_metrics', None),
+            order=1,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=30,
         ),
     ]
+
+    return [slide_fade(spec) for spec in specs]

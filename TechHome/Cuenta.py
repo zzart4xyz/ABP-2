@@ -208,78 +208,66 @@ def create_account_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    return [
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_title_label', None),
-                order=0,
-                duration=base_duration,
-                offset=16.0,
-                direction='down',
-                step=20,
-            )
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_title_label', None),
+            order=0,
+            duration=base_duration,
+            offset=16.0,
+            direction='down',
+            step=20,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_manage_button', None),
-                order=1,
-                duration=base_duration,
-                offset=16.0,
-                direction='down',
-                step=20,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_manage_button', None),
+            order=1,
+            duration=base_duration,
+            offset=16.0,
+            direction='down',
+            step=20,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_summary_frame', None),
-                order=2,
-                duration=base_duration,
-                offset=22.0,
-                direction='down',
-                step=28,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_summary_frame', None),
+            order=2,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_security_frame', None),
-                order=3,
-                duration=base_duration,
-                offset=22.0,
-                direction='down',
-                step=28,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_security_frame', None),
+            order=3,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_activity_frame', None),
-                order=4,
-                duration=base_duration,
-                offset=22.0,
-                direction='down',
-                step=28,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_activity_frame', None),
+            order=4,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_plan_frame', None),
-                order=5,
-                duration=base_duration,
-                offset=22.0,
-                direction='down',
-                step=28,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_plan_frame', None),
+            order=5,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
         ),
-        slide_fade(
-            SlideSpec(
-                target_getter=lambda: getattr(app, 'account_invoice_button', None),
-                order=6,
-                duration=base_duration,
-                offset=18.0,
-                direction='down',
-                step=28,
-            )
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_invoice_button', None),
+            order=6,
+            duration=base_duration,
+            offset=18.0,
+            direction='down',
+            step=28,
         ),
     ]
+
+    return [slide_fade(spec) for spec in specs]
 
 
 __all__ = ['build_account_page', 'create_account_animations']
