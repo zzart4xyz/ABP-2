@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QSize, QEasingCurve
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QAbstractItemView,
@@ -29,6 +29,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
 )
 
+from animaciones import SlideSpec, slide_fade
 from constants import (
     CLR_BG,
     CLR_HOVER,
@@ -807,19 +808,26 @@ def create_more_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 24.0, step: int = 32) -> dict[str, object]:
-        return {
-            'type': 'slide_fade',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-        }
-
     return [
-        slide(lambda: getattr(app, 'more_stack', None), 0, offset=18.0),
-        slide(lambda: getattr(app, 'more_grid_widget', None), 1, offset=24.0),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'more_stack', None),
+                order=0,
+                duration=base_duration,
+                offset=18.0,
+                direction='down',
+                step=32,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'more_grid_widget', None),
+                order=1,
+                duration=base_duration,
+                offset=24.0,
+                direction='down',
+                step=32,
+            )
+        ),
     ]
 

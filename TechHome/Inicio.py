@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize, QTimer, QEasingCurve
+from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QFrame,
@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from animaciones import SlideSpec, slide_fade
 from constants import CLR_BG, CLR_PANEL, CLR_SURFACE, CLR_TITLE, CLR_TEXT_IDLE, CLR_HOVER, HOME_RECENT_COUNT, FONT_FAM
 from widgets import QuickAccessButton
 
@@ -201,23 +202,75 @@ def create_home_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 22.0, step: int = 30) -> dict[str, object]:
-        return {
-            'type': 'slide_fade',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-        }
-
     return [
-        slide(lambda: getattr(app, 'home_greeting_frame', None), 0, offset=16.0),
-        slide(lambda: getattr(app, 'home_notifications_header', None), 1, offset=18.0),
-        slide(lambda: getattr(app, 'home_notifications_container', None), 2, offset=20.0),
-        slide(lambda: getattr(app, 'home_metrics_header', None), 3, offset=21.0),
-        slide(lambda: getattr(app, 'home_metrics_container', None), 4, offset=22.0),
-        slide(lambda: getattr(app, 'home_quick_access_label', None), 5, offset=23.0, step=28),
-        slide(lambda: getattr(app, 'home_quick_access_frame', None), 6, offset=24.0),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_greeting_frame', None),
+                order=0,
+                duration=base_duration,
+                offset=16.0,
+                direction='down',
+                step=30,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_notifications_header', None),
+                order=1,
+                duration=base_duration,
+                offset=18.0,
+                direction='down',
+                step=30,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_notifications_container', None),
+                order=2,
+                duration=base_duration,
+                offset=20.0,
+                direction='down',
+                step=30,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_metrics_header', None),
+                order=3,
+                duration=base_duration,
+                offset=21.0,
+                direction='down',
+                step=30,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_metrics_container', None),
+                order=4,
+                duration=base_duration,
+                offset=22.0,
+                direction='down',
+                step=30,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_quick_access_label', None),
+                order=5,
+                duration=base_duration,
+                offset=23.0,
+                direction='down',
+                step=28,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'home_quick_access_frame', None),
+                order=6,
+                duration=base_duration,
+                offset=24.0,
+                direction='down',
+                step=30,
+            )
+        ),
     ]

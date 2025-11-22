@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QEasingCurve
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from animaciones import SlideSpec, slide_fade
 from constants import CLR_PANEL, CLR_TEXT_IDLE, CLR_TITLE, CLR_SURFACE, CLR_ITEM_ACT, FONT_FAM
 
 
@@ -102,21 +103,55 @@ def create_config_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 20.0, step: int = 28) -> dict[str, object]:
-        return {
-            'type': 'slide_fade',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-        }
-
     return [
-        slide(lambda: getattr(app, 'config_theme_frame', None), 0, offset=15.0),
-        slide(lambda: getattr(app, 'config_language_frame', None), 1, offset=17.0),
-        slide(lambda: getattr(app, 'config_time_frame', None), 2, offset=19.0),
-        slide(lambda: getattr(app, 'config_notifications_frame', None), 3, offset=22.0),
-        slide(lambda: getattr(app, 'config_about_frame', None), 4, offset=24.0),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'config_theme_frame', None),
+                order=0,
+                duration=base_duration,
+                offset=15.0,
+                direction='down',
+                step=28,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'config_language_frame', None),
+                order=1,
+                duration=base_duration,
+                offset=17.0,
+                direction='down',
+                step=28,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'config_time_frame', None),
+                order=2,
+                duration=base_duration,
+                offset=19.0,
+                direction='down',
+                step=28,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'config_notifications_frame', None),
+                order=3,
+                duration=base_duration,
+                offset=22.0,
+                direction='down',
+                step=28,
+            )
+        ),
+        slide_fade(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'config_about_frame', None),
+                order=4,
+                duration=base_duration,
+                offset=24.0,
+                direction='down',
+                step=28,
+            )
+        ),
     ]
