@@ -20,6 +20,7 @@ from PyQt5.QtCore import (
     QParallelAnimationGroup,
     QSequentialAnimationGroup,
     QPauseAnimation,
+    QEvent,
 )
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QConicalGradient, QPixmap, QIcon, QPainterPath, QLinearGradient
 try:
@@ -43,6 +44,44 @@ class MetricSpec:
     progress_fn: Callable[["MetricsDetailsDialog", float], float]
     value_fn: Callable[["MetricsDetailsDialog", float], str]
     graph_color: str = CLR_TITLE
+
+
+class TimerPopupDialog(QDialog):
+    """Frameless dialog that can be dragged and positioned manually."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._drag_active = False
+        self._drag_offset = QPoint()
+        self._drag_handles: list[QWidget] = []
+        self.installEventFilter(self)
+
+    def register_drag_handle(self, widget: QWidget) -> None:
+        if widget not in self._drag_handles:
+            widget.installEventFilter(self)
+            self._drag_handles.append(widget)
+
+    def eventFilter(self, obj, event):  # type: ignore[override]
+        if obj is self or obj in self._drag_handles:
+            if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                self._drag_active = True
+                self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
+            elif event.type() == QEvent.MouseMove and self._drag_active and event.buttons() & Qt.LeftButton:
+                self.move(event.globalPos() - self._drag_offset)
+            elif event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                self._drag_active = False
+        return super().eventFilter(obj, event)
+
+    def position_top_right(self, margin: int = 24) -> None:
+        screen = self.windowHandle().screen() if self.windowHandle() else QApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        geo = self.frameGeometry()
+        x = available.x() + available.width() - geo.width() - margin
+        y = available.y() + margin
+        min_x = available.x() + margin
+        self.move(max(min_x, x), y)
 
 class MetricGauge(QWidget):
 
@@ -889,7 +928,6 @@ from dialogs import (
     NewElementDialog,
     TimerEditorDialog,
     AlarmEditorDialog,
-    TimerDisplayDialog,
 )
 from DiseñoPC import SplashScreen, create_splash_animations
 from DiseñoIR import LoginDialog
@@ -912,6 +950,7 @@ from widgets import (
     GroupCard,
     DeviceRow,
     TimerCard,
+    TimerFullscreenView,
     AlarmCard,
 )
 from health import BPMGauge, MetricsPanel
@@ -931,7 +970,8 @@ class AnimatedBackground(QWidget):
         self.timers: list[TimerState] = []
         self._alarm_card_widgets: dict[int, AlarmCard] = {}
         self._timer_card_widgets: dict[int, TimerCard] = {}
-        self._timer_viewers: dict[int, TimerDisplayDialog] = {}
+        self._timer_fullscreen_timer: TimerState | None = None
+        self.timer_fullscreen_dialog: QDialog | None = None
         self._alarm_edit_mode = False
         self._timer_edit_mode = False
         self._last_selected_timer: TimerState | None = None
@@ -1964,6 +2004,18 @@ class AnimatedBackground(QWidget):
                 pass
         self._refresh_timer_cards()
 
+    def _play_fullscreen_timer(self):
+        if self._timer_fullscreen_timer is not None:
+            self._play_timer(self._timer_fullscreen_timer)
+
+    def _pause_fullscreen_timer(self):
+        if self._timer_fullscreen_timer is not None:
+            self._pause_timer(self._timer_fullscreen_timer)
+
+    def _reset_fullscreen_timer(self):
+        if self._timer_fullscreen_timer is not None:
+            self._reset_timer(self._timer_fullscreen_timer)
+
     def _style_mode_button(self, button: QToolButton, active: bool) -> None:
         button.setStyleSheet(pill_button_style(active))
 
@@ -1995,6 +2047,9 @@ class AnimatedBackground(QWidget):
         layout = self.timer_cards_layout
         now = datetime.now()
         keep: set[int] = set()
+        active_timer = self._timer_fullscreen_timer
+        active_key = id(active_timer) if active_timer is not None else None
+        ordered_cards: list[TimerCard] = []
         for timer in self.timers:
             key = id(timer)
             keep.add(key)
@@ -2008,58 +2063,90 @@ class AnimatedBackground(QWidget):
                 card.loopToggled.connect(lambda c, state, t=timer: self._toggle_timer_loop(t, state))
                 card.editRequested.connect(lambda c, t=timer: self._edit_timer(t))
                 card.deleteRequested.connect(lambda c, t=timer: self._delete_timer(t))
-                card.fullscreenRequested.connect(lambda c, t=timer: self._open_timer_view(t))
+                card.fullscreenRequested.connect(lambda c, t=timer: self._show_timer_fullscreen(t))
                 card.clicked.connect(lambda c, t=timer: setattr(self, '_last_selected_timer', t))
-                insert_pos = max(0, layout.count() - 1)
-                layout.insertWidget(insert_pos, card)
             progress = timer.progress if timer.duration else 0.0
             finish_text = self._format_timer_finish(timer)
             card.set_state(timer, progress, finish_text, timer.running)
             card.set_edit_mode(self._timer_edit_mode)
-            viewer = self._timer_viewers.get(key)
-            if viewer is not None:
-                viewer.set_state(timer, progress, finish_text, timer.running)
+            if active_key == key:
+                self._update_timer_fullscreen_state(timer)
+            ordered_cards.append(card)
+        for idx, card in enumerate(ordered_cards):
+            row = idx // 2
+            col = idx % 2
+            layout.addWidget(card, row, col)
         for key, card in list(self._timer_card_widgets.items()):
             if key not in keep:
                 card.setParent(None)
                 card.deleteLater()
                 del self._timer_card_widgets[key]
-        for key, viewer in list(self._timer_viewers.items()):
-            if key not in keep:
-                try:
-                    viewer.close()
-                except Exception:
-                    pass
-                self._timer_viewers.pop(key, None)
+        if active_key is not None and active_key not in keep:
+            self._close_timer_fullscreen()
         has_timers = bool(self.timers)
         if hasattr(self, 'timer_empty_label'):
             self.timer_empty_label.setVisible(not has_timers)
+        if hasattr(self, 'timer_cards_widget'):
+            self.timer_cards_widget.setVisible(has_timers)
+        if not has_timers:
+            self._close_timer_fullscreen()
 
-    def _open_timer_view(self, timer: TimerState) -> None:
-        key = id(timer)
-        viewer = self._timer_viewers.get(key)
-        if viewer is None:
-            viewer = TimerDisplayDialog(self)
-            self._timer_viewers[key] = viewer
-            viewer.playRequested.connect(lambda t=timer: self._play_timer(t))
-            viewer.pauseRequested.connect(lambda t=timer: self._pause_timer(t))
-            viewer.resetRequested.connect(lambda t=timer: self._reset_timer(t))
-            viewer.closed.connect(lambda dlg, k=key: self._timer_viewers.pop(k, None))
+    def _ensure_timer_fullscreen_dialog(self) -> bool:
+        if not hasattr(self, 'timer_fullscreen_view'):
+            return False
+        if self.timer_fullscreen_dialog is None:
+            dialog = TimerPopupDialog(self)
+            dialog.setModal(False)
+            dialog.setObjectName('timerFullscreenDialog')
+            dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+            dialog.setAttribute(Qt.WA_TranslucentBackground, True)
+            dialog.setAttribute(Qt.WA_DeleteOnClose, False)
+            layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+            frame = QFrame(dialog)
+            frame.setObjectName('timerFullscreenFrame')
+            frame_layout = QVBoxLayout(frame)
+            frame_layout.setContentsMargins(12, 12, 12, 12)
+            frame_layout.setSpacing(0)
+            if hasattr(self, 'timer_fullscreen_view'):
+                self.timer_fullscreen_view.set_compact_mode(True)
+            frame_layout.addWidget(self.timer_fullscreen_view)
+            layout.addWidget(frame)
+            dialog.register_drag_handle(frame)
+            frame_radius = 28
+            dialog.setStyleSheet(
+                "QDialog#timerFullscreenDialog { background: transparent; }"
+                f"QFrame#timerFullscreenFrame {{ background:{CLR_PANEL}; border-radius:{frame_radius}px; border:3px solid {CLR_TITLE}; }}"
+            )
+            dialog.setFixedSize(200, 200)
+            dialog.rejected.connect(self._close_timer_fullscreen)
+            self.timer_fullscreen_dialog = dialog
+        return True
+
+    def _show_timer_fullscreen(self, timer: TimerState) -> None:
+        if not self._ensure_timer_fullscreen_dialog():
+            return
+        self._timer_fullscreen_timer = timer
+        self._update_timer_fullscreen_state(timer)
+        if self.timer_fullscreen_dialog is not None:
+            self.timer_fullscreen_dialog.show()
+            self.timer_fullscreen_dialog.raise_()
+            self.timer_fullscreen_dialog.activateWindow()
+            self.timer_fullscreen_dialog.position_top_right()
+
+    def _update_timer_fullscreen_state(self, timer: TimerState) -> None:
+        if not hasattr(self, 'timer_fullscreen_view'):
+            return
         progress = timer.progress if timer.duration else 0.0
         finish_text = self._format_timer_finish(timer)
-        viewer.set_state(timer, progress, finish_text, timer.running)
-        self._position_timer_view(viewer)
-        viewer.show()
-        viewer.raise_()
-        viewer.activateWindow()
+        self.timer_fullscreen_view.set_state(timer, progress, finish_text, timer.running)
 
-    def _position_timer_view(self, viewer: TimerDisplayDialog) -> None:
-        try:
-            x = self.x() + (self.width() - viewer.width()) // 2
-            y = self.y() + (self.height() - viewer.height()) // 2
-            viewer.move(x, y)
-        except Exception:
-            pass
+    def _close_timer_fullscreen(self) -> None:
+        self._timer_fullscreen_timer = None
+        dialog = getattr(self, 'timer_fullscreen_dialog', None)
+        if dialog is not None and dialog.isVisible():
+            dialog.hide()
 
     def _format_alarm_countdown(self, alarm: AlarmState, now: datetime) -> str:
         next_trigger = alarm.next_trigger_after(now)
@@ -2125,6 +2212,12 @@ class AnimatedBackground(QWidget):
             self.edit_alarm_mode_btn.setCheckable(True)
             self.edit_alarm_mode_btn.toggled.connect(self._set_alarm_edit_mode)
             self._style_mode_button(self.edit_alarm_mode_btn, False)
+        if hasattr(self, 'timer_fullscreen_view'):
+            view: TimerFullscreenView = self.timer_fullscreen_view
+            view.playRequested.connect(self._play_fullscreen_timer)
+            view.pauseRequested.connect(self._pause_fullscreen_timer)
+            view.resetRequested.connect(self._reset_fullscreen_timer)
+            view.closeRequested.connect(self._close_timer_fullscreen)
 
     def _populate_notif_table(self):
         data = self.notifications

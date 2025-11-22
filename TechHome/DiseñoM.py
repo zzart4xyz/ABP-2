@@ -58,6 +58,7 @@ from widgets import (
     NoFocusDelegate,
     NotesManager,
     TimerCard,
+    TimerFullscreenView,
     CurrentMonthCalendar,
     style_table,
 )
@@ -385,6 +386,7 @@ def build_more_page(app):
     timer_controls.setContentsMargins(0, 0, 0, 0)
     timer_controls.addStretch(1)
     timer_controls.addWidget(timer_toolbar)
+    app.timer_toolbar_frame = timer_toolbar
     ti_l.addLayout(timer_controls)
 
     timer_scroll = QScrollArea()
@@ -394,15 +396,29 @@ def build_more_page(app):
     timer_container = QWidget()
     timer_container.setStyleSheet('background:transparent;')
     timer_scroll.setWidget(timer_container)
-    app.timer_cards_layout = QVBoxLayout(timer_container)
-    app.timer_cards_layout.setContentsMargins(0, 0, 0, 0)
-    app.timer_cards_layout.setSpacing(16)
+    timer_container_layout = QVBoxLayout(timer_container)
+    timer_container_layout.setContentsMargins(0, 0, 0, 0)
+    timer_container_layout.setSpacing(16)
     app.timer_empty_label = QLabel('No hay timers activos')
     app.timer_empty_label.setStyleSheet(f"color:{CLR_TEXT_IDLE}; font:500 14px '{FONT_FAM}';")
     app.timer_empty_label.setAlignment(Qt.AlignCenter)
-    app.timer_cards_layout.addWidget(app.timer_empty_label)
-    app.timer_cards_layout.addStretch(1)
+    timer_container_layout.addWidget(app.timer_empty_label)
+    timer_cards_frame = QWidget()
+    timer_cards_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+    app.timer_cards_layout = QGridLayout(timer_cards_frame)
+    app.timer_cards_layout.setContentsMargins(0, 0, 0, 0)
+    app.timer_cards_layout.setHorizontalSpacing(16)
+    app.timer_cards_layout.setVerticalSpacing(16)
+    app.timer_cards_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+    app.timer_cards_layout.setColumnStretch(0, 1)
+    app.timer_cards_layout.setColumnStretch(1, 1)
+    app.timer_cards_widget = timer_cards_frame
+    timer_container_layout.addWidget(timer_cards_frame, 0, Qt.AlignTop)
+    timer_container_layout.addStretch(1)
+
+    app.timer_list_widget = timer_scroll
     ti_l.addWidget(timer_scroll, 1)
+    app.timer_fullscreen_view = TimerFullscreenView()
     tab_at.addTab(timer_tab, 'Timers')
     ap_layout.addWidget(tab_at, 1)
     app.more_stack.addWidget(alarm_page)

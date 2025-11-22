@@ -315,6 +315,8 @@ class CircularCountdown(QWidget):
         self._subtitle = ""
         self._diameter = diameter
         self._thickness = thickness
+        self._text_scale = 1.0
+        self._show_subtitle = True
         self.setMinimumSize(diameter, diameter)
         self.setMaximumSize(diameter, diameter)
 
@@ -322,6 +324,27 @@ class CircularCountdown(QWidget):
         self._progress = max(0.0, min(1.0, progress))
         self._time_text = time_text
         self._subtitle = subtitle
+        self.update()
+
+    def set_text_scale(self, scale: float) -> None:
+        scale = max(0.4, min(1.5, float(scale)))
+        if abs(scale - self._text_scale) <= 1e-3:
+            return
+        self._text_scale = scale
+        self.update()
+
+    def set_ring_thickness(self, thickness: int) -> None:
+        thickness = max(4, int(thickness))
+        if thickness == self._thickness:
+            return
+        self._thickness = thickness
+        self.update()
+
+    def set_show_subtitle(self, show: bool) -> None:
+        show = bool(show)
+        if self._show_subtitle == show:
+            return
+        self._show_subtitle = show
         self.update()
 
     def paintEvent(self, event) -> None:
@@ -350,20 +373,22 @@ class CircularCountdown(QWidget):
         painter.setPen(QPen(QColor(c.CLR_TITLE)))
         font = painter.font()
         font.setFamily(c.FONT_FAM)
-        font.setPointSize(28)
+        font.setPointSizeF(28 * self._text_scale)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(self.rect(), Qt.AlignCenter, self._time_text)
 
-        if self._subtitle:
+        if self._subtitle and self._show_subtitle:
             subtitle_font = painter.font()
-            subtitle_font.setPointSize(12)
+            subtitle_font.setPointSizeF(12 * self._text_scale)
             subtitle_font.setBold(False)
             painter.setFont(subtitle_font)
             metrics = painter.fontMetrics()
             text_width = metrics.horizontalAdvance(self._subtitle)
-            bubble_width = text_width + 24
-            bubble_height = metrics.height() + 12
+            padding_x = 12 * self._text_scale
+            padding_y = 6 * self._text_scale
+            bubble_width = text_width + padding_x * 2
+            bubble_height = metrics.height() + padding_y * 2
             bubble_rect = QRectF(
                 (self.width() - bubble_width) / 2,
                 self.height() * 0.66,
@@ -404,6 +429,10 @@ class TimerCard(QFrame):
         self.state = None
         self.setObjectName("timerCard")
         self.setMinimumWidth(240)
+        # Mantener un ancho estable impide que las tarjetas existentes se
+        # redimensionen al añadirse nuevas, de modo que siempre conservan el
+        # mismo tamaño que tendrían dentro de la cuadrícula de dos columnas.
+        self.setMaximumWidth(420)
         self.setStyleSheet(
             f"QFrame#timerCard {{ background:{c.CLR_PANEL}; border-radius:16px; border:1px solid {_with_alpha('#FFFFFF', 0.06)}; }}"
         )
@@ -595,6 +624,203 @@ class TimerCard(QFrame):
 
     def _set_reset_enabled(self, enabled: bool) -> None:
         self.reset_btn.setEnabled(enabled)
+
+
+class TimerFullscreenView(QFrame):
+    """Fullscreen timer view embedded inside the alarms & timers page."""
+
+    playRequested = pyqtSignal()
+    pauseRequested = pyqtSignal()
+    resetRequested = pyqtSignal()
+    closeRequested = pyqtSignal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._state = None
+        self._compact_mode = False
+        self.setObjectName("timerFullscreenView")
+        self.setStyleSheet(
+            f"QFrame#timerFullscreenView {{ background:{c.CLR_PANEL}; border-radius:24px; border:1px solid {_with_alpha('#FFFFFF', 0.08)}; }}"
+        )
+
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(32, 32, 32, 32)
+        self._layout.setSpacing(28)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(12)
+
+        self.back_btn = QToolButton()
+        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.setToolTip("Cerrar vista de temporizador")
+        self.back_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:18px; padding:10px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+        )
+        _set_button_icon(self.back_btn, "arrow-down-left-and-arrow-up-right-to-center.svg", QSize(22, 22), fallback="⤢")
+        self.back_btn.clicked.connect(lambda: self.closeRequested.emit())
+        header.addWidget(self.back_btn)
+
+        text_block = QVBoxLayout()
+        text_block.setContentsMargins(0, 0, 0, 0)
+        text_block.setSpacing(4)
+        self.title_lbl = QLabel("Timer")
+        self._title_style_tpl = f"color:{c.CLR_TITLE}; font:700 {{}}px '{c.FONT_FAM}';"
+        self.title_lbl.setStyleSheet(self._title_style_tpl.format(28))
+        text_block.addWidget(self.title_lbl)
+        self.subtitle_lbl = QLabel("Listo para iniciar")
+        self._subtitle_style_tpl = f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.85)}; font:500 {{}}px '{c.FONT_FAM}';"
+        self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(16))
+        self.subtitle_lbl.setWordWrap(True)
+        text_block.addWidget(self.subtitle_lbl)
+        header.addLayout(text_block, stretch=1)
+        header.addStretch(1)
+        self._layout.addLayout(header)
+
+        self.dial = CircularCountdown(320, 18)
+        self._layout.addWidget(self.dial, alignment=Qt.AlignCenter)
+
+        self._controls = QHBoxLayout()
+        self._controls.setContentsMargins(0, 0, 0, 0)
+        self._controls.setSpacing(20)
+        self._controls.addStretch(1)
+
+        play_disabled_bg = _with_alpha(c.CLR_SURFACE, 0.35)
+        play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
+        self.play_btn = QToolButton()
+        self.play_btn.setCursor(Qt.PointingHandCursor)
+        self.play_btn.setToolTip("Iniciar")
+        self.play_btn.setFixedSize(92, 92)
+        self.play_btn.setStyleSheet(
+            f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:46px; padding:18px; color:#07101B; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{play_disabled_bg}; color:{play_disabled_fg}; }}"
+        )
+        self._play_icon = c.icon("play.svg")
+        self._pause_icon = c.icon("pause.svg")
+        self._set_play_icon(False)
+        self.play_btn.clicked.connect(self._on_play_clicked)
+        self._controls.addWidget(self.play_btn)
+
+        reset_disabled_bg = _with_alpha(c.CLR_SURFACE, 0.4)
+        reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
+        self.reset_btn = QToolButton()
+        self.reset_btn.setCursor(Qt.PointingHandCursor)
+        self.reset_btn.setToolTip("Reiniciar")
+        self.reset_btn.setFixedSize(76, 76)
+        self.reset_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:38px; padding:18px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{reset_disabled_bg}; color:{reset_disabled_fg}; }}"
+        )
+        reset_icon = c.icon("rotate-left.svg")
+        if not reset_icon.isNull():
+            self.reset_btn.setIcon(reset_icon)
+            self.reset_btn.setIconSize(QSize(30, 30))
+        self.reset_btn.clicked.connect(lambda: self.resetRequested.emit())
+        self.reset_btn.setEnabled(False)
+        self._controls.addWidget(self.reset_btn)
+        self._controls.addStretch(1)
+        self._layout.addLayout(self._controls)
+
+        self._apply_mode_metrics()
+
+    def _on_play_clicked(self) -> None:
+        if self._state is None:
+            self.playRequested.emit()
+            return
+        running = bool(getattr(self._state, "running", False))
+        remaining = int(getattr(self._state, "remaining", 0))
+        if running and remaining > 0:
+            self.pauseRequested.emit()
+        else:
+            self.playRequested.emit()
+
+    def set_state(self, state: object, progress: float, subtitle: str, running: bool) -> None:
+        self._state = state
+        label = getattr(state, "label", "Timer") or "Timer"
+        remaining = int(getattr(state, "remaining", 0))
+        self.title_lbl.setText(label)
+        self.subtitle_lbl.setText(subtitle)
+        self.dial.update_state(progress, _format_seconds(remaining), subtitle)
+        is_running = running and remaining > 0
+        self._set_play_icon(is_running)
+        self.reset_btn.setEnabled(remaining < int(getattr(state, "duration", 0)))
+
+    def _set_play_icon(self, running: bool) -> None:
+        icon = self._pause_icon if running else self._play_icon
+        if icon.isNull():
+            self.play_btn.setText("⏸" if running else "▶")
+            self.play_btn.setIcon(QIcon())
+        else:
+            self.play_btn.setText("")
+            self.play_btn.setIcon(icon)
+            self.play_btn.setIconSize(QSize(44, 44))
+
+    def set_compact_mode(self, compact: bool) -> None:
+        if self._compact_mode == compact:
+            return
+        self._compact_mode = compact
+        self._apply_mode_metrics()
+
+    def _apply_mode_metrics(self) -> None:
+        margins = 32 if not self._compact_mode else 10
+        spacing = 28 if not self._compact_mode else 6
+        self._layout.setContentsMargins(margins, margins, margins, margins)
+        self._layout.setSpacing(spacing)
+        header_spacing = 12 if not self._compact_mode else 6
+        # header layout is first item in _layout
+        if self._layout.count():
+            header_item = self._layout.itemAt(0)
+            header_layout = header_item.layout()
+            if isinstance(header_layout, QHBoxLayout):
+                header_layout.setSpacing(header_spacing)
+        radius = 18 if not self._compact_mode else 12
+        padding = 10 if not self._compact_mode else 6
+        self.back_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:{radius}px; padding:{padding}px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+        )
+        back_icon = 22 if not self._compact_mode else 16
+        self.back_btn.setIconSize(QSize(back_icon, back_icon))
+        text_alignment = Qt.AlignLeft | Qt.AlignVCenter if not self._compact_mode else Qt.AlignCenter
+        self.title_lbl.setAlignment(text_alignment)
+        self.subtitle_lbl.setAlignment(text_alignment)
+        title_size = 28 if not self._compact_mode else 15
+        subtitle_size = 16 if not self._compact_mode else 10
+        self.title_lbl.setStyleSheet(self._title_style_tpl.format(title_size))
+        self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(subtitle_size))
+        dial_size = 320 if not self._compact_mode else 112
+        self.dial.setFixedSize(dial_size, dial_size)
+        self.dial.set_ring_thickness(18 if not self._compact_mode else 10)
+        self.dial.set_text_scale(1.0 if not self._compact_mode else 0.72)
+        self.dial.set_show_subtitle(not self._compact_mode)
+        control_spacing = 20 if not self._compact_mode else 8
+        self._controls.setSpacing(control_spacing)
+        play_size = 92 if not self._compact_mode else 46
+        play_radius = play_size // 2
+        play_padding = 18 if not self._compact_mode else 8
+        self.play_btn.setFixedSize(play_size, play_size)
+        self.play_btn.setStyleSheet(
+            f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:{play_radius}px; padding:{play_padding}px; color:#07101B; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.35)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.5)}; }}"
+        )
+        play_icon = 44 if not self._compact_mode else 26
+        self.play_btn.setIconSize(QSize(play_icon, play_icon))
+        reset_size = 76 if not self._compact_mode else 38
+        reset_radius = reset_size // 2
+        reset_padding = 18 if not self._compact_mode else 6
+        self.reset_btn.setFixedSize(reset_size, reset_size)
+        self.reset_btn.setStyleSheet(
+            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:{reset_radius}px; padding:{reset_padding}px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.4)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.45)}; }}"
+        )
+        reset_icon = 30 if not self._compact_mode else 18
+        self.reset_btn.setIconSize(QSize(reset_icon, reset_icon))
+
 
 
 class AlarmCard(QFrame):

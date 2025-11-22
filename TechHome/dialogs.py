@@ -177,6 +177,9 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
         f" selection-background-color:{c.CLR_ITEM_ACT};"
         f" selection-color:{c.CLR_TITLE if large else c.CLR_BG}; }}"
     )
+    # Ensure the editable text is rendered above the decorative spin buttons so
+    # the digits remain visible even with custom styles applied.
+    line_edit.raise_()
 
 
 class BaseFormDialog(QDialog):
