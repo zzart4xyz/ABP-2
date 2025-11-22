@@ -482,88 +482,105 @@ def build_more_page(app):
         QCalendarWidget {{
             background:{CLR_PANEL};
             color:{CLR_TEXT_IDLE};
-            border:2px solid {CLR_TITLE};
-            border-radius:8px;
-            padding:6px;
+            border:1px solid {CLR_HEADER_BG};
+            border-radius:10px;
+            padding:12px;
         }}
         QCalendarWidget QWidget {{
             background:{CLR_PANEL};
             color:{CLR_TEXT_IDLE};
         }}
-        QCalendarWidget QWidget#qt_calendar_calendarview {{
-            background:{CLR_BG};
-            alternate-background-color:{CLR_BG};
-            border:1px solid {CLR_TITLE};
-            border-radius:6px;
-            margin:4px;
-        }}
         QCalendarWidget QWidget#qt_calendar_navigationbar {{
-            background:{CLR_PANEL};
-            border:none;
-            padding:4px 6px;
-            margin-bottom:6px;
+            background: transparent;
+            border: none;
+            margin-bottom:10px;
         }}
         QCalendarWidget QToolButton {{
-            color:{CLR_TITLE};
-            background:{CLR_HEADER_BG};
-            border:1px solid {CLR_TITLE};
-            border-radius:6px;
+            color:{CLR_TEXT_IDLE};
+            background:{CLR_SURFACE};
+            border:1px solid {CLR_HEADER_BG};
+            border-radius:8px;
             padding:6px 10px;
             font:700 14px '{FONT_FAM}';
         }}
+        QCalendarWidget QToolButton::menu-indicator {{ image:none; }}
+        QCalendarWidget QToolButton#qt_calendar_prevmonth,
+        QCalendarWidget QToolButton#qt_calendar_nextmonth {{
+            min-width:28px;
+            background:{CLR_SURFACE};
+        }}
         QCalendarWidget QToolButton:hover {{
-            background:{CLR_ITEM_ACT};
+            background:{CLR_HOVER};
             color:{CLR_TITLE};
+            border-color:{CLR_TITLE};
         }}
         QCalendarWidget QToolButton:pressed {{
             background:{CLR_TITLE};
             color:{CLR_BG};
+            border-color:{CLR_TITLE};
         }}
-        QCalendarWidget QToolButton::menu-indicator {{ image:none; }}
+        QCalendarWidget QWidget#qt_calendar_calendarview {{
+            background:{CLR_BG};
+            alternate-background-color:{CLR_BG};
+            border:1px solid {CLR_HEADER_BG};
+            border-radius:8px;
+            margin:0px;
+        }}
+        QCalendarWidget QTableView {{
+            selection-background-color: transparent;
+            outline: none;
+        }}
         QCalendarWidget QAbstractItemView {{
             background:{CLR_BG};
             color:{CLR_TEXT_IDLE};
-            selection-background-color:{CLR_ITEM_ACT};
+            selection-background-color: transparent;
             selection-color:{CLR_TITLE};
-            gridline-color:{CLR_TITLE};
-            outline:none;
-            font:600 16px '{FONT_FAM}';
-            border-radius:6px;
+            gridline-color:{CLR_HEADER_BG};
+            font:600 15px '{FONT_FAM}';
         }}
         QCalendarWidget QHeaderView::section {{
             background:{CLR_HEADER_BG};
             color:{CLR_HEADER_TEXT};
             border:none;
-            font:700 16px '{FONT_FAM}';
+            font:700 13px '{FONT_FAM}';
             padding:6px 4px;
         }}
         QCalendarWidget::item {{
             background:{CLR_BG};
             color:{CLR_TEXT_IDLE};
-            padding:6px 4px;
-            font:600 16px '{FONT_FAM}';
-            border-radius:10px;
-        }}
-        QCalendarWidget::item:selected {{
-            background:{CLR_ITEM_ACT};
-            color:{CLR_TITLE};
-            border:1px solid {CLR_TITLE};
+            padding:8px;
+            font:600 15px '{FONT_FAM}';
+            border-radius:12px;
+            margin:2px;
         }}
         QCalendarWidget::item:enabled:hover {{
-            background:{CLR_HEADER_BG};
+            background:{CLR_HOVER};
             color:{CLR_TITLE};
+        }}
+        QCalendarWidget::item:selected:enabled {{
+            background:{CLR_TITLE};
+            color:{CLR_BG};
+            border:1px solid {CLR_TITLE};
+        }}
+        QCalendarWidget::item:enabled:selected:hover {{
+            background:{CLR_TITLE};
+            color:{CLR_BG};
+        }}
+        QCalendarWidget::item:disabled {{
+            color:{CLR_PLACEHOLDER};
         }}
         QCalendarWidget QWidget#qt_calendar_monthbutton,
         QCalendarWidget QWidget#qt_calendar_yearbutton {{
-            min-width:64px;
+            min-width:84px;
+            background: transparent;
+            border: none;
         }}
+        QCalendarWidget QWidget:focus {{ outline: none; }}
     """
     cal.setStyleSheet(cal_style)
-    cal.setStyleSheet(cal.styleSheet() + 'QCalendarWidget QWidget:focus{outline:none;}')
-    cal.setStyleSheet(cal.styleSheet() + f'\n            /* Cabeceras de días de la semana y números de semana */\n            QCalendarWidget QTableView QHeaderView::section {{\n                background: {CLR_HEADER_BG};\n                color:      {CLR_HEADER_TEXT};\n                border: none;\n            }}\n        ')
     cal.selectionChanged.connect(app._on_calendar_date_selected)
     cal_frame = QFrame()
-    cal_frame.setStyleSheet(f'background:{CLR_PANEL}; border:2px solid {CLR_TITLE}; border-radius:5px;')
+    cal_frame.setStyleSheet(f'background:{CLR_PANEL}; border:1px solid {CLR_HEADER_BG}; border-radius:10px;')
     cf_layout = QVBoxLayout(cal_frame)
     cf_layout.setContentsMargins(4, 4, 4, 4)
     cf_layout.addWidget(cal)
