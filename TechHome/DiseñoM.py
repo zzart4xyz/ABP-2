@@ -215,7 +215,6 @@ def build_more_page(app):
     cards_frame.setStyleSheet(
         f"QFrame#remBoard {{ background:{CLR_PANEL}; border-radius:18px; border:2px solid {CLR_HEADER_BG}; }}"
     )
-    make_shadow(cards_frame, 20, 4)
     board_layout = QVBoxLayout(cards_frame)
     board_layout.setContentsMargins(26, 24, 26, 26)
     board_layout.setSpacing(22)
