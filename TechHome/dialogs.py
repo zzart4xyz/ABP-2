@@ -1,4 +1,5 @@
 from datetime import datetime, date, time
+from functools import lru_cache
 
 from PyQt5.QtCore import (
     Qt, QPoint, QTimer, QPropertyAnimation, QParallelAnimationGroup,
@@ -68,6 +69,7 @@ def _with_alpha(color: str, alpha: float) -> str:
     return qcol.name(QColor.HexArgb)
 
 
+@lru_cache(maxsize=1)
 def _combo_arrow_style() -> str:
     """Return stylesheet rules that swap the combo box arrow icons."""
 
@@ -111,12 +113,14 @@ class _SpinboxLineEditRaiser(QObject):
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font_sz = 28 if large else 16
     height = 64 if large else 48
-    min_width = 92 if large else 0
+    # Large spin boxes need extra width to keep the text area clear once
+    # padding and the custom arrow buttons are applied.
+    min_width = 120 if large else 0
     # Keep enough internal spacing so the value text never sits beneath the
     # arrow controls.  The margins mirror the padding used in the stylesheet
     # as well as the explicit width we give to the up/down sub-controls.
-    left_margin = 12 if large else 6
-    right_margin = 40 if large else 34
+    left_margin = 10 if large else 6
+    right_margin = 32 if large else 34
     # Large timer/alarm fields should keep their vibrant accent colour while
     # smaller utility spin boxes retain the high-contrast idle text tone.
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE

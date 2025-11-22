@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QEasingCurve
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from animaciones import SlideSpec, slide_fade
 from constants import (
     CLR_BG,
     CLR_HOVER,
@@ -207,26 +208,66 @@ def create_account_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    def slide(target_getter, order: int, *, offset: float = 22.0, step: int = 28) -> dict[str, object]:
-        return {
-            'type': 'slide_fade',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': base_duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-        }
-
-    return [
-        slide(lambda: getattr(app, 'account_title_label', None), 0, offset=16.0, step=20),
-        slide(lambda: getattr(app, 'account_manage_button', None), 1, offset=16.0, step=20),
-        slide(lambda: getattr(app, 'account_summary_frame', None), 2),
-        slide(lambda: getattr(app, 'account_security_frame', None), 3),
-        slide(lambda: getattr(app, 'account_activity_frame', None), 4),
-        slide(lambda: getattr(app, 'account_plan_frame', None), 5),
-        slide(lambda: getattr(app, 'account_invoice_button', None), 6, offset=18.0),
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_title_label', None),
+            order=0,
+            duration=base_duration,
+            offset=16.0,
+            direction='down',
+            step=20,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_manage_button', None),
+            order=1,
+            duration=base_duration,
+            offset=16.0,
+            direction='down',
+            step=20,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_summary_frame', None),
+            order=2,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_security_frame', None),
+            order=3,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_activity_frame', None),
+            order=4,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_plan_frame', None),
+            order=5,
+            duration=base_duration,
+            offset=22.0,
+            direction='down',
+            step=28,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'account_invoice_button', None),
+            order=6,
+            duration=base_duration,
+            offset=18.0,
+            direction='down',
+            step=28,
+        ),
     ]
+
+    return [slide_fade(spec) for spec in specs]
 
 
 __all__ = ['build_account_page', 'create_account_animations']

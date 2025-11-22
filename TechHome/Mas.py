@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QSize, QEasingCurve
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtWidgets import (
     QAbstractItemView,
@@ -29,12 +29,14 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
 )
 
+from animaciones import SlideSpec, slide_fade
 from constants import (
     CLR_BG,
     CLR_HOVER,
     CLR_HEADER_BG,
     CLR_HEADER_TEXT,
     CLR_ITEM_ACT,
+    CLR_PLACEHOLDER,
     CLR_PANEL,
     CLR_SURFACE,
     CLR_TEXT_IDLE,
@@ -215,7 +217,6 @@ def build_more_page(app):
     cards_frame.setStyleSheet(
         f"QFrame#remBoard {{ background:{CLR_PANEL}; border-radius:18px; border:2px solid {CLR_HEADER_BG}; }}"
     )
-    make_shadow(cards_frame, 20, 4)
     board_layout = QVBoxLayout(cards_frame)
     board_layout.setContentsMargins(26, 24, 26, 26)
     board_layout.setSpacing(22)
@@ -479,13 +480,109 @@ def build_more_page(app):
     cal = CurrentMonthCalendar()
     cal.setGridVisible(True)
     cal.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
-    cal_style = f"\n            QCalendarWidget {{\n                background:{CLR_PANEL};\n                color:{CLR_TEXT_IDLE};\n                border:2px solid {CLR_TITLE};\n                border-radius:5px;\n            }}\n            QCalendarWidget QWidget {{\n                background:{CLR_PANEL};\n                color:{CLR_TEXT_IDLE};\n            }}\n            QCalendarWidget QWidget#qt_calendar_calendarview {{\n                background:{CLR_BG};\n                alternate-background-color:{CLR_BG};\n                border:none;\n                margin:0;\n            }}\n            QCalendarWidget QWidget#qt_calendar_navigationbar {{\n                background:{CLR_PANEL};\n                border:none;\n                padding:0;\n                margin-bottom:8px;\n            }}\n            QCalendarWidget QToolButton::menu-indicator {{ image:none; }}\n            QCalendarWidget QAbstractItemView {{\n                background:{CLR_BG};\n                color:{CLR_TEXT_IDLE};\n                selection-background-color:{CLR_ITEM_ACT};\n                selection-color:{CLR_TITLE};\n                gridline-color:{CLR_TITLE};\n                outline:none;\n                font:600 16px '{FONT_FAM}';\n            }}\n            QCalendarWidget QHeaderView::section {{\n                background:{CLR_HEADER_BG};\n                color:{CLR_HEADER_TEXT};\n                border:none;\n                font:600 18px '{FONT_FAM}';\n            }}\n            QCalendarWidget::item {{\n                background:{CLR_BG};\n                color:{CLR_TEXT_IDLE};\n                padding:4px;\n                font:600 16px '{FONT_FAM}';\n            }}\n            QCalendarWidget::item:selected {{\n                background:{CLR_ITEM_ACT};\n                color:{CLR_TITLE};\n            }}\n            QCalendarWidget::item:enabled:hover {{\n                background:{CLR_HEADER_BG};\n                color:{CLR_TITLE};\n            }}\n        "
+    cal_style = f"""
+        QCalendarWidget {{
+            background:{CLR_PANEL};
+            color:{CLR_TEXT_IDLE};
+            border:1px solid {CLR_HEADER_BG};
+            border-radius:10px;
+            padding:12px;
+        }}
+        QCalendarWidget QWidget {{
+            background:{CLR_PANEL};
+            color:{CLR_TEXT_IDLE};
+        }}
+        QCalendarWidget QWidget#qt_calendar_navigationbar {{
+            background: transparent;
+            border: none;
+            margin-bottom:10px;
+        }}
+        QCalendarWidget QToolButton {{
+            color:{CLR_TEXT_IDLE};
+            background:{CLR_SURFACE};
+            border:1px solid {CLR_HEADER_BG};
+            border-radius:8px;
+            padding:6px 10px;
+            font:700 14px '{FONT_FAM}';
+        }}
+        QCalendarWidget QToolButton::menu-indicator {{ image:none; }}
+        QCalendarWidget QToolButton#qt_calendar_prevmonth,
+        QCalendarWidget QToolButton#qt_calendar_nextmonth {{
+            min-width:28px;
+            background:{CLR_SURFACE};
+        }}
+        QCalendarWidget QToolButton:hover {{
+            background:{CLR_HOVER};
+            color:{CLR_TITLE};
+            border-color:{CLR_TITLE};
+        }}
+        QCalendarWidget QToolButton:pressed {{
+            background:{CLR_TITLE};
+            color:{CLR_BG};
+            border-color:{CLR_TITLE};
+        }}
+        QCalendarWidget QWidget#qt_calendar_calendarview {{
+            background:{CLR_BG};
+            alternate-background-color:{CLR_BG};
+            border:1px solid {CLR_HEADER_BG};
+            border-radius:8px;
+            margin:0px;
+        }}
+        QCalendarWidget QTableView {{
+            selection-background-color: transparent;
+            outline: none;
+        }}
+        QCalendarWidget QAbstractItemView {{
+            background:{CLR_BG};
+            color:{CLR_TEXT_IDLE};
+            selection-background-color: transparent;
+            selection-color:{CLR_TITLE};
+            gridline-color:{CLR_HEADER_BG};
+            font:600 15px '{FONT_FAM}';
+        }}
+        QCalendarWidget QHeaderView::section {{
+            background:{CLR_HEADER_BG};
+            color:{CLR_HEADER_TEXT};
+            border:none;
+            font:700 13px '{FONT_FAM}';
+            padding:6px 4px;
+        }}
+        QCalendarWidget::item {{
+            background:{CLR_BG};
+            color:{CLR_TEXT_IDLE};
+            padding:8px;
+            font:600 15px '{FONT_FAM}';
+            border-radius:12px;
+            margin:2px;
+        }}
+        QCalendarWidget::item:enabled:hover {{
+            background:{CLR_HOVER};
+            color:{CLR_TITLE};
+        }}
+        QCalendarWidget::item:selected:enabled {{
+            background:{CLR_TITLE};
+            color:{CLR_BG};
+            border:1px solid {CLR_TITLE};
+        }}
+        QCalendarWidget::item:enabled:selected:hover {{
+            background:{CLR_TITLE};
+            color:{CLR_BG};
+        }}
+        QCalendarWidget::item:disabled {{
+            color:{CLR_PLACEHOLDER};
+        }}
+        QCalendarWidget QWidget#qt_calendar_monthbutton,
+        QCalendarWidget QWidget#qt_calendar_yearbutton {{
+            min-width:84px;
+            background: transparent;
+            border: none;
+        }}
+        QCalendarWidget QWidget:focus {{ outline: none; }}
+    """
     cal.setStyleSheet(cal_style)
-    cal.setStyleSheet(cal.styleSheet() + 'QCalendarWidget QWidget:focus{outline:none;}')
-    cal.setStyleSheet(cal.styleSheet() + f'\n            /* Cabeceras de días de la semana y números de semana */\n            QCalendarWidget QTableView QHeaderView::section {{\n                background: {CLR_HEADER_BG};\n                color:      {CLR_HEADER_TEXT};\n                border: none;\n            }}\n        ')
     cal.selectionChanged.connect(app._on_calendar_date_selected)
     cal_frame = QFrame()
-    cal_frame.setStyleSheet(f'background:{CLR_PANEL}; border:2px solid {CLR_TITLE}; border-radius:5px;')
+    cal_frame.setStyleSheet(f'background:{CLR_PANEL}; border:1px solid {CLR_HEADER_BG}; border-radius:10px;')
     cf_layout = QVBoxLayout(cal_frame)
     cf_layout.setContentsMargins(4, 4, 4, 4)
     cf_layout.addWidget(cal)
@@ -711,19 +808,24 @@ def create_more_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 24.0, step: int = 32) -> dict[str, object]:
-        return {
-            'type': 'slide_fade',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-        }
-
-    return [
-        slide(lambda: getattr(app, 'more_stack', None), 0, offset=18.0),
-        slide(lambda: getattr(app, 'more_grid_widget', None), 1, offset=24.0),
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'more_stack', None),
+            order=0,
+            duration=base_duration,
+            offset=18.0,
+            direction='down',
+            step=32,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'more_grid_widget', None),
+            order=1,
+            duration=base_duration,
+            offset=24.0,
+            direction='down',
+            step=32,
+        ),
     ]
+
+    return [slide_fade(spec) for spec in specs]
 

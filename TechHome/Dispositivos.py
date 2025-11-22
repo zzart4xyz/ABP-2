@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QSize, QEasingCurve
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import (
     QComboBox,
     QFrame,
@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from animaciones import SlideSpec, slide_fade
 from constants import (
     CLR_HOVER,
     CLR_ITEM_ACT,
@@ -238,53 +239,147 @@ def create_devices_animations(app) -> list[dict[str, object]]:
 
     base_duration = 220
 
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 18.0,
-              step: int = 30, fade: bool = True) -> dict[str, object]:
-        """Clonar la animación de inicio para cada elemento del listado."""
-
-        return {
-            'type': 'slide_fade' if fade else 'slide',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-            'fade': fade,
-            'remove_effect': True,
-        }
-
-    specs: list[dict[str, object]] = []
+    specs: list[SlideSpec] = []
 
     order = 0
     # Encabezado principal y botón de agregar replican la animación de bienvenida de inicio.
-    specs.append(slide(lambda: getattr(app, 'devices_title_label', None), order))
-    specs.append(slide(lambda: getattr(app, 'devices_add_button', None), order))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_title_label', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_add_button', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_groups_label', None), order))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_groups_label', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
     order += 1
 
     group_cards = list(getattr(app, 'group_cards', []))
     for idx, card in enumerate(group_cards):
-        specs.append(slide(lambda card=card: card, order + idx))
+        specs.append(
+            SlideSpec(
+                target_getter=lambda card=card: card,
+                order=order + idx,
+                duration=base_duration,
+                offset=18.0,
+                step=30,
+                fade=True,
+                remove_effect=True,
+            )
+        )
     order += len(group_cards)
     if hasattr(app, 'add_group_card'):
-        specs.append(slide(lambda: getattr(app, 'add_group_card', None), order))
+        specs.append(
+            SlideSpec(
+                target_getter=lambda: getattr(app, 'add_group_card', None),
+                order=order,
+                duration=base_duration,
+                offset=18.0,
+                step=30,
+                fade=True,
+                remove_effect=True,
+            )
+        )
         order += 1
 
-    specs.append(slide(lambda: getattr(app, 'group_indicator', None), order))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'group_indicator', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_groups_scroll', None), order))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_groups_scroll', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_groups_scrollbar', None), order, offset=12.0, fade=False))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_groups_scrollbar', None),
+            order=order,
+            duration=base_duration,
+            offset=12.0,
+            step=30,
+            fade=False,
+            remove_effect=True,
+        )
+    )
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_filter_bar', None), order))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_filter_bar', None),
+            order=order,
+            duration=base_duration,
+            offset=18.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
     order += 1
-    specs.append(slide(lambda: getattr(app, 'devices_vertical_scrollbar', None), order, offset=24.0, fade=True))
+    specs.append(
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'devices_vertical_scrollbar', None),
+            order=order,
+            duration=base_duration,
+            offset=24.0,
+            step=30,
+            fade=True,
+            remove_effect=True,
+        )
+    )
     order += 1
 
     device_rows = list(getattr(app, 'device_rows', []))
     for idx, row in enumerate(device_rows):
-        specs.append(slide(lambda row=row: row, order + idx))
+        specs.append(
+            SlideSpec(
+                target_getter=lambda row=row: row,
+                order=order + idx,
+                duration=base_duration,
+                offset=18.0,
+                step=30,
+                fade=True,
+                remove_effect=True,
+            )
+        )
 
-    return specs
+    return [slide_fade(spec) for spec in specs]

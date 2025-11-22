@@ -1,6 +1,7 @@
 import os
 import random
 import csv
+from functools import lru_cache
 from datetime import datetime, timedelta
 
 from PyQt5.QtCore import Qt, QDate, QSize
@@ -129,6 +130,7 @@ ICON_DIR = next((path for path in _icon_search_paths if _has_localized_icons(pat
 ICON_SEARCH_PATHS = tuple(dict.fromkeys(_icon_search_paths))
 
 
+@lru_cache(maxsize=None)
 def resolve_icon_path(name: str) -> str | None:
     """Return the absolute path to an icon, searching known directories."""
 
@@ -139,9 +141,15 @@ def resolve_icon_path(name: str) -> str | None:
     return None
 
 
-def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
-    """Load ``name`` as a pixmap of ``size`` searching known icon folders."""
+_ICON_CACHE: dict[str, QIcon] = {}
+_PIXMAP_CACHE: dict[tuple[str, int, int], QPixmap] = {}
 
+
+def _cache_key(name: str, size: QSize) -> tuple[str, int, int]:
+    return name, int(size.width()), int(size.height())
+
+
+def _load_raw_pixmap(name: str, size: QSize) -> QPixmap:
     try:
         icon_path = resolve_icon_path(name)
         if icon_path:
@@ -186,6 +194,17 @@ def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
             except Exception:
                 continue
     return QPixmap(size)
+
+
+def load_icon_pixmap(name: str, size: QSize) -> QPixmap:
+    """Load ``name`` as a pixmap of ``size`` searching known icon folders."""
+
+    key = _cache_key(name, size)
+    if key in _PIXMAP_CACHE:
+        return _PIXMAP_CACHE[key]
+    pix = _load_raw_pixmap(name, size)
+    _PIXMAP_CACHE[key] = pix
+    return pix
 
 
 def tint_pixmap(pixmap: QPixmap, color: QColor) -> QPixmap:
@@ -440,13 +459,22 @@ def icon(name: str) -> QIcon:
     Load an icon from the ``Icons N`` directory.  The argument should be
     the filename of the icon (for example ``'Inicio.svg'``).
     """
+    if name in _ICON_CACHE:
+        return _ICON_CACHE[name]
     path = resolve_icon_path(name)
-    return QIcon(path) if path else QIcon()
+    ico = QIcon(path) if path else QIcon()
+    _ICON_CACHE[name] = ico
+    return ico
 
 def pixmap(name: str) -> QPixmap:
     """Convenience wrapper for loading a QPixmap from the icon directory."""
+    key = (name, -1, -1)
+    if key in _PIXMAP_CACHE:
+        return _PIXMAP_CACHE[key]
     path = resolve_icon_path(name)
-    return QPixmap(path) if path else QPixmap()
+    pix = QPixmap(path) if path else QPixmap()
+    _PIXMAP_CACHE[key] = pix
+    return pix
 
 def button_style(color: str = None, padding: str = "0px") -> str:
     """

@@ -1014,9 +1014,13 @@ class CurrentMonthCalendar(QCalendarWidget):
         layout.setContentsMargins(0, 0, 0, 8)
         layout.setSpacing(4)
         self._prev = QToolButton()
-        left_pix = c.pixmap("Flecha.svg")
-        self._prev.setIcon(QIcon(left_pix))
-        self._prev.setIconSize(QSize(16, 16))
+        left_pix = c.load_icon_pixmap("Flecha.svg", QSize(18, 18))
+        if left_pix.isNull():
+            self._prev.setText("‹")
+        else:
+            tinted_left = c.tint_pixmap(left_pix, QColor(c.CLR_TITLE))
+            self._prev.setIcon(QIcon(tinted_left))
+            self._prev.setIconSize(tinted_left.size())
         self._prev.setFixedSize(24, 24)
         self._prev.setCursor(Qt.PointingHandCursor)
         self._prev.clicked.connect(self.showPreviousMonth)
@@ -1026,9 +1030,14 @@ class CurrentMonthCalendar(QCalendarWidget):
             f"color:{c.CLR_TITLE}; font:600 18px '{c.FONT_FAM}'; padding:0 4px;"
         )
         self._next = QToolButton()
-        right_pix = c.pixmap("Flecha.svg").transformed(QTransform().scale(-1, 1))
-        self._next.setIcon(QIcon(right_pix))
-        self._next.setIconSize(QSize(16, 16))
+        right_pix_base = c.load_icon_pixmap("Flecha.svg", QSize(18, 18))
+        if right_pix_base.isNull():
+            self._next.setText("›")
+        else:
+            right_pix = right_pix_base.transformed(QTransform().scale(-1, 1))
+            tinted_right = c.tint_pixmap(right_pix, QColor(c.CLR_TITLE))
+            self._next.setIcon(QIcon(tinted_right))
+            self._next.setIconSize(tinted_right.size())
         self._next.setFixedSize(24, 24)
         self._next.setCursor(Qt.PointingHandCursor)
         self._next.clicked.connect(self.showNextMonth)
