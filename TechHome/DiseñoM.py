@@ -478,86 +478,86 @@ def build_more_page(app):
     cal = CurrentMonthCalendar()
     cal.setGridVisible(True)
     cal.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
-    cal_style = f"
-            QCalendarWidget {
-                background:{CLR_PANEL};
-                color:{CLR_TEXT_IDLE};
-                border:2px solid {CLR_TITLE};
-                border-radius:8px;
-                padding:6px;
-            }
-            QCalendarWidget QWidget {
-                background:{CLR_PANEL};
-                color:{CLR_TEXT_IDLE};
-            }
-            QCalendarWidget QWidget#qt_calendar_calendarview {
-                background:{CLR_BG};
-                alternate-background-color:{CLR_BG};
-                border:1px solid {CLR_TITLE};
-                border-radius:6px;
-                margin:4px;
-            }
-            QCalendarWidget QWidget#qt_calendar_navigationbar {
-                background:{CLR_PANEL};
-                border:none;
-                padding:4px 6px;
-                margin-bottom:6px;
-            }
-            QCalendarWidget QToolButton {
-                color:{CLR_TITLE};
-                background:{CLR_HEADER_BG};
-                border:1px solid {CLR_TITLE};
-                border-radius:6px;
-                padding:6px 10px;
-                font:700 14px '{FONT_FAM}';
-            }
-            QCalendarWidget QToolButton:hover {
-                background:{CLR_ITEM_ACT};
-                color:{CLR_TITLE};
-            }
-            QCalendarWidget QToolButton:pressed {
-                background:{CLR_TITLE};
-                color:{CLR_BG};
-            }
-            QCalendarWidget QToolButton::menu-indicator { image:none; }
-            QCalendarWidget QAbstractItemView {
-                background:{CLR_BG};
-                color:{CLR_TEXT_IDLE};
-                selection-background-color:{CLR_ITEM_ACT};
-                selection-color:{CLR_TITLE};
-                gridline-color:{CLR_TITLE};
-                outline:none;
-                font:600 16px '{FONT_FAM}';
-                border-radius:6px;
-            }
-            QCalendarWidget QHeaderView::section {
-                background:{CLR_HEADER_BG};
-                color:{CLR_HEADER_TEXT};
-                border:none;
-                font:700 16px '{FONT_FAM}';
-                padding:6px 4px;
-            }
-            QCalendarWidget::item {
-                background:{CLR_BG};
-                color:{CLR_TEXT_IDLE};
-                padding:6px 4px;
-                font:600 16px '{FONT_FAM}';
-                border-radius:10px;
-            }
-            QCalendarWidget::item:selected {
-                background:{CLR_ITEM_ACT};
-                color:{CLR_TITLE};
-                border:1px solid {CLR_TITLE};
-            }
-            QCalendarWidget::item:enabled:hover {
-                background:{CLR_HEADER_BG};
-                color:{CLR_TITLE};
-            }
-            QCalendarWidget QWidget#qt_calendar_monthbutton,
-            QCalendarWidget QWidget#qt_calendar_yearbutton {
-                min-width:64px;
-            }
-        "
+    cal_style = f"""
+        QCalendarWidget {{
+            background:{CLR_PANEL};
+            color:{CLR_TEXT_IDLE};
+            border:2px solid {CLR_TITLE};
+            border-radius:8px;
+            padding:6px;
+        }}
+        QCalendarWidget QWidget {{
+            background:{CLR_PANEL};
+            color:{CLR_TEXT_IDLE};
+        }}
+        QCalendarWidget QWidget#qt_calendar_calendarview {{
+            background:{CLR_BG};
+            alternate-background-color:{CLR_BG};
+            border:1px solid {CLR_TITLE};
+            border-radius:6px;
+            margin:4px;
+        }}
+        QCalendarWidget QWidget#qt_calendar_navigationbar {{
+            background:{CLR_PANEL};
+            border:none;
+            padding:4px 6px;
+            margin-bottom:6px;
+        }}
+        QCalendarWidget QToolButton {{
+            color:{CLR_TITLE};
+            background:{CLR_HEADER_BG};
+            border:1px solid {CLR_TITLE};
+            border-radius:6px;
+            padding:6px 10px;
+            font:700 14px '{FONT_FAM}';
+        }}
+        QCalendarWidget QToolButton:hover {{
+            background:{CLR_ITEM_ACT};
+            color:{CLR_TITLE};
+        }}
+        QCalendarWidget QToolButton:pressed {{
+            background:{CLR_TITLE};
+            color:{CLR_BG};
+        }}
+        QCalendarWidget QToolButton::menu-indicator {{ image:none; }}
+        QCalendarWidget QAbstractItemView {{
+            background:{CLR_BG};
+            color:{CLR_TEXT_IDLE};
+            selection-background-color:{CLR_ITEM_ACT};
+            selection-color:{CLR_TITLE};
+            gridline-color:{CLR_TITLE};
+            outline:none;
+            font:600 16px '{FONT_FAM}';
+            border-radius:6px;
+        }}
+        QCalendarWidget QHeaderView::section {{
+            background:{CLR_HEADER_BG};
+            color:{CLR_HEADER_TEXT};
+            border:none;
+            font:700 16px '{FONT_FAM}';
+            padding:6px 4px;
+        }}
+        QCalendarWidget::item {{
+            background:{CLR_BG};
+            color:{CLR_TEXT_IDLE};
+            padding:6px 4px;
+            font:600 16px '{FONT_FAM}';
+            border-radius:10px;
+        }}
+        QCalendarWidget::item:selected {{
+            background:{CLR_ITEM_ACT};
+            color:{CLR_TITLE};
+            border:1px solid {CLR_TITLE};
+        }}
+        QCalendarWidget::item:enabled:hover {{
+            background:{CLR_HEADER_BG};
+            color:{CLR_TITLE};
+        }}
+        QCalendarWidget QWidget#qt_calendar_monthbutton,
+        QCalendarWidget QWidget#qt_calendar_yearbutton {{
+            min-width:64px;
+        }}
+    """
     cal.setStyleSheet(cal_style)
     cal.setStyleSheet(cal.styleSheet() + 'QCalendarWidget QWidget:focus{outline:none;}')
     cal.setStyleSheet(cal.styleSheet() + f'\n            /* Cabeceras de días de la semana y números de semana */\n            QCalendarWidget QTableView QHeaderView::section {{\n                background: {CLR_HEADER_BG};\n                color:      {CLR_HEADER_TEXT};\n                border: none;\n            }}\n        ')
