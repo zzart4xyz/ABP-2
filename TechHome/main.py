@@ -930,14 +930,14 @@ from dialogs import (
     AlarmEditorDialog,
     ReminderEditorDialog,
 )
-from Pantalla_de_Carga import SplashScreen, create_splash_animations
-from Sesion_y_Registro import LoginDialog
-from Inicio import build_home_page, create_home_animations
-from Dispositivos import build_devices_page, create_devices_animations
-from Mas import build_more_page, create_more_animations
-from Salud import build_health_page, create_health_animations
-from Configuracion import build_config_page, create_config_animations
-from Cuenta import build_account_page, create_account_animations
+from DiseñoPC import SplashScreen, create_splash_animations
+from DiseñoIR import LoginDialog
+from DiseñoI import build_home_page, create_home_animations
+from DiseñoD import build_devices_page, create_devices_animations
+from DiseñoM import build_more_page, create_more_animations
+from DiseñoS import build_health_page, create_health_animations
+from DiseñoC import build_config_page, create_config_animations
+from DiseñoCa import build_account_page, create_account_animations
 import database
 from widgets import (
     NotesManager,
