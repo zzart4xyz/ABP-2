@@ -1019,10 +1019,6 @@ class CardButton(ClickableFrame):
             f"color:{c.CLR_TEXT_IDLE}; font:700 20px '{c.FONT_FAM}'; border:none; background:transparent;"
         )
         lay.addWidget(txt_lbl, 1)
-    def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self._emit_clicked()
-        super().mousePressEvent(e)
 class QuickAccessButton(ClickableFrame):
     clicked = pyqtSignal()
     def __init__(self, text: str, icon_name: str):
@@ -1046,10 +1042,6 @@ class QuickAccessButton(ClickableFrame):
         lay.addWidget(text_lbl)
         self._effect = None
         self._hover_anim = None
-    def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            self._emit_clicked()
-        super().mousePressEvent(e)
     def enterEvent(self, e):
         """
         Override to suppress the hover fade animation.  The default

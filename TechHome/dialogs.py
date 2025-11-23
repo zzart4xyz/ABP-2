@@ -326,6 +326,13 @@ class BaseFormDialog(FramelessWindowMixin, QDialog):
             e.accept()
 
 
+class LineEditValueDialog(BaseFormDialog):
+    """Base dialog for single-line text input forms."""
+
+    def getText(self):
+        return self.get_value(lambda: self.input.text())
+
+
 class DeletableDialog(BaseFormDialog):
     """Base dialog that tracks delete/accept state for destructive actions."""
 
@@ -914,7 +921,7 @@ class NewNoteDialog(BaseFormDialog):
         return self.get_value(lambda: self.text_edit.toPlainText())
 
 
-class NewListDialog(BaseFormDialog):
+class NewListDialog(LineEditValueDialog):
     def __init__(self, parent=None):
         line = QLineEdit()
         lang = getattr(parent, 'lang', 'es') if parent else 'es'
@@ -928,11 +935,8 @@ class NewListDialog(BaseFormDialog):
         super().__init__(title, line, ok, cancel_text=cancel, parent=parent)
         self.input = line
 
-    def getText(self):
-        return self.get_value(lambda: self.input.text())
 
-
-class NewElementDialog(BaseFormDialog):
+class NewElementDialog(LineEditValueDialog):
     def __init__(self, parent=None):
         line = QLineEdit()
         lang = getattr(parent, 'lang', 'es') if parent else 'es'
@@ -945,9 +949,6 @@ class NewElementDialog(BaseFormDialog):
         cancel = mapping.get("Cancelar", "Cancelar")
         super().__init__(title, line, ok, cancel_text=cancel, parent=parent)
         self.input = line
-
-    def getText(self):
-        return self.get_value(lambda: self.input.text())
 
 
 
