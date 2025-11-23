@@ -1391,3 +1391,14 @@ def _refresh_account_info(self) -> None:
                 self.acc_notif_loc_label.setPixmap(tint_pixmap(notif_pm, QColor(CLR_TITLE)))
 
 METHODS_B["_refresh_account_info"] = _refresh_account_info
+
+
+class AnimatedBackgroundMixinB:
+    """Mixin que agrupa los métodos de UI y métricas de AnimatedBackground."""
+
+
+for _name, _func in METHODS_B.items():
+    setattr(AnimatedBackgroundMixinB, _name, _func)
+
+
+__all__ = ["AnimatedBackgroundMixinB"]

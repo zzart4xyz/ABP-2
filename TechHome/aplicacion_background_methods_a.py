@@ -1099,3 +1099,14 @@ def _delete_timer(self, timer: TimerState):
             pass
 
 METHODS_A["_delete_timer"] = _delete_timer
+
+
+class AnimatedBackgroundMixinA:
+    """Mixin que agrupa los métodos auxiliares de AnimatedBackground."""
+
+
+for _name, _func in METHODS_A.items():
+    setattr(AnimatedBackgroundMixinA, _name, _func)
+
+
+__all__ = ["AnimatedBackgroundMixinA"]

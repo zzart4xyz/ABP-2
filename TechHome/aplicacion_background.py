@@ -108,10 +108,12 @@ from aplicacion_componentes import (
     NotificationsDetailsDialog,
     SlideFadeEffect,
 )
+from aplicacion_background_methods_a import AnimatedBackgroundMixinA
+from aplicacion_background_methods_b import AnimatedBackgroundMixinB
 import database
 
 
-class AnimatedBackground(QWidget):
+class AnimatedBackground(AnimatedBackgroundMixinA, AnimatedBackgroundMixinB, QWidget):
 
     def __init__(self, parent=None, *, username: str | None = None, login_time: datetime | None = None):
         super().__init__(parent)
@@ -263,8 +265,3 @@ class AnimatedBackground(QWidget):
                     pass
 
 
-# Métodos de AnimatedBackground importados para mantener el archivo por debajo de 1500 líneas
-from aplicacion_background_methods_a import METHODS_A
-from aplicacion_background_methods_b import METHODS_B
-for _name, _func in {**METHODS_A, **METHODS_B}.items():
-    setattr(AnimatedBackground, _name, _func)
