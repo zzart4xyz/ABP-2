@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
 import constants as c
 import os
 from PyQt5.QtWidgets import QWidget
+from mixins import PlayPauseMixin
 from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
 from widgets import CircularCountdown, _format_seconds
 from ui_helpers import (
@@ -326,6 +327,22 @@ class BaseFormDialog(QDialog):
             e.accept()
 
 
+class DeletableDialog(BaseFormDialog):
+    """Base dialog that tracks delete/accept state for destructive actions."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._deleted = False
+
+    def _on_delete(self) -> None:
+        self._deleted = True
+        self.accept()
+
+    @property
+    def was_deleted(self) -> bool:
+        return self._deleted
+
+
 class MessageDialog(BaseFormDialog):
     """Simple message dialog with a single OK button.
 
@@ -372,7 +389,7 @@ class MessageDialog(BaseFormDialog):
             self.move(x, y)
 
 
-class TimerEditorDialog(BaseFormDialog):
+class TimerEditorDialog(DeletableDialog):
     """Dialog used to create or edit timers."""
 
     def __init__(self, timer: TimerState | None = None, parent=None):
@@ -454,7 +471,6 @@ class TimerEditorDialog(BaseFormDialog):
 
         title = "Editar timer" if timer else "Nuevo timer"
         super().__init__(title, form, "Guardar", parent=parent, size=(360, 320))
-        self._deleted = False
 
         if timer:
             duration = int(getattr(timer, "duration", 0))
@@ -468,13 +484,6 @@ class TimerEditorDialog(BaseFormDialog):
         else:
             self.minutes_spin.setValue(1)
 
-    def _on_delete(self) -> None:
-        self._deleted = True
-        self.accept()
-
-    @property
-    def was_deleted(self) -> bool:
-        return self._deleted
 
     def result_state(self) -> TimerState:
         duration = self.hours_spin.value() * 3600 + self.minutes_spin.value() * 60 + self.seconds_spin.value()
@@ -500,7 +509,7 @@ class TimerEditorDialog(BaseFormDialog):
         )
 
 
-class ReminderEditorDialog(BaseFormDialog):
+class ReminderEditorDialog(DeletableDialog):
     """Dialog to create or edit reminders."""
 
     def __init__(self, reminder: ReminderState | None = None, parent=None):
@@ -542,19 +551,11 @@ class ReminderEditorDialog(BaseFormDialog):
 
         title = "Editar recordatorio" if reminder else "Nuevo recordatorio"
         super().__init__(title, form, "Guardar", parent=parent, size=(360, 220))
-        self._deleted = False
 
         if reminder:
             self.datetime_edit.setDateTime(reminder.when)
             self.message_edit.setText(reminder.message)
 
-    def _on_delete(self) -> None:
-        self._deleted = True
-        self.accept()
-
-    @property
-    def was_deleted(self) -> bool:
-        return self._deleted
 
     def result_state(self) -> ReminderState:
         message = self.message_edit.text().strip() or "Recordatorio"
@@ -563,7 +564,7 @@ class ReminderEditorDialog(BaseFormDialog):
         return ReminderState(message=message, when=dt, reminder_id=reminder_id)
 
 
-class TimerDisplayDialog(QDialog):
+class TimerDisplayDialog(PlayPauseMixin, QDialog):
     """Floating dialog that mirrors the timer card in a dedicated window."""
 
     playRequested = pyqtSignal()
@@ -681,17 +682,6 @@ class TimerDisplayDialog(QDialog):
         super().resizeEvent(event)
         self._set_panel_geometry()
 
-    def _on_play_clicked(self) -> None:
-        if self._state is None:
-            self.playRequested.emit()
-            return
-        running = bool(getattr(self._state, "running", False))
-        remaining = int(getattr(self._state, "remaining", 0))
-        if running and remaining > 0:
-            self.pauseRequested.emit()
-        else:
-            self.playRequested.emit()
-
     def _toggle_expand(self) -> None:
         self._expanded = not self._expanded
         target = self._expanded_size if self._expanded else self._default_size
@@ -730,7 +720,7 @@ class TimerDisplayDialog(QDialog):
     def closeEvent(self, event) -> None:
         super().closeEvent(event)
         self.closed.emit(self)
-class AlarmEditorDialog(BaseFormDialog):
+class AlarmEditorDialog(DeletableDialog):
     """Dialog used to create or edit alarms."""
 
     def __init__(self, alarm: AlarmState | None = None, parent=None):
@@ -846,7 +836,6 @@ class AlarmEditorDialog(BaseFormDialog):
 
         title = "Editar alarma" if alarm else "Nueva alarma"
         super().__init__(title, form, "Guardar", parent=parent, size=(380, 480))
-        self._deleted = False
 
         if alarm:
             trigger = alarm.trigger
@@ -869,13 +858,6 @@ class AlarmEditorDialog(BaseFormDialog):
             self.minute_spin.setValue(0)
             self.ampm_combo.setCurrentIndex(0)
 
-    def _on_delete(self) -> None:
-        self._deleted = True
-        self.accept()
-
-    @property
-    def was_deleted(self) -> bool:
-        return self._deleted
 
     def _selected_days(self) -> set[int]:
         return {idx for idx, btn in enumerate(self.day_buttons) if btn.isChecked()}

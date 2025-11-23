@@ -38,6 +38,33 @@ def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
     return max(minimum, min(maximum, value))
 
 
+class DragMixin:
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self._start_drag(event)
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if event.buttons() & Qt.LeftButton:
+            self._drag_move(event)
+        else:
+            super().mouseMoveEvent(event)
+
+    def _start_drag(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def _drag_move(self, event) -> None:
+        if event.buttons() & Qt.LeftButton:
+            self.move(event.globalPos() - self._drag_offset)
+            event.accept()
+
+
+class DraggableFrame(DragMixin, QFrame):
+    """QFrame with built-in drag handling."""
+
 @dataclass(frozen=True)
 class MetricSpec:
     key: str
@@ -327,7 +354,7 @@ class GraphWidget(QWidget):
         painter.drawPath(line_path)
         painter.end()
 
-class MetricsDetailsDialog(QDialog):
+class MetricsDetailsDialog(DragMixin, QDialog):
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -512,30 +539,8 @@ class MetricsDetailsDialog(QDialog):
             graph_values = prev_vals[-12:] if prev_vals else []
             widgets['graph'].setValues(graph_values, QColor(spec.graph_color), animate=True)
 
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self._start_drag(event)
-        else:
-            super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event) -> None:
-        if event.buttons() & Qt.LeftButton:
-            self._drag_move(event)
-        else:
-            super().mouseMoveEvent(event)
-
-    def _start_drag(self, event) -> None:
-        from PyQt5.QtCore import QPoint
-        if event.button() == Qt.LeftButton:
-            self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def _drag_move(self, event) -> None:
-        if event.buttons() & Qt.LeftButton:
-            self.move(event.globalPos() - self._drag_offset)
-            event.accept()
-
-class NotificationsDetailsDialog(QDialog):
+class NotificationsDetailsDialog(DragMixin, QDialog):
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -899,28 +904,6 @@ class NotificationsDetailsDialog(QDialog):
         except Exception:
             return ''
 
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self._start_drag(event)
-        else:
-            super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event) -> None:
-        if event.buttons() & Qt.LeftButton:
-            self._drag_move(event)
-        else:
-            super().mouseMoveEvent(event)
-
-    def _start_drag(self, event) -> None:
-        from PyQt5.QtCore import QPoint
-        if event.button() == Qt.LeftButton:
-            self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def _drag_move(self, event) -> None:
-        if event.buttons() & Qt.LeftButton:
-            self.move(event.globalPos() - self._drag_offset)
-            event.accept()
 BASE_DIR = Path(__file__).resolve().parent
 
 def _load_section_module(alias: str, filename: str):

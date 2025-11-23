@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
     QHeaderView, QSizePolicy, QCalendarWidget, QTableWidget, QSpinBox, QCheckBox, QAbstractButton
 )
 import constants as c
+from mixins import PlayPauseMixin
 """
 Custom widgets used throughout the TechHome interface.  These include
 scrollbars, delegates, cards and draggable notes as well as helper
@@ -36,6 +37,21 @@ def _with_alpha(color: str, alpha: float) -> str:
     qcol = QColor(color)
     qcol.setAlphaF(max(0.0, min(1.0, alpha)))
     return qcol.name(QColor.HexArgb)
+
+
+class ClickableFrame(QFrame):
+    clicked = pyqtSignal(object)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self._emit_clicked()
+        super().mousePressEvent(event)
+
+    def _emit_clicked(self) -> None:
+        try:
+            self.clicked.emit(self)
+        except TypeError:
+            self.clicked.emit()
 class NotesManager:
     def __init__(self, container, cell_size, spacing, rows, columns):
         self.container = container
@@ -353,7 +369,7 @@ def _format_seconds(seconds: int) -> str:
     if h:
         return f"{h:02d}:{m:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
-class TimerCard(QFrame):
+class TimerCard(ClickableFrame, PlayPauseMixin):
     """Visual representation of a timer with controls."""
     playRequested = pyqtSignal(object)
     pauseRequested = pyqtSignal(object)
@@ -362,7 +378,6 @@ class TimerCard(QFrame):
     deleteRequested = pyqtSignal(object)
     fullscreenRequested = pyqtSignal(object)
     loopToggled = pyqtSignal(object, bool)
-    clicked = pyqtSignal(object)
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.state = None
@@ -460,17 +475,6 @@ class TimerCard(QFrame):
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
         )
         return btn
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit(self)
-        super().mousePressEvent(event)
-    def _on_play_clicked(self) -> None:
-        running = bool(getattr(self.state, "running", False))
-        remaining = int(getattr(self.state, "remaining", 0))
-        if running and remaining > 0:
-            self.pauseRequested.emit(self)
-        else:
-            self.playRequested.emit(self)
     def _on_loop_toggled(self, checked: bool) -> None:
         self.loopToggled.emit(self, checked)
         self._apply_loop_style(checked)
@@ -534,7 +538,7 @@ class TimerCard(QFrame):
             self.play_btn.setIconSize(QSize(28, 28))
     def _set_reset_enabled(self, enabled: bool) -> None:
         self.reset_btn.setEnabled(enabled)
-class TimerFullscreenView(QFrame):
+class TimerFullscreenView(PlayPauseMixin, QFrame):
     """Fullscreen timer view embedded inside the alarms & timers page."""
     playRequested = pyqtSignal()
     pauseRequested = pyqtSignal()
@@ -608,16 +612,6 @@ class TimerFullscreenView(QFrame):
         self._layout.addLayout(self._controls)
         self._layout.addStretch(1)
         self._apply_mode_metrics()
-    def _on_play_clicked(self) -> None:
-        if self._state is None:
-            self.playRequested.emit()
-            return
-        running = bool(getattr(self._state, "running", False))
-        remaining = int(getattr(self._state, "remaining", 0))
-        if running and remaining > 0:
-            self.pauseRequested.emit()
-        else:
-            self.playRequested.emit()
     def set_state(self, state: object, progress: float, subtitle: str, running: bool) -> None:
         self._state = state
         remaining = int(getattr(state, "remaining", 0))
@@ -701,7 +695,7 @@ class TimerFullscreenView(QFrame):
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.4)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.45)}; }}"
         )
         self.reset_btn.setIconSize(QSize(reset_icon, reset_icon))
-class AlarmCard(QFrame):
+class AlarmCard(ClickableFrame):
     """Card representation of an alarm."""
     toggleRequested = pyqtSignal(object, bool)
     editRequested = pyqtSignal(object)
@@ -781,10 +775,6 @@ class AlarmCard(QFrame):
         self._bell_disabled = self._load_status_pixmap("bell-slash.svg", _with_alpha(c.CLR_TEXT_IDLE, 0.7))
         self._update_status_icon(True)
         self._apply_enabled_style(True)
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit(self)
-        super().mousePressEvent(event)
     def _on_toggle(self, state: int) -> None:
         checked = bool(state)
         self.toggleRequested.emit(self, checked)
@@ -979,7 +969,7 @@ class CurrentMonthCalendar(QCalendarWidget):
             painter.drawEllipse(
                 QRectF(rect.center().x() - 2, rect.bottom() - 6, 4, 4)
             )
-class CardButton(QFrame):
+class CardButton(ClickableFrame):
     clicked = pyqtSignal()
     def __init__(self, text: str, icon_name: str | None = None):
         """
@@ -1031,9 +1021,9 @@ class CardButton(QFrame):
         lay.addWidget(txt_lbl, 1)
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
-            self.clicked.emit()
+            self._emit_clicked()
         super().mousePressEvent(e)
-class QuickAccessButton(QFrame):
+class QuickAccessButton(ClickableFrame):
     clicked = pyqtSignal()
     def __init__(self, text: str, icon_name: str):
         super().__init__()
@@ -1058,7 +1048,7 @@ class QuickAccessButton(QFrame):
         self._hover_anim = None
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
-            self.clicked.emit()
+            self._emit_clicked()
         super().mousePressEvent(e)
     def enterEvent(self, e):
         """
