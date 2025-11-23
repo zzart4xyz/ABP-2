@@ -806,23 +806,17 @@ def build_more_page(app):
 def create_more_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para el panel principal de la sección Más."""
 
-    base_duration = 220
-
     specs = [
         SlideSpec(
             target_getter=lambda: getattr(app, 'more_stack', None),
             order=0,
-            duration=base_duration,
             offset=18.0,
-            direction='down',
             step=32,
         ),
         SlideSpec(
             target_getter=lambda: getattr(app, 'more_grid_widget', None),
             order=1,
-            duration=base_duration,
             offset=24.0,
-            direction='down',
             step=32,
         ),
     ]

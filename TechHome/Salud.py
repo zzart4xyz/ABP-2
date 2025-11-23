@@ -34,24 +34,16 @@ def build_health_page(app):
 def create_health_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para el medidor y el panel de métricas."""
 
-    base_duration = 220
-
     specs = [
         SlideSpec(
             target_getter=lambda: getattr(app, 'health_gauge', None),
             order=0,
-            duration=base_duration,
             offset=16.0,
-            direction='down',
-            step=30,
         ),
         SlideSpec(
             target_getter=lambda: getattr(app, 'health_metrics', None),
             order=1,
-            duration=base_duration,
             offset=22.0,
-            direction='down',
-            step=30,
         ),
     ]
 

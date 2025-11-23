@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from PyQt5.QtCore import Qt
+
 
 class PlayPauseMixin:
     """Provide a shared play/pause click handler for timer-like widgets."""
@@ -31,3 +33,14 @@ class PlayPauseMixin:
             self._emit_signal(getattr(self, "pauseRequested"), self)
         else:
             self._emit_signal(getattr(self, "playRequested"), self)
+
+
+class FramelessWindowMixin:
+    """Apply consistent frameless, translucent window flags."""
+
+    def _init_frameless(self, *, as_dialog: bool = True) -> None:
+        flags = Qt.FramelessWindowHint
+        if as_dialog:
+            flags |= Qt.Dialog
+        self.setWindowFlags(flags)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)

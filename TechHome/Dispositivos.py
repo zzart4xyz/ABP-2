@@ -237,8 +237,6 @@ def build_devices_page(app):
 def create_devices_animations(app) -> list[dict[str, object]]:
     """Animaciones con deslizamiento suave para todo el apartado de dispositivos."""
 
-    base_duration = 220
-
     specs: list[SlideSpec] = []
 
     order = 0
@@ -247,9 +245,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_title_label', None),
             order=order,
-            duration=base_duration,
             offset=18.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -258,9 +254,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_add_button', None),
             order=order,
-            duration=base_duration,
             offset=18.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -270,9 +264,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_groups_label', None),
             order=order,
-            duration=base_duration,
             offset=18.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -285,9 +277,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
             SlideSpec(
                 target_getter=lambda card=card: card,
                 order=order + idx,
-                duration=base_duration,
                 offset=18.0,
-                step=30,
                 fade=True,
                 remove_effect=True,
             )
@@ -298,9 +288,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
             SlideSpec(
                 target_getter=lambda: getattr(app, 'add_group_card', None),
                 order=order,
-                duration=base_duration,
                 offset=18.0,
-                step=30,
                 fade=True,
                 remove_effect=True,
             )
@@ -311,9 +299,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'group_indicator', None),
             order=order,
-            duration=base_duration,
             offset=18.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -323,9 +309,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_groups_scroll', None),
             order=order,
-            duration=base_duration,
             offset=18.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -335,9 +319,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_groups_scrollbar', None),
             order=order,
-            duration=base_duration,
             offset=12.0,
-            step=30,
             fade=False,
             remove_effect=True,
         )
@@ -347,9 +329,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_filter_bar', None),
             order=order,
-            duration=base_duration,
             offset=18.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -359,9 +339,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
         SlideSpec(
             target_getter=lambda: getattr(app, 'devices_vertical_scrollbar', None),
             order=order,
-            duration=base_duration,
             offset=24.0,
-            step=30,
             fade=True,
             remove_effect=True,
         )
@@ -374,9 +352,7 @@ def create_devices_animations(app) -> list[dict[str, object]]:
             SlideSpec(
                 target_getter=lambda row=row: row,
                 order=order + idx,
-                duration=base_duration,
                 offset=18.0,
-                step=30,
                 fade=True,
                 remove_effect=True,
             )

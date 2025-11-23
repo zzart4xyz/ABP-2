@@ -32,6 +32,7 @@ except Exception:
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea, QStackedWidget, QLineEdit, QComboBox, QScrollBar, QTableWidget, QTableWidgetItem, QTabWidget, QListWidget, QListWidgetItem, QDialog, QTextEdit, QDateTimeEdit, QSpinBox, QCalendarWidget, QCheckBox, QStyledItemDelegate, QStyle, QToolButton, QTableView, QHeaderView, QAbstractSpinBox, QSizePolicy, QProgressBar, QGraphicsOpacityEffect
 from constants import *
 from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
+from mixins import FramelessWindowMixin
 
 
 def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
@@ -75,11 +76,12 @@ class MetricSpec:
     graph_color: str = CLR_TITLE
 
 
-class TimerPopupDialog(QDialog):
+class TimerPopupDialog(FramelessWindowMixin, QDialog):
     """Frameless dialog that can be dragged and positioned manually."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._init_frameless()
         self._drag_active = False
         self._drag_offset = QPoint()
         self._drag_handles: list[QWidget] = []
@@ -354,14 +356,13 @@ class GraphWidget(QWidget):
         painter.drawPath(line_path)
         painter.end()
 
-class MetricsDetailsDialog(DragMixin, QDialog):
+class MetricsDetailsDialog(FramelessWindowMixin, DragMixin, QDialog):
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self._main = parent
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         from PyQt5.QtCore import QPoint
         self._drag_offset: QPoint = QPoint()
         outer = QFrame(self)
@@ -540,14 +541,13 @@ class MetricsDetailsDialog(DragMixin, QDialog):
             widgets['graph'].setValues(graph_values, QColor(spec.graph_color), animate=True)
 
 
-class NotificationsDetailsDialog(DragMixin, QDialog):
+class NotificationsDetailsDialog(FramelessWindowMixin, DragMixin, QDialog):
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self._main = parent
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         from PyQt5.QtCore import QPoint
         self._drag_offset: QPoint = QPoint()
         self.current_filter: str = 'Todas'

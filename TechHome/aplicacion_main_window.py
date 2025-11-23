@@ -37,15 +37,15 @@ from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
 from aplicacion_background import AnimatedBackground
 from aplicacion_componentes import LoginDialog, SplashScreen, create_splash_animations
 import database
+from mixins import FramelessWindowMixin
 
-class MainWindow(QMainWindow):
+class MainWindow(FramelessWindowMixin, QMainWindow):
 
     def __init__(self, username: str, login_time: datetime):
         super().__init__()
         self.username = username
         self.login_time = login_time
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless(as_dialog=False)
         self.setMinimumSize(1100, 700)
         self._drag = None
         self.setWindowOpacity(0.0)

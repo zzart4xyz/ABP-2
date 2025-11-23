@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 import constants as c
 import os
 from PyQt5.QtWidgets import QWidget
-from mixins import PlayPauseMixin
+from mixins import FramelessWindowMixin, PlayPauseMixin
 from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
 from widgets import CircularCountdown, _format_seconds
 from ui_helpers import (
@@ -218,14 +218,13 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
         spin.installEventFilter(raiser)
 
 
-class BaseFormDialog(QDialog):
+class BaseFormDialog(FramelessWindowMixin, QDialog):
     """Base dialog with header and standard buttons."""
 
     def __init__(self, title: str, content, ok_text: str,
                  cancel_text: str = "Cancelar", size=(350, 200), parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         self.setModal(True)
         self.resize(*size)
 
@@ -564,7 +563,7 @@ class ReminderEditorDialog(DeletableDialog):
         return ReminderState(message=message, when=dt, reminder_id=reminder_id)
 
 
-class TimerDisplayDialog(PlayPauseMixin, QDialog):
+class TimerDisplayDialog(FramelessWindowMixin, PlayPauseMixin, QDialog):
     """Floating dialog that mirrors the timer card in a dedicated window."""
 
     playRequested = pyqtSignal()
@@ -574,8 +573,7 @@ class TimerDisplayDialog(PlayPauseMixin, QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         self.setModal(False)
         self._state = None
         self._expanded = False

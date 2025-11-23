@@ -30,6 +30,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
 )
 
+from mixins import FramelessWindowMixin
 from widgets import FloatingLabelInput, TriangularBackground
 from ui_helpers import apply_rounded_mask as _apply_rounded_mask
 from dialogs import show_message as _dialog_message
@@ -65,7 +66,7 @@ def show_message(parent, title: str, text: str) -> None:
     _dialog_message(parent, title, text)
 
 
-class LoginDialog(QDialog):
+class LoginDialog(FramelessWindowMixin, QDialog):
     """Login and registration dialog with a modern split‑screen design.
 
     This implementation replaces the old login/register layout with a two‑panel
@@ -87,8 +88,7 @@ class LoginDialog(QDialog):
     ):
         super().__init__(parent)
         # Apply frameless, translucent styling like the rest of the application.
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         # A larger canvas accommodates the split design.
         self.resize(700, 420)
 

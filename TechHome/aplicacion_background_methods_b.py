@@ -241,8 +241,6 @@ def _ensure_timer_fullscreen_dialog(self) -> bool:
         dialog = TimerPopupDialog(self)
         dialog.setModal(False)
         dialog.setObjectName('timerFullscreenDialog')
-        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground, True)
         dialog.setAttribute(Qt.WA_DeleteOnClose, False)
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(0, 0, 0, 0)
