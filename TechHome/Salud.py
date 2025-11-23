@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QEasingCurve
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QVBoxLayout, QWidget
 
+from animaciones import SlideSpec, slide_fade
 from health import BPMGauge, MetricsPanel
 
 
@@ -33,20 +34,17 @@ def build_health_page(app):
 def create_health_animations(app) -> list[dict[str, object]]:
     """Animaciones suaves para el medidor y el panel de métricas."""
 
-    base_duration = 220
-
-    def slide(target_getter, order: int, *, duration: int = base_duration, offset: float = 22.0, step: int = 30) -> dict[str, object]:
-        return {
-            'type': 'slide_fade',
-            'target': target_getter,
-            'delay': max(0, order) * step,
-            'duration': duration,
-            'offset': offset,
-            'direction': 'down',
-            'easing': QEasingCurve.OutCubic,
-        }
-
-    return [
-        slide(lambda: getattr(app, 'health_gauge', None), 0, offset=16.0),
-        slide(lambda: getattr(app, 'health_metrics', None), 1, offset=22.0),
+    specs = [
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'health_gauge', None),
+            order=0,
+            offset=16.0,
+        ),
+        SlideSpec(
+            target_getter=lambda: getattr(app, 'health_metrics', None),
+            order=1,
+            offset=22.0,
+        ),
     ]
+
+    return [slide_fade(spec) for spec in specs]

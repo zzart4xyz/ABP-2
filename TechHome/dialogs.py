@@ -1,4 +1,5 @@
 from datetime import datetime, date, time
+from functools import lru_cache
 
 from PyQt5.QtCore import (
     Qt, QPoint, QTimer, QPropertyAnimation, QParallelAnimationGroup,
@@ -16,6 +17,7 @@ from PyQt5.QtWidgets import (
 import constants as c
 import os
 from PyQt5.QtWidgets import QWidget
+from mixins import FramelessWindowMixin, PlayPauseMixin
 from models import AlarmState, ReminderState, TimerState, WEEKDAY_ORDER
 from widgets import CircularCountdown, _format_seconds
 from ui_helpers import (
@@ -68,6 +70,7 @@ def _with_alpha(color: str, alpha: float) -> str:
     return qcol.name(QColor.HexArgb)
 
 
+@lru_cache(maxsize=1)
 def _combo_arrow_style() -> str:
     """Return stylesheet rules that swap the combo box arrow icons."""
 
@@ -111,12 +114,14 @@ class _SpinboxLineEditRaiser(QObject):
 def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
     font_sz = 28 if large else 16
     height = 64 if large else 48
-    min_width = 92 if large else 0
+    # Large spin boxes need extra width to keep the text area clear once
+    # padding and the custom arrow buttons are applied.
+    min_width = 120 if large else 0
     # Keep enough internal spacing so the value text never sits beneath the
     # arrow controls.  The margins mirror the padding used in the stylesheet
     # as well as the explicit width we give to the up/down sub-controls.
-    left_margin = 12 if large else 6
-    right_margin = 40 if large else 34
+    left_margin = 10 if large else 6
+    right_margin = 32 if large else 34
     # Large timer/alarm fields should keep their vibrant accent colour while
     # smaller utility spin boxes retain the high-contrast idle text tone.
     text_color = c.CLR_TITLE if large else c.CLR_TEXT_IDLE
@@ -213,14 +218,13 @@ def _style_spinbox(spin: QSpinBox, large: bool = False) -> None:
         spin.installEventFilter(raiser)
 
 
-class BaseFormDialog(QDialog):
+class BaseFormDialog(FramelessWindowMixin, QDialog):
     """Base dialog with header and standard buttons."""
 
     def __init__(self, title: str, content, ok_text: str,
                  cancel_text: str = "Cancelar", size=(350, 200), parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         self.setModal(True)
         self.resize(*size)
 
@@ -322,6 +326,29 @@ class BaseFormDialog(QDialog):
             e.accept()
 
 
+class LineEditValueDialog(BaseFormDialog):
+    """Base dialog for single-line text input forms."""
+
+    def getText(self):
+        return self.get_value(lambda: self.input.text())
+
+
+class DeletableDialog(BaseFormDialog):
+    """Base dialog that tracks delete/accept state for destructive actions."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._deleted = False
+
+    def _on_delete(self) -> None:
+        self._deleted = True
+        self.accept()
+
+    @property
+    def was_deleted(self) -> bool:
+        return self._deleted
+
+
 class MessageDialog(BaseFormDialog):
     """Simple message dialog with a single OK button.
 
@@ -368,7 +395,7 @@ class MessageDialog(BaseFormDialog):
             self.move(x, y)
 
 
-class TimerEditorDialog(BaseFormDialog):
+class TimerEditorDialog(DeletableDialog):
     """Dialog used to create or edit timers."""
 
     def __init__(self, timer: TimerState | None = None, parent=None):
@@ -450,7 +477,6 @@ class TimerEditorDialog(BaseFormDialog):
 
         title = "Editar timer" if timer else "Nuevo timer"
         super().__init__(title, form, "Guardar", parent=parent, size=(360, 320))
-        self._deleted = False
 
         if timer:
             duration = int(getattr(timer, "duration", 0))
@@ -464,13 +490,6 @@ class TimerEditorDialog(BaseFormDialog):
         else:
             self.minutes_spin.setValue(1)
 
-    def _on_delete(self) -> None:
-        self._deleted = True
-        self.accept()
-
-    @property
-    def was_deleted(self) -> bool:
-        return self._deleted
 
     def result_state(self) -> TimerState:
         duration = self.hours_spin.value() * 3600 + self.minutes_spin.value() * 60 + self.seconds_spin.value()
@@ -496,7 +515,7 @@ class TimerEditorDialog(BaseFormDialog):
         )
 
 
-class ReminderEditorDialog(BaseFormDialog):
+class ReminderEditorDialog(DeletableDialog):
     """Dialog to create or edit reminders."""
 
     def __init__(self, reminder: ReminderState | None = None, parent=None):
@@ -538,19 +557,11 @@ class ReminderEditorDialog(BaseFormDialog):
 
         title = "Editar recordatorio" if reminder else "Nuevo recordatorio"
         super().__init__(title, form, "Guardar", parent=parent, size=(360, 220))
-        self._deleted = False
 
         if reminder:
             self.datetime_edit.setDateTime(reminder.when)
             self.message_edit.setText(reminder.message)
 
-    def _on_delete(self) -> None:
-        self._deleted = True
-        self.accept()
-
-    @property
-    def was_deleted(self) -> bool:
-        return self._deleted
 
     def result_state(self) -> ReminderState:
         message = self.message_edit.text().strip() or "Recordatorio"
@@ -559,7 +570,7 @@ class ReminderEditorDialog(BaseFormDialog):
         return ReminderState(message=message, when=dt, reminder_id=reminder_id)
 
 
-class TimerDisplayDialog(QDialog):
+class TimerDisplayDialog(FramelessWindowMixin, PlayPauseMixin, QDialog):
     """Floating dialog that mirrors the timer card in a dedicated window."""
 
     playRequested = pyqtSignal()
@@ -569,8 +580,7 @@ class TimerDisplayDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         self.setModal(False)
         self._state = None
         self._expanded = False
@@ -677,17 +687,6 @@ class TimerDisplayDialog(QDialog):
         super().resizeEvent(event)
         self._set_panel_geometry()
 
-    def _on_play_clicked(self) -> None:
-        if self._state is None:
-            self.playRequested.emit()
-            return
-        running = bool(getattr(self._state, "running", False))
-        remaining = int(getattr(self._state, "remaining", 0))
-        if running and remaining > 0:
-            self.pauseRequested.emit()
-        else:
-            self.playRequested.emit()
-
     def _toggle_expand(self) -> None:
         self._expanded = not self._expanded
         target = self._expanded_size if self._expanded else self._default_size
@@ -726,7 +725,7 @@ class TimerDisplayDialog(QDialog):
     def closeEvent(self, event) -> None:
         super().closeEvent(event)
         self.closed.emit(self)
-class AlarmEditorDialog(BaseFormDialog):
+class AlarmEditorDialog(DeletableDialog):
     """Dialog used to create or edit alarms."""
 
     def __init__(self, alarm: AlarmState | None = None, parent=None):
@@ -842,7 +841,6 @@ class AlarmEditorDialog(BaseFormDialog):
 
         title = "Editar alarma" if alarm else "Nueva alarma"
         super().__init__(title, form, "Guardar", parent=parent, size=(380, 480))
-        self._deleted = False
 
         if alarm:
             trigger = alarm.trigger
@@ -865,13 +863,6 @@ class AlarmEditorDialog(BaseFormDialog):
             self.minute_spin.setValue(0)
             self.ampm_combo.setCurrentIndex(0)
 
-    def _on_delete(self) -> None:
-        self._deleted = True
-        self.accept()
-
-    @property
-    def was_deleted(self) -> bool:
-        return self._deleted
 
     def _selected_days(self) -> set[int]:
         return {idx for idx, btn in enumerate(self.day_buttons) if btn.isChecked()}
@@ -930,7 +921,7 @@ class NewNoteDialog(BaseFormDialog):
         return self.get_value(lambda: self.text_edit.toPlainText())
 
 
-class NewListDialog(BaseFormDialog):
+class NewListDialog(LineEditValueDialog):
     def __init__(self, parent=None):
         line = QLineEdit()
         lang = getattr(parent, 'lang', 'es') if parent else 'es'
@@ -944,11 +935,8 @@ class NewListDialog(BaseFormDialog):
         super().__init__(title, line, ok, cancel_text=cancel, parent=parent)
         self.input = line
 
-    def getText(self):
-        return self.get_value(lambda: self.input.text())
 
-
-class NewElementDialog(BaseFormDialog):
+class NewElementDialog(LineEditValueDialog):
     def __init__(self, parent=None):
         line = QLineEdit()
         lang = getattr(parent, 'lang', 'es') if parent else 'es'
@@ -961,9 +949,6 @@ class NewElementDialog(BaseFormDialog):
         cancel = mapping.get("Cancelar", "Cancelar")
         super().__init__(title, line, ok, cancel_text=cancel, parent=parent)
         self.input = line
-
-    def getText(self):
-        return self.get_value(lambda: self.input.text())
 
 
 

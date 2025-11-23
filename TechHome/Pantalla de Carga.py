@@ -27,6 +27,8 @@ from PyQt5.QtWidgets import (
     QGraphicsOpacityEffect,
 )
 
+from mixins import FramelessWindowMixin
+
 import constants as c
 from ui_helpers import apply_rounded_mask, crop_pixmap_to_content
 
@@ -112,13 +114,12 @@ class CircularProgress(QWidget):
         painter.end()
 
 
-class SplashScreen(QDialog):
+class SplashScreen(FramelessWindowMixin, QDialog):
     """Pantalla de carga inicial de la aplicación."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._init_frameless()
         self.resize(420, 600)
         frame = QFrame(self)
         frame.setObjectName("splash")
