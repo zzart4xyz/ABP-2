@@ -149,7 +149,10 @@ def _set_theme(self, theme):
 METHODS_A["_set_theme"] = _set_theme
 
 def resizeEvent(self, event) -> None:
-    super().resizeEvent(event)
+    # Call QWidget's resizeEvent directly because this function is injected
+    # into AnimatedBackground after definition; using super() here would
+    # require a __class__ cell that is not available in this context.
+    QWidget.resizeEvent(self, event)
     if hasattr(self, 'popup_label'):
         try:
             x = self.width() - self.popup_label.width() - 40
