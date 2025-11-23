@@ -1,31 +1,3 @@
-"""
-database.py
--------------
-
-This module provides a simple SQLite-based user store for login and
-registration.  It uses Python's built-in ``sqlite3`` library to manage
-a local database file located alongside the application code.  The
-database is initialised on demand and includes a single table
-``users`` with ``username`` and ``password`` fields.  Passwords are
-stored in plain text for simplicity; in a real-world application you
-should use password hashing (e.g. bcrypt or hashlib.pbkdf2_hmac).
-
-Functions
-~~~~~~~~~
-
-``init_db()``
-    Ensure the database and ``users`` table exist.
-
-``create_user(username, password)``
-    Attempt to create a new user.  Returns ``True`` on success and
-    ``False`` if the username already exists.
-
-``authenticate(username, password)``
-    Check whether a given username/password pair exists.  Returns
-    ``True`` for a valid login and ``False`` otherwise.
-
-"""
-
 import sqlite3
 import os
 import hashlib
@@ -36,7 +8,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional, TYPE_CHECKING
-
 from models import (
     AlarmState,
     ReminderState,
@@ -45,20 +16,7 @@ from models import (
     encode_repeat_days,
     weekday_index,
 )
-
-if TYPE_CHECKING:  # pragma: no cover - imported only for type checking
-    try:
-        from argon2 import exceptions as _Argon2Exceptions
-    except Exception:  # pragma: no cover - argon2 is optional
-        _Argon2Exceptions = None  # type: ignore[assignment]
-
-# Attempt to import argon2 at runtime without requiring the dependency at
-# development time.  Static analysers no longer flag a missing import because
-# ``import_module`` is used instead of a direct ``import argon2`` statement.
-argon2_exceptions = SimpleNamespace(
-    VerifyMismatchError=Exception,
-    VerificationError=Exception,
-)
+argon2_exceptions = SimpleNamespace(VerifyMismatchError=Exception, VerificationError=Exception)
 _ph = None
 try:
     spec = importlib.util.find_spec("argon2")
@@ -71,43 +29,16 @@ try:
             argon2_exceptions = exceptions_module  # type: ignore[assignment]
 except Exception:
     _ph = None
-
-
-# -----------------------------------------------------------------------------
-# Database paths
-#
-# User credentials (usernames and passwords) are stored in a single shared
-# database file (``techhome_users.sql``) located in the same directory as
-# this module.  Each user's personal data (device states, lists, notes,
-# reminders, alarms, timers and action logs) are stored in a separate
-# database file named ``techhome_data_<hash>.sql`` in the same directory.
-# Prior to November 2025 the plain username was embedded directly in the
-# filename; the helper below still recognises those legacy files.  This
-# separation ensures that no user's data is mixed with another's and allows
-# per‑user data to be easily managed.
-
-# Central database for user credentials
 USERS_DB_FILENAME = "techhome_users.sql"
 USERS_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), USERS_DB_FILENAME)
-
-# Directory where per‑user databases are stored.  By default, this is the
-# directory containing this module.  A helper function computes the full
-# path to a specific user's database file.
 DATA_DB_DIR = os.path.dirname(os.path.abspath(__file__))
-
 def _legacy_user_db_path(username: str) -> str:
     """Return the historical per-user database path for *username*."""
-
     return os.path.join(DATA_DB_DIR, f"techhome_data_{username}.sql")
-
-
 def _safe_user_db_filename(username: str) -> str:
     """Return a filesystem-safe database filename for *username*."""
-
     username_hash = hashlib.sha256(username.encode("utf-8")).hexdigest()
     return f"techhome_data_{username_hash}.sql"
-
-
 def get_user_db_path(username: str) -> str:
     """
     Return the file path for a given user's data database.
