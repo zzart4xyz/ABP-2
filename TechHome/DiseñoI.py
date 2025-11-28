@@ -148,7 +148,6 @@ def build_home_page(app, metric_gauge_cls, load_icon_pixmap, tint_pixmap):
         vlay.setContentsMargins(0, 0, 0, 0)
         vlay.setSpacing(4)
         gauge = metric_gauge_cls(icon_name)
-        gauge.setToolTip(key)
         vlay.addWidget(gauge, alignment=Qt.AlignCenter)
         vlay.addStretch(1)
         gs.addWidget(g_container, r, cidx, alignment=Qt.AlignCenter)

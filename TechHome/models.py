@@ -7,6 +7,7 @@ from typing import Iterable, Set
 __all__ = [
     "TimerState",
     "AlarmState",
+    "ReminderState",
     "encode_repeat_days",
     "decode_repeat_days",
     "weekday_index",
@@ -41,6 +42,19 @@ def decode_repeat_days(mask: str | None) -> Set[int]:
     if len(cleaned) != 7 or any(ch not in "01" for ch in cleaned):
         return set()
     return {i for i, ch in enumerate(cleaned) if ch == "1"}
+
+
+@dataclass(slots=True)
+class ReminderState:
+    message: str
+    when: datetime
+    reminder_id: int | None = None
+
+    def formatted_date(self) -> str:
+        return self.when.strftime("%d %b")
+
+    def formatted_time(self) -> str:
+        return self.when.strftime("%H:%M")
 
 
 @dataclass(slots=True)

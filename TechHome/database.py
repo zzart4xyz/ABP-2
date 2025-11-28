@@ -39,6 +39,7 @@ from typing import Optional, TYPE_CHECKING
 
 from models import (
     AlarmState,
+    ReminderState,
     TimerState,
     decode_repeat_days,
     encode_repeat_days,
@@ -627,50 +628,65 @@ def get_notes(username: str) -> list[tuple[str, str, int, int]]:
     return [(text, ts, int(r), int(c)) for text, ts, r, c in rows]
 
 
-def save_reminder(username: str, dt: str, text: str) -> None:
-    """
-    Persist a reminder for a user.
-    """
+def save_reminder(username: str, reminder: ReminderState) -> ReminderState:
+    """Insert or update ``reminder`` for ``username``."""
+
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO reminders (datetime, text) VALUES (?, ?)",
-        (dt, text)
-    )
+    if reminder.reminder_id is None:
+        cur.execute(
+            "INSERT INTO reminders (datetime, text) VALUES (?, ?)",
+            (reminder.when.isoformat(), reminder.message),
+        )
+        reminder.reminder_id = int(cur.lastrowid)
+    else:
+        cur.execute(
+            "UPDATE reminders SET datetime=?, text=? WHERE id=?",
+            (reminder.when.isoformat(), reminder.message, reminder.reminder_id),
+        )
+    conn.commit()
+    conn.close()
+    return reminder
+
+
+def delete_reminder(username: str, reminder: ReminderState) -> None:
+    """Remove ``reminder`` from ``username``'s store."""
+
+    init_user_db(username)
+    path = get_user_db_path(username)
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    if reminder.reminder_id is not None:
+        cur.execute("DELETE FROM reminders WHERE id=?", (reminder.reminder_id,))
+    else:
+        cur.execute(
+            "DELETE FROM reminders WHERE datetime=? AND text=?",
+            (reminder.when.isoformat(), reminder.message),
+        )
     conn.commit()
     conn.close()
 
 
-def delete_reminder(username: str, dt: str, text: str) -> None:
-    """
-    Delete a specific reminder for a user.
-    """
+def get_reminders(username: str) -> list[ReminderState]:
+    """Retrieve all reminders for ``username`` as :class:`ReminderState`."""
+
     init_user_db(username)
     path = get_user_db_path(username)
     conn = sqlite3.connect(path)
     cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM reminders WHERE datetime=? AND text=?",
-        (dt, text)
-    )
-    conn.commit()
-    conn.close()
-
-
-def get_reminders(username: str) -> list[tuple[str, str]]:
-    """
-    Retrieve all reminders for a user.  Returns a list of (datetime, text).
-    """
-    init_user_db(username)
-    path = get_user_db_path(username)
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-    cur.execute("SELECT datetime, text FROM reminders ORDER BY datetime")
+    cur.execute("SELECT id, datetime, text FROM reminders ORDER BY datetime")
     rows = cur.fetchall()
     conn.close()
-    return [(dt, txt) for dt, txt in rows]
+    reminders: list[ReminderState] = []
+    for reminder_id, dt, txt in rows:
+        try:
+            when = datetime.fromisoformat(dt)
+        except Exception:
+            continue
+        reminders.append(ReminderState(message=txt, when=when, reminder_id=int(reminder_id)))
+    return reminders
 
 
 def save_alarm(username: str, alarm: AlarmState) -> AlarmState:

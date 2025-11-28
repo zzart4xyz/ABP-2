@@ -450,27 +450,27 @@ class TimerCard(QFrame):
         header.addWidget(self.title_lbl)
         header.addStretch(1)
 
-        self.edit_btn = self._make_header_button("Editar timer")
+        self.edit_btn = self._make_header_button()
         _set_button_icon(self.edit_btn, "pencil.svg", QSize(20, 20), fallback="✏")
         self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
         header.addWidget(self.edit_btn)
 
-        self.delete_btn = self._make_header_button("Eliminar timer")
+        self.delete_btn = self._make_header_button()
         _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
         self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
         header.addWidget(self.delete_btn)
 
-        self.fullscreen_btn = self._make_header_button("Mostrar temporizador")
+        self.fullscreen_btn = self._make_header_button()
         _set_button_icon(
             self.fullscreen_btn,
-            "arrow-up-right-and-arrow-down-left-from-center.svg",
+            "square-arrow-up-right.svg",
             QSize(20, 20),
             fallback="⤢",
         )
         self.fullscreen_btn.clicked.connect(lambda: self.fullscreenRequested.emit(self))
         header.addWidget(self.fullscreen_btn)
 
-        self.loop_btn = self._make_header_button("Notificar al finalizar")
+        self.loop_btn = self._make_header_button()
         self.loop_btn.setCheckable(True)
         self._loop_icon_active = self._make_tinted_icon("bell.svg", c.CLR_TITLE)
         inactive_color = _with_alpha(c.CLR_TEXT_IDLE, 0.85)
@@ -495,7 +495,6 @@ class TimerCard(QFrame):
         play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
         self.play_btn = QToolButton()
         self.play_btn.setCursor(Qt.PointingHandCursor)
-        self.play_btn.setToolTip("Iniciar")
         self.play_btn.setFixedSize(64, 64)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:32px; padding:14px; color:#07101B; }}"
@@ -512,7 +511,6 @@ class TimerCard(QFrame):
         reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
         self.reset_btn = QToolButton()
         self.reset_btn.setCursor(Qt.PointingHandCursor)
-        self.reset_btn.setToolTip("Reiniciar")
         self.reset_btn.setFixedSize(52, 52)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:26px; padding:12px; color:{c.CLR_TEXT_IDLE}; }}"
@@ -531,10 +529,9 @@ class TimerCard(QFrame):
 
         self._apply_loop_style(False)
 
-    def _make_header_button(self, tooltip: str) -> QToolButton:
+    def _make_header_button(self) -> QToolButton:
         btn = QToolButton()
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setToolTip(tooltip)
         btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:16px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
@@ -591,7 +588,6 @@ class TimerCard(QFrame):
         is_running = running and remaining > 0
         can_reset = duration > 0 and remaining != duration
         self.play_btn.setEnabled(duration > 0)
-        self.play_btn.setToolTip("Pausar" if is_running else "Iniciar")
         self._set_play_icon(is_running)
         self._set_reset_enabled(can_reset)
         self.loop_btn.blockSignals(True)
@@ -653,33 +649,23 @@ class TimerFullscreenView(QFrame):
 
         self.back_btn = QToolButton()
         self.back_btn.setCursor(Qt.PointingHandCursor)
-        self.back_btn.setToolTip("Cerrar vista de temporizador")
         self.back_btn.setStyleSheet(
-            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:18px; padding:10px; color:{c.CLR_TEXT_IDLE}; }}"
-            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
+            f"QToolButton {{ background:transparent; border:none; padding:0px; color:{c.CLR_TEXT_IDLE}; }}"
+            f"QToolButton:hover {{ color:{c.CLR_TITLE}; }}"
         )
-        _set_button_icon(self.back_btn, "arrow-down-left-and-arrow-up-right-to-center.svg", QSize(22, 22), fallback="⤢")
+        _set_button_icon(self.back_btn, "square-arrow-down-left.svg", QSize(34, 34), fallback="⤢")
         self.back_btn.clicked.connect(lambda: self.closeRequested.emit())
         header.addWidget(self.back_btn)
 
-        text_block = QVBoxLayout()
-        text_block.setContentsMargins(0, 0, 0, 0)
-        text_block.setSpacing(4)
-        self.title_lbl = QLabel("Timer")
-        self._title_style_tpl = f"color:{c.CLR_TITLE}; font:700 {{}}px '{c.FONT_FAM}';"
-        self.title_lbl.setStyleSheet(self._title_style_tpl.format(28))
-        text_block.addWidget(self.title_lbl)
-        self.subtitle_lbl = QLabel("Listo para iniciar")
-        self._subtitle_style_tpl = f"color:{_with_alpha(c.CLR_TEXT_IDLE, 0.85)}; font:500 {{}}px '{c.FONT_FAM}';"
-        self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(16))
-        self.subtitle_lbl.setWordWrap(True)
-        text_block.addWidget(self.subtitle_lbl)
-        header.addLayout(text_block, stretch=1)
         header.addStretch(1)
         self._layout.addLayout(header)
 
         self.dial = CircularCountdown(320, 18)
         self._layout.addWidget(self.dial, alignment=Qt.AlignCenter)
+        # Provide a flexible spacer below the dial so it stays closer to the
+        # header, keeping the countdown circle visually higher in compact
+        # popups without affecting the default layout proportions.
+        self._layout.addStretch(1)
 
         self._controls = QHBoxLayout()
         self._controls.setContentsMargins(0, 0, 0, 0)
@@ -690,7 +676,6 @@ class TimerFullscreenView(QFrame):
         play_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.5)
         self.play_btn = QToolButton()
         self.play_btn.setCursor(Qt.PointingHandCursor)
-        self.play_btn.setToolTip("Iniciar")
         self.play_btn.setFixedSize(92, 92)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:46px; padding:18px; color:#07101B; }}"
@@ -707,7 +692,6 @@ class TimerFullscreenView(QFrame):
         reset_disabled_fg = _with_alpha(c.CLR_TEXT_IDLE, 0.45)
         self.reset_btn = QToolButton()
         self.reset_btn.setCursor(Qt.PointingHandCursor)
-        self.reset_btn.setToolTip("Reiniciar")
         self.reset_btn.setFixedSize(76, 76)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:38px; padding:18px; color:{c.CLR_TEXT_IDLE}; }}"
@@ -723,6 +707,7 @@ class TimerFullscreenView(QFrame):
         self._controls.addWidget(self.reset_btn)
         self._controls.addStretch(1)
         self._layout.addLayout(self._controls)
+        self._layout.addStretch(1)
 
         self._apply_mode_metrics()
 
@@ -739,10 +724,7 @@ class TimerFullscreenView(QFrame):
 
     def set_state(self, state: object, progress: float, subtitle: str, running: bool) -> None:
         self._state = state
-        label = getattr(state, "label", "Timer") or "Timer"
         remaining = int(getattr(state, "remaining", 0))
-        self.title_lbl.setText(label)
-        self.subtitle_lbl.setText(subtitle)
         self.dial.update_state(progress, _format_seconds(remaining), subtitle)
         is_running = running and remaining > 0
         self._set_play_icon(is_running)
@@ -765,60 +747,67 @@ class TimerFullscreenView(QFrame):
         self._apply_mode_metrics()
 
     def _apply_mode_metrics(self) -> None:
-        margins = 32 if not self._compact_mode else 10
-        spacing = 28 if not self._compact_mode else 6
+        if not self._compact_mode:
+            margins = 32
+            spacing = 28
+            header_spacing = 12
+            back_icon = 34
+            dial_size = 320
+            ring_thickness = 18
+            text_scale = 1.0
+            show_subtitle = True
+            control_spacing = 20
+            play_size = 92
+            play_padding = 18
+            play_icon = 44
+            reset_size = 76
+            reset_padding = 18
+            reset_icon = 30
+        else:
+            margins = 12
+            spacing = 12
+            header_spacing = 8
+            back_icon = 30
+            dial_size = 118
+            ring_thickness = 12
+            text_scale = 0.78
+            show_subtitle = False
+            control_spacing = 12
+            play_size = 52
+            play_padding = 12
+            play_icon = 32
+            reset_size = 44
+            reset_padding = 10
+            reset_icon = 22
         self._layout.setContentsMargins(margins, margins, margins, margins)
         self._layout.setSpacing(spacing)
-        header_spacing = 12 if not self._compact_mode else 6
         # header layout is first item in _layout
         if self._layout.count():
             header_item = self._layout.itemAt(0)
             header_layout = header_item.layout()
             if isinstance(header_layout, QHBoxLayout):
                 header_layout.setSpacing(header_spacing)
-        radius = 18 if not self._compact_mode else 12
-        padding = 10 if not self._compact_mode else 6
-        self.back_btn.setStyleSheet(
-            f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.7)}; border:none; border-radius:{radius}px; padding:{padding}px; color:{c.CLR_TEXT_IDLE}; }}"
-            f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
-        )
-        back_icon = 22 if not self._compact_mode else 16
         self.back_btn.setIconSize(QSize(back_icon, back_icon))
-        text_alignment = Qt.AlignLeft | Qt.AlignVCenter if not self._compact_mode else Qt.AlignCenter
-        self.title_lbl.setAlignment(text_alignment)
-        self.subtitle_lbl.setAlignment(text_alignment)
-        title_size = 28 if not self._compact_mode else 15
-        subtitle_size = 16 if not self._compact_mode else 10
-        self.title_lbl.setStyleSheet(self._title_style_tpl.format(title_size))
-        self.subtitle_lbl.setStyleSheet(self._subtitle_style_tpl.format(subtitle_size))
-        dial_size = 320 if not self._compact_mode else 112
         self.dial.setFixedSize(dial_size, dial_size)
-        self.dial.set_ring_thickness(18 if not self._compact_mode else 10)
-        self.dial.set_text_scale(1.0 if not self._compact_mode else 0.72)
-        self.dial.set_show_subtitle(not self._compact_mode)
-        control_spacing = 20 if not self._compact_mode else 8
+        self.dial.set_ring_thickness(ring_thickness)
+        self.dial.set_text_scale(text_scale)
+        self.dial.set_show_subtitle(show_subtitle)
         self._controls.setSpacing(control_spacing)
-        play_size = 92 if not self._compact_mode else 46
         play_radius = play_size // 2
-        play_padding = 18 if not self._compact_mode else 8
         self.play_btn.setFixedSize(play_size, play_size)
         self.play_btn.setStyleSheet(
             f"QToolButton {{ background:{c.CLR_TITLE}; border:none; border-radius:{play_radius}px; padding:{play_padding}px; color:#07101B; }}"
             f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.35)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.5)}; }}"
         )
-        play_icon = 44 if not self._compact_mode else 26
         self.play_btn.setIconSize(QSize(play_icon, play_icon))
-        reset_size = 76 if not self._compact_mode else 38
         reset_radius = reset_size // 2
-        reset_padding = 18 if not self._compact_mode else 6
         self.reset_btn.setFixedSize(reset_size, reset_size)
         self.reset_btn.setStyleSheet(
             f"QToolButton {{ background:{_with_alpha(c.CLR_SURFACE, 0.85)}; border:none; border-radius:{reset_radius}px; padding:{reset_padding}px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover:!disabled {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
             f"QToolButton:disabled {{ background:{_with_alpha(c.CLR_SURFACE, 0.4)}; color:{_with_alpha(c.CLR_TEXT_IDLE, 0.45)}; }}"
         )
-        reset_icon = 30 if not self._compact_mode else 18
         self.reset_btn.setIconSize(QSize(reset_icon, reset_icon))
 
 
@@ -854,7 +843,6 @@ class AlarmCard(QFrame):
         header.addStretch(1)
 
         self.toggle = ToggleSwitch()
-        self.toggle.setToolTip("Activar o desactivar alarma")
         self.toggle.toggled.connect(self._on_toggle)
         header.addWidget(self.toggle)
         layout.addLayout(header)
@@ -900,12 +888,12 @@ class AlarmCard(QFrame):
         footer.setSpacing(8)
         footer.addStretch(1)
 
-        self.edit_btn = self._make_footer_button("Editar alarma")
+        self.edit_btn = self._make_footer_button()
         _set_button_icon(self.edit_btn, "pencil.svg", QSize(18, 18), fallback="✏")
         self.edit_btn.clicked.connect(lambda: self.editRequested.emit(self))
         footer.addWidget(self.edit_btn)
 
-        self.delete_btn = self._make_footer_button("Eliminar alarma")
+        self.delete_btn = self._make_footer_button()
         _set_button_icon(self.delete_btn, "trash-can.svg", QSize(18, 18), fallback="🗑")
         self.delete_btn.clicked.connect(lambda: self.deleteRequested.emit(self))
         footer.addWidget(self.delete_btn)
@@ -957,10 +945,9 @@ class AlarmCard(QFrame):
         scaled = pix.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         return c.tint_pixmap(scaled, QColor(color))
 
-    def _make_footer_button(self, tooltip: str) -> QToolButton:
+    def _make_footer_button(self) -> QToolButton:
         btn = QToolButton()
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setToolTip(tooltip)
         btn.setStyleSheet(
             f"QToolButton {{ background:transparent; border:none; border-radius:14px; padding:6px; color:{c.CLR_TEXT_IDLE}; }}"
             f"QToolButton:hover {{ background:{c.CLR_ITEM_ACT}; color:{c.CLR_TITLE}; }}"
